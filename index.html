@@ -311,7 +311,10 @@ tr.cut td{border-bottom:2px solid var(--amber)}
         <select id="level" aria-label="ライバルの強さ">
           <option value="wc">ライバル：ワールドカップ級</option>
           <option value="ec" selected>ライバル：ヨーロッパカップ級</option>
-          <option value="jr">ライバル：ジュニア級</option>
+          <option value="jpn">ライバル：全日本選手権級</option>
+          <option value="incol">ライバル：全国インカレ級</option>
+          <option value="kansai">ライバル：関西インカレ級</option>
+          <option value="ih">ライバル：インターハイ級</option>
         </select>
         <select id="ctrl" aria-label="操作方法">
           <option value="outer">操作：外足に乗って曲がる</option>
@@ -685,8 +688,9 @@ function buildField(gender){
   return out;
 }
 const FIELDS = { men: buildField('men'), women: buildField('women') };
-const LEVEL_K = { wc: 1.00, ec: 1.04, jr: 1.085 };
-const LEVEL_NAME = { wc:'ワールドカップ級', ec:'ヨーロッパカップ級', jr:'ジュニア級' };
+// how much slower than the reference run the winner of the simulated field is (bigger = easier rivals)
+const LEVEL_K = { wc: 1.00, ec: 1.04, jpn: 1.075, incol: 1.11, kansai: 1.15, ih: 1.19 };
+const LEVEL_NAME = { wc:'ワールドカップ級', ec:'ヨーロッパカップ級', jpn:'全日本選手権級', incol:'全国インカレ級', kansai:'関西インカレ級', ih:'インターハイ級' };
 
 // =====================================================================
 // Course (10 units = 1 m)
@@ -794,7 +798,7 @@ function refRun(course){
 // =====================================================================
 let gender = 'men', level = 'ec', pname = 'あなた', ctrl = 'outer', myNat = 'JPN', myGear = Object.assign({}, DEFAULT_GEAR), setupDone = false;
 const prefs = load('slalomwc-prefs');
-if (prefs){ gender = prefs.gender || gender; level = prefs.level || level; pname = prefs.pname || pname; ctrl = prefs.ctrl || ctrl; myNat = NAT[prefs.nat] ? prefs.nat : myNat; myGear = Object.assign({}, DEFAULT_GEAR, prefs.gear || {}); for (const c of Object.keys(DEFAULT_GEAR)) if (!GEAR[c].items.some(i => i.id === myGear[c])) myGear[c] = DEFAULT_GEAR[c]; setupDone = !!prefs.setupDone; }
+if (prefs){ gender = prefs.gender || gender; level = LEVEL_K[prefs.level] ? prefs.level : (prefs.level === 'jr' ? 'jpn' : level); pname = prefs.pname || pname; ctrl = prefs.ctrl || ctrl; myNat = NAT[prefs.nat] ? prefs.nat : myNat; myGear = Object.assign({}, DEFAULT_GEAR, prefs.gear || {}); for (const c of Object.keys(DEFAULT_GEAR)) if (!GEAR[c].items.some(i => i.id === myGear[c])) myGear[c] = DEFAULT_GEAR[c]; setupDone = !!prefs.setupDone; }
 function savePrefs(){ save('slalomwc-prefs', { gender, level, pname, ctrl, nat: myNat, gear: myGear, setupDone }); }
 function applyCtrlLabels(){
   const outer = ctrl === 'outer';
