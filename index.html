@@ -237,6 +237,7 @@ tr.cut td{border-bottom:2px solid var(--amber)}
 .cutboard .cb-h{background:var(--amber);color:var(--board);font-weight:700;padding:3px 8px;border-radius:3px 3px 0 0}
 .cutboard div:not(.cb-h){display:flex;align-items:center;gap:8px;background:rgba(14,26,46,.82);color:#fff;padding:3px 8px}
 .cutboard div.cut{border-bottom:2px solid var(--amber)}
+.cutboard div.gap{justify-content:center;padding:0;line-height:1;color:var(--muted);background:rgba(14,26,46,.6)}
 .cutboard div.me{background:rgba(212,42,47,.9)}
 .cutboard b{font-family:var(--f-num);width:1.6em;text-align:right}
 .cutboard .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -2084,7 +2085,8 @@ function startWatch(){
   $('#watch').hidden = false;
   $('#watchSpd').textContent = '早送り';
   WATCH.cut = !!race.watchCut;
-  $('#cutBoard').hidden = !WATCH.cut;
+  WATCH.board = race.run === 1;                     // run 1: always show the provisional board
+  $('#cutBoard').hidden = !WATCH.board;
   $('#watchTitle').textContent = WATCH.cut ? '2本目進出（30位以内）をかけて観戦中' : 'ゴール前で観戦中';
   updateWatchInfo();
   nextWatcher();
@@ -2138,17 +2140,21 @@ function updateWatchInfo(){
   WATCH.myRank = rankOf(watchPool(WATCH.i), 'you');
   const left = WATCH.queue.length - Math.max(0, WATCH.i) - (WATCH.phase === 'hold' || WATCH.i < 0 ? 0 : 1);
   $('#watchInfo').textContent = `あなた：暫定 ${WATCH.myRank}位 · 残り ${Math.max(0, WATCH.queue.length - WATCH.i - 1)}人`;
-  if (WATCH.cut) renderCutBoard();
+  if (WATCH.board) renderCutBoard();
 }
 // ranks 28–30 around the cut line, with the gap to the leader (your row highlighted wherever you are)
 function renderCutBoard(){
+  // run 1 provisional board: the top 3, you, and ranks 28–30 around the cut line
   const pool = watchPool(WATCH.i), rl = rankList(pool), best = rl.length ? rl[0].t : 0;
-  const rows = rl.filter(x => x.rank >= 28 && x.rank <= 30);
-  const me = rl.find(x => x.id === 'you');
-  if (me && !rows.includes(me)) rows.push(me);
-  rows.sort((a, b) => a.t - b.t);
-  const lastIn = Math.max(...rows.filter(x => x.rank <= 30).map(x => x.rank));
-  $('#cutBoard').innerHTML = '<div class="cb-h">カットライン（30位まで2本目進出）</div>' + rows.map(x => `<div class="${x.id === 'you' ? 'me' : ''}${x.rank === lastIn && x.id !== 'you' ? ' cut' : ''}"><b>${x.rank}</b><span class="nm">${esc(nameOf(x.id))}</span><span class="tm">${fmt(x.t)}</span><span class="df">${fmtDiff(trunc(x.t - best))}</span></div>`).join('');
+  const rows = rl.filter(x => x.rank <= 3 || (x.rank >= 28 && x.rank <= 30) || x.id === 'you');
+  const lastIn = Math.max(...rl.filter(x => x.rank <= 30).map(x => x.rank));
+  let html = '<div class="cb-h">1本目 暫定タイム（30位まで2本目進出）</div>', prev = 0;
+  for (const x of rows){
+    if (prev && x.rank > prev + 1) html += '<div class="gap">⋯</div>';
+    html += `<div class="${x.id === 'you' ? 'me' : ''}${x.rank === lastIn && x.id !== 'you' ? ' cut' : ''}"><b>${x.rank}</b><span class="nm">${esc(nameOf(x.id))}</span><span class="tm">${fmt(x.t)}</span><span class="df">${x.rank === 1 ? '' : fmtDiff(trunc(x.t - best))}</span></div>`;
+    prev = x.rank;
+  }
+  $('#cutBoard').innerHTML = html;
 }
 function endWatch(skipped){
   $('#watch').hidden = true; $('#cutBoard').hidden = true;
