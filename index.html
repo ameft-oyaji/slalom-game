@@ -108,7 +108,14 @@ h3{margin:0;font-size:14px;color:var(--muted);font-weight:700;letter-spacing:.04
 .seg button[aria-pressed="true"]{background:#fff;color:var(--board)}
 select,input[type=text]{background:var(--board-2);color:#fff;border:1px solid var(--board-3);border-radius:4px;font:14px var(--f-body);padding:7px 8px;min-width:0}
 input[type=text]{width:9em}
-.tabs{display:flex;gap:2px;border-bottom:1px solid var(--board-3);overflow-x:auto}
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--board-3);overflow-x:auto;scrollbar-width:none;scroll-behavior:smooth}
+.tabs::-webkit-scrollbar{display:none}
+.tabwrap{position:relative}
+.tabarr{position:absolute;top:0;bottom:1px;width:38px;border:0;padding:0;z-index:1;cursor:pointer;color:var(--amber);font:800 20px var(--f-num);animation:tabblink 1s ease-in-out infinite}
+.tabarr.l{left:0;text-align:left;padding-left:2px;background:linear-gradient(90deg,var(--board) 45%,rgba(14,26,46,0))}
+.tabarr.r{right:0;text-align:right;padding-right:2px;background:linear-gradient(270deg,var(--board) 45%,rgba(14,26,46,0))}
+@keyframes tabblink{0%,100%{opacity:1}50%{opacity:.2}}
+@media (prefers-reduced-motion:reduce){ .tabarr{animation:none} }
 .tabs button{border:0;background:transparent;color:var(--muted);font:700 14px var(--f-body);padding:8px 12px;cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap}
 .tabs button[aria-selected="true"]{color:#fff;border-bottom-color:var(--red)}
 .rows{display:grid;grid-template-columns:1fr auto;gap:5px 12px;font-size:14px;margin:0}
@@ -336,7 +343,9 @@ tr.cut td{border-bottom:2px solid var(--amber)}
         <label class="note" for="pname">名前</label>
         <input type="text" id="pname" maxlength="14" value="あなた" autocomplete="off">
       </div>
-      <div class="tabs" role="tablist">
+      <div class="tabwrap">
+      <button type="button" class="tabarr l" id="tabL" aria-label="左にもメニューがあります" hidden>←</button>
+      <div class="tabs" role="tablist" id="tabBar">
         <button type="button" role="tab" id="tCal" aria-selected="true">キャリア</button>
         <button type="button" role="tab" id="tStand" aria-selected="false">ランキング</button>
         <button type="button" role="tab" id="tTa" aria-selected="false">タイムアタック</button>
@@ -344,6 +353,8 @@ tr.cut td{border-bottom:2px solid var(--amber)}
         <button type="button" role="tab" id="tPl" aria-selected="false">プレーヤー</button>
         <button type="button" role="tab" id="tGear" aria-selected="false">選手・用具</button>
         <button type="button" role="tab" id="tRules" aria-selected="false">ルールと操作</button>
+      </div>
+      <button type="button" class="tabarr r" id="tabR" aria-label="右にもメニューがあります" hidden>→</button>
       </div>
       <div id="tabBody"></div>
     </div>
@@ -2080,6 +2091,8 @@ function showMenu(which){
   for (const [id, k] of TABS) $('#' + id).setAttribute('aria-selected', tab === k);
   renderTab();
   $('#menu').hidden = false;
+  const sel = document.querySelector('#tabBar [aria-selected="true"]'); if (sel) try { sel.scrollIntoView({ block: 'nearest', inline: 'nearest' }); } catch(e){}
+  updTabArrows();
   if (state !== 'demo') startDemo();
 }
 function renderTab(){
@@ -2210,6 +2223,16 @@ applyCtrlLabels();
 $('#pname').oninput = e => { pname = e.target.value.trim().slice(0, 14) || 'あなた'; savePrefs(); };
 $('#pname').onchange = () => renderTab();
 for (const [id, k] of TABS) $('#' + id).onclick = () => showMenu(k);
+// blinking arrows at the ends of the menu bar while more tabs are hidden that way
+function updTabArrows(){
+  const t = $('#tabBar'); if (!t) return;
+  $('#tabL').hidden = t.scrollLeft <= 2;
+  $('#tabR').hidden = t.scrollLeft + t.clientWidth >= t.scrollWidth - 2;
+}
+$('#tabBar').addEventListener('scroll', updTabArrows, { passive: true });
+addEventListener('resize', updTabArrows);
+$('#tabL').onclick = () => { $('#tabBar').scrollLeft -= 140; };
+$('#tabR').onclick = () => { $('#tabBar').scrollLeft += 140; };
 $('#bQuit').onclick = abandon;
 $('#bCtrl').onclick = e => { toggleCtrl(); e.currentTarget.blur(); };
 $('#mute').onclick = () => { muted = !muted; $('#mute').textContent = muted ? '音 OFF' : '音 ON'; ac(); updateWind(); };
