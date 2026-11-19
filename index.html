@@ -327,6 +327,7 @@ tr.cut td{border-bottom:2px solid var(--amber)}
         <button type="button" role="tab" id="tCal" aria-selected="true">キャリア</button>
         <button type="button" role="tab" id="tStand" aria-selected="false">ランキング</button>
         <button type="button" role="tab" id="tTa" aria-selected="false">タイムアタック</button>
+        <button type="button" role="tab" id="tPl" aria-selected="false">プレーヤー</button>
         <button type="button" role="tab" id="tGear" aria-selected="false">選手・用具</button>
         <button type="button" role="tab" id="tRules" aria-selected="false">ルールと操作</button>
       </div>
@@ -1548,6 +1549,69 @@ addEventListener('keyup', e => {
 });
 $('#inspEnd').onclick = endInspection;
 // =====================================================================
+// Player ranking: real players against each other
+//  - career: World Cup points earned in the selected season (men/women × rival level), from the account server
+//  - time attack overall: per course, players ranked by best 2-run time and given World Cup points; summed over courses
+// =====================================================================
+const PLAYERS = { rows: null, at: 0, status: '' };
+async function loadPlayers(force){
+  if (!CLOUD.url) return;
+  if (!force && PLAYERS.rows && performance.now() - PLAYERS.at < 30000) return;
+  PLAYERS.status = 'loading';
+  try {
+    const r = await (await fetch(CLOUD.url + '?action=players')).json();
+    PLAYERS.rows = r.ok ? r.rows : []; PLAYERS.status = r.ok ? 'ok' : 'error'; PLAYERS.at = performance.now();
+  } catch(e){ PLAYERS.status = 'error'; }
+  if (TA.cloud) await cloudBoard();
+  if (tab === 'players' && !$('#menu').hidden) $('#tabBody').innerHTML = playersHTML();
+}
+function taOverall(g){
+  const per = {};                // handle -> { pts, courses, wins }
+  const courses = {};
+  for (const [uid, d] of Object.entries(TA.docs)){
+    for (const [key, e] of Object.entries((d && d.best) || {})){
+      if (!key.startsWith(g + '_') || !validEntry(e)) continue;
+      (courses[key] = courses[key] || []).push({ uid, handle: String(d.handle || '名無し').slice(0, 14), t: +e.t });
+    }
+  }
+  for (const list of Object.values(courses)){
+    list.sort((a, b) => a.t - b.t);
+    list.forEach(x => {
+      const rank = 1 + list.filter(y => y.t < x.t).length;
+      const o = per[x.uid] = per[x.uid] || { handle: x.handle, pts: 0, courses: 0, wins: 0, me: x.uid === TA.uid };
+      o.pts += rank <= 30 ? WC_POINTS[rank - 1] : 0; o.courses++; if (rank === 1) o.wins++;
+    });
+  }
+  const out = Object.values(per).sort((a, b) => b.pts - a.pts || b.wins - a.wins);
+  out.forEach((o, i) => { o.rank = 1 + out.filter(x => x.pts > o.pts).length; });
+  return out;
+}
+function playersHTML(){
+  const g = gender, seasonId = `${gender}-${level}`;
+  let html = `<p class="note">登録したプレーヤーどうしの順位です。上の「男子／女子」と「ライバルの強さ」を切り替えると、その組み合わせの順位になります。</p>`;
+  // career
+  html += `<h3>キャリアランキング（${gender === 'men' ? '男子' : '女子'}・${LEVEL_NAME[level]}）</h3>`;
+  if (!CLOUD.url){
+    html += `<p class="note">キャリアのプレーヤーランキングは、公開サイト（ユーザー登録あり）で表示されます。</p>`;
+  } else if (!PLAYERS.rows){
+    html += `<p class="conn">${PLAYERS.status === 'error' ? 'ランキングを読み込めませんでした。時間をおいて開き直してください。' : '読み込み中…'}</p>`;
+  } else {
+    const list = PLAYERS.rows.filter(r => r.key === seasonId).sort((a, b) => b.pts - a.pts || b.wins - a.wins || b.podiums - a.podiums);
+    list.forEach(r => { r.rank = 1 + list.filter(x => x.pts > r.pts || (x.pts === r.pts && (x.wins > r.wins || (x.wins === r.wins && x.podiums > r.podiums)))).length; });
+    if (!list.length) html += `<p class="note">この組み合わせで遊んでいる登録プレーヤーはまだいません。</p>`;
+    else html += table(['順位','プレーヤー','Pt','レース','優勝','表彰台','最高'], list.slice(0, 100).map(r => `<tr class="${CLOUD.name && r.name === CLOUD.name ? 'me' : ''}"><td class="n">${r.rank}</td><td>${esc(r.name)}${CLOUD.name && r.name === CLOUD.name ? '（あなた）' : ''}</td><td class="n">${r.pts}</td><td class="r">${r.races}</td><td class="r">${r.wins || ''}</td><td class="r">${r.podiums || ''}</td><td class="r">${r.best ? r.best + '位' : '—'}</td></tr>`));
+    if (CLOUD.url && !CLOUD.token) html += `<p class="note">あなたの成績を載せるには、「選手・用具」タブでユーザー登録してください。</p>`;
+  }
+  // time attack overall
+  const ov = taOverall(g);
+  html += `<h3>タイムアタック総合（${gender === 'men' ? '男子' : '女子'}コース）</h3><p class="note">各コースのプレーヤー順位に、ワールドカップと同じポイント（1位100・2位80・3位60…30位1）を付けて合計しています。</p>`;
+  if (!ov.length) html += `<p class="note">まだタイムアタックの記録がありません。</p>`;
+  else html += table(['順位','プレーヤー','Pt','コース','1位'], ov.slice(0, 100).map(o => `<tr class="${o.me ? 'me' : ''}"><td class="n">${o.rank}</td><td>${esc(o.handle)}${o.me ? '（あなた）' : ''}</td><td class="n">${o.pts}</td><td class="r">${o.courses}</td><td class="r">${o.wins || ''}</td></tr>`));
+  if (CLOUD.url) html += `<div class="btns"><button class="btn small" type="button" onclick="this.disabled=true;(${'window.__slReloadPlayers'})()">最新にする</button></div>`;
+  return html;
+}
+window.__slReloadPlayers = () => loadPlayers(true);
+// =====================================================================
 // Sheets
 // =====================================================================
 function openSheet(eyebrow, title, html, sub){
@@ -1734,7 +1798,7 @@ function sheetFinalsBlocked(ev){
 // Menu
 // =====================================================================
 let tab = 'cal';
-const TABS = [['tCal','cal'],['tStand','stand'],['tTa','ta'],['tGear','gear'],['tRules','rules']];
+const TABS = [['tCal','cal'],['tStand','stand'],['tTa','ta'],['tPl','players'],['tGear','gear'],['tRules','rules']];
 // ---- athlete & equipment picker ----
 const MOD_LABEL = { turn: ['ターンのキレ', 1], drag: ['空気・雪の抵抗', -1], carve: ['ターン中の減速', -1], tuck: ['クローチの抵抗', -1], pole: ['ポール接触の減速', -1], net: ['ネット接触の減速', -1], night: ['ナイターの暗さ', -1], haze: ['遠くのかすみ', -1] };
 function gearSummary(){
@@ -1794,6 +1858,7 @@ function renderTab(){
   if (tab === 'cal') body.innerHTML = calendarHTML();
   else if (tab === 'stand') body.innerHTML = standingsHTML();
   else if (tab === 'ta') body.innerHTML = taListHTML();
+  else if (tab === 'players'){ body.innerHTML = playersHTML(); loadPlayers(); }
   else if (tab === 'gear'){ body.innerHTML = gearEditorHTML(); bindGear(body); }
   else body.innerHTML = rulesHTML();
   body.querySelectorAll('[data-race]').forEach(b => b.onclick = () => enterRace(slRaces(gender)[+b.dataset.race], b.dataset.mode || 'career'));
