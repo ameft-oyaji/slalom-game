@@ -200,6 +200,9 @@ tr.cut td{border-bottom:2px solid var(--amber)}
 .lock-err{margin:0;color:var(--bad);font-size:13px;font-weight:700}
 .acct{display:flex;flex-direction:column;gap:6px;background:var(--board-2);border-left:4px solid var(--good);border-radius:4px;padding:10px 12px}
 .acct input{flex:1 1 140px}
+.insp{position:absolute;top:10px;left:50%;transform:translateX(-50%);display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:8px 14px;width:max-content;max-width:calc(100% - 24px);background:rgba(14,26,46,.88);color:#fff;border-radius:6px;padding:8px 12px;box-shadow:0 4px 16px rgba(14,26,46,.3)}
+.insp-t{display:flex;flex-direction:column;gap:1px;font-size:13px}
+.insp-t span{font-family:var(--f-num);font-size:16px;color:var(--amber)}
 .conn{font-size:12px;color:var(--muted)}
 .conn.ok{color:var(--good)}
 
@@ -266,6 +269,10 @@ tr.cut td{border-bottom:2px solid var(--amber)}
     <div class="vs" id="vs" hidden></div>
   </div>
   <div class="keys" id="keys" hidden><span><kbd>←</kbd> <kbd>→</kbd> ターン</span><span><kbd>↓</kbd> クローチ</span><span><kbd>Esc</kbd> 棄権</span></div>
+  <div class="insp" id="insp" hidden>
+    <div class="insp-t"><b>インスペクション（コースの下見）</b><span id="inspInfo"></span></div>
+    <div class="btns"><button class="btn small" type="button" id="inspSpd">速さ ×1</button><button class="btn small hot" type="button" id="inspEnd">下見を終える</button></div>
+  </div>
   <div class="msg" id="msg"></div>
   <div class="cd" id="cd"></div>
   <div class="pad" id="pad">
@@ -1113,6 +1120,7 @@ addEventListener('keydown', e => {
     if (b){ b.click(); e.preventDefault(); }
   }
   if (e.code === 'Escape' && (state === 'run' || state === 'countdown' || state === 'gate')) abandon();
+  if (e.code === 'Escape' && state === 'inspect') endInspection();
   if (e.code === 'KeyC' && !e.repeat && (state === 'run' || state === 'countdown' || state === 'gate')) toggleCtrl();
 });
 addEventListener('keyup', e => { if (KEYMAP[e.code]) keys[KEYMAP[e.code]] = false; });
@@ -1158,6 +1166,21 @@ function step(dt){
   }
   for (let i = parts.length - 1; i >= 0; i--){ const p = parts[i]; p.life -= dt; if (p.life <= 0){ parts.splice(i,1); continue; } p.x += p.vx*dt; p.y += p.vy*dt; p.vx *= .94; p.vy *= .94; }
 
+  if (state === 'inspect'){
+    // sideslip down the line of the gates, staying a little beside the turning poles
+    const gs = course.gates;
+    while (sk.ng < gs.length && gs[sk.ng].y <= sk.y) sk.ng++;
+    const g = gs[sk.ng];
+    const tx = g ? g.x + (g.x > 0 ? -GH - 14 : GH + 14) * .4 : 0;
+    sk.y += 52 * INSP_SPEEDS[inspSpeed] * dt;
+    sk.x += (tx - sk.x) * Math.min(1, dt * 1.2);
+    sk.th = 1.45 * inspSide; sk.v = 0; sk.lean = 0; sk.tuck = false;
+    const lp = trail[trail.length - 1];
+    if (!lp || Math.hypot(sk.x - lp.x, sk.y - lp.y) > 5) trail.push({ x: sk.x, y: sk.y, th: 0 });
+    $('#inspInfo').textContent = sk.y < 0 ? 'スタート地点' : sk.ng >= gs.length ? 'フィニッシュ手前' : `第${sk.ng + 1}旗門の手前 / 全${gs.length}旗門`;
+    if (sk.y > course.finishY + 40) endInspection();
+    return;
+  }
   if (state === 'countdown'){
     cdT -= dt;    // slalom start: "Ready" … then the start signal at an irregular moment
     if (cdT <= 0){ state = 'gate'; gateT = START_WINDOW; tone(1320, .45, 'square', .1); }
@@ -1370,11 +1393,13 @@ function showIntro(){
   if (!ta && race.run === 1 && race.bib.get('you') > 30) html += `<p class="note">ビブが後ろのほど荒れたコースを滑ることになります。上位に入ってランキングを上げれば、早いスタート順がもらえます。</p>`;
   html += waxPickerHTML();
   html += `<p class="note">旗門を1つでも外すとその場で失格（DSQ）。ポールは倒しても構いません。</p>`;
-  html += `<div class="btns"><button class="btn primary" type="button" id="goStart">スタートハウスへ</button><button class="btn" type="button" id="goBack">${race.run === 1 ? 'やめる' : '棄権する'}</button></div>`;
+  const inspected = race.inspected && race.inspected[race.run - 1];
+  html += `<div class="btns"><button class="btn primary" type="button" id="goStart">スタートハウスへ</button><button class="btn" type="button" id="goInspect">${inspected ? '✓ もう一度インスペクション' : 'インスペクション（コースの下見）'}</button><button class="btn" type="button" id="goBack">${race.run === 1 ? 'やめる' : '棄権する'}</button></div>`;
   openSheet(ta ? 'Time Attack' : `Run ${race.run} · Start List`, `${JP[ev.venue] || ev.venue} — ${race.run}本目`, html, `${ev.date.replace(/-/g, '.')} · ${ev.venue} (${ev.nat})${ev.finals ? ' · Finals' : ''}`);
   bindWaxPicker();
   if (race.run === 2) race.waxSet2 = true;
   $('#goStart').onclick = beginRun;
+  $('#goInspect').onclick = startInspection;
   $('#goBack').onclick = () => {
     if (race.run === 2){ race.playerDsq[1] = 'DNF'; recordPlayerTime(null); afterRun2(); }
     else { race = null; showMenu(); }
@@ -1444,6 +1469,29 @@ function abandon(){
   dsq = true; state = 'finished'; finT = .01;
 }
 
+// =====================================================================
+// Course inspection: before each run the racer may sideslip down the set and study it (no timing)
+// =====================================================================
+const INSP_SPEEDS = [1, 2, 4];
+let inspSpeed = 0, inspSide = 1;
+function startInspection(){
+  closeSheet();
+  course = race.courses[race.run - 1]; resetCourseState(course); resetBody(false);
+  inspSide = Math.random() < .5 ? -1 : 1;
+  state = 'inspect';
+  $('#insp').hidden = false; $('#hud').hidden = true; $('#tv').hidden = true;
+  $('#inspSpd').textContent = '速さ ×' + INSP_SPEEDS[inspSpeed];
+}
+function endInspection(){
+  if (state !== 'inspect') return;
+  $('#insp').hidden = true;
+  race.inspected = race.inspected || [];
+  race.inspected[race.run - 1] = true;
+  state = 'sheet';
+  showIntro();
+}
+$('#inspSpd').onclick = () => { inspSpeed = (inspSpeed + 1) % INSP_SPEEDS.length; $('#inspSpd').textContent = '速さ ×' + INSP_SPEEDS[inspSpeed]; };
+$('#inspEnd').onclick = endInspection;
 // =====================================================================
 // Sheets
 // =====================================================================
@@ -1825,7 +1873,7 @@ const NEAR_FINISH = .82;     // from here on the card shows the live gap to the 
 function diffColor(d){ if (d == null) return '#FFC93C'; if (d < -.15) return '#1FA855'; if (d < 0) return '#7ED957'; if (d < .15) return '#FFC93C'; if (d < .4) return '#FF8A3D'; return '#D93A3F'; }
 // Vertical course map on the right: start at the bottom, finish at the top, like the skier's direction of travel
 function drawProgress(){
-  if (!race || !(state === 'run' || state === 'countdown' || state === 'gate' || state === 'finished')) return;
+  if (!race || !(state === 'run' || state === 'countdown' || state === 'gate' || state === 'finished' || state === 'inspect')) return;
   const card = $('#card').getBoundingClientRect();
   const x = cw - 32;
   let floor = card.right > x - 24 ? card.top : ch - 20;
@@ -2052,6 +2100,15 @@ function drawStartHut(){
 }
 function drawGate(g){
   const c = g.col === 'red' ? COL.red : COL.blue;
+  if (state === 'inspect'){
+    const p = proj(g.x, g.y);
+    if (p && p.k > .25){
+      const r = Math.max(7, 7 * p.k);
+      ctx.fillStyle = 'rgba(14,26,46,.82)'; ctx.beginPath(); ctx.arc(p.X, p.Y - 34 * p.k, r, 0, 7); ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.font = `700 ${Math.max(9, 9 * p.k)}px 'Barlow Condensed', sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(String(g.i + 1), p.X, p.Y - 34 * p.k + .5);
+    }
+  }
   if (g.tag){
     const right = g.x < 0;
     const p = proj(g.x + (right ? GH + 14 : -GH - 14), g.y);
