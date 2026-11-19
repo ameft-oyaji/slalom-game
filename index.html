@@ -204,6 +204,18 @@ tr.cut td{border-bottom:2px solid var(--amber)}
 .insp-t{display:flex;flex-direction:column;gap:1px;font-size:13px}
 .insp-t span{font-family:var(--f-num);font-size:16px;color:var(--amber)}
 .insp-h{flex-basis:100%;text-align:center;font-size:12px;color:#C9D2E3}
+.btcode{display:flex;align-items:baseline;gap:12px;background:var(--board-2);border-radius:4px;padding:8px 12px}
+.btcode span{color:var(--muted);font-size:13px}
+.btcode b{font-family:var(--f-num);font-style:italic;font-weight:800;font-size:44px;letter-spacing:.12em;color:var(--amber)}
+.btmem{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px;font-size:14px}
+.btmem li{display:flex;align-items:center;gap:6px}
+.dot{display:inline-block;width:10px;height:10px;border-radius:50%;flex:none;vertical-align:middle}
+.btlive{position:absolute;left:max(16px,env(safe-area-inset-left,0px));top:128px;display:flex;flex-direction:column;gap:2px;font-family:var(--f-body);font-size:12px;pointer-events:none;max-width:52vw}
+.btlive div{display:flex;align-items:center;gap:6px;background:rgba(14,26,46,.78);color:#fff;padding:3px 8px;border-radius:3px}
+.btlive div.me{background:rgba(212,42,47,.88)}
+.btlive b{font-family:var(--f-num);width:1.2em;text-align:right}
+.btlive .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.btlive .st{font-family:var(--f-num);font-weight:700;color:var(--amber)}
 .conn{font-size:12px;color:var(--muted)}
 .conn.ok{color:var(--good)}
 
@@ -268,6 +280,7 @@ tr.cut td{border-bottom:2px solid var(--amber)}
       <div class="c-diff" id="cDiff" hidden>-0.00</div>
     </div>
     <div class="vs" id="vs" hidden></div>
+    <div class="btlive" id="btLive" hidden></div>
   </div>
   <div class="keys" id="keys" hidden><span><kbd>←</kbd> <kbd>→</kbd> ターン</span><span><kbd>↓</kbd> クローチ</span><span><kbd>Esc</kbd> 棄権</span></div>
   <div class="insp" id="insp" hidden>
@@ -327,6 +340,7 @@ tr.cut td{border-bottom:2px solid var(--amber)}
         <button type="button" role="tab" id="tCal" aria-selected="true">キャリア</button>
         <button type="button" role="tab" id="tStand" aria-selected="false">ランキング</button>
         <button type="button" role="tab" id="tTa" aria-selected="false">タイムアタック</button>
+        <button type="button" role="tab" id="tBt" aria-selected="false">オンライン対戦</button>
         <button type="button" role="tab" id="tPl" aria-selected="false">プレーヤー</button>
         <button type="button" role="tab" id="tGear" aria-selected="false">選手・用具</button>
         <button type="button" role="tab" id="tRules" aria-selected="false">ルールと操作</button>
@@ -1372,7 +1386,8 @@ function setupCard(){
   $('#cBib').hidden = ta; if (!ta) $('#cBib').textContent = race.bib.get('you');
   setFlag($('#cFlag'), myNat); $('#cNat').textContent = myNat;
   $('#cRank').hidden = true; $('#cDiff').hidden = true; $('#cTime').hidden = false; $('#cTime').textContent = '0:00.0';
-  $('#evName').textContent = (gender === 'men' ? "Men's " : "Women's ") + (ta ? 'Slalom · Time Attack' : 'Slalom');
+  $('#evName').textContent = (gender === 'men' ? "Men's " : "Women's ") + (race.battle ? 'Slalom · Online Battle' : ta ? 'Slalom · Time Attack' : 'Slalom');
+  $('#btLive').hidden = !race.battle;
   $('#evPlace').textContent = `${race.ev.venue} ${race.ev.nat}`;
   setFlag($('#evFlag'), race.ev.nat);
   $('#evRun').textContent = 'Run ' + race.run;
@@ -1487,6 +1502,7 @@ function leaveRunUI(){
 }
 function afterFinish(){
   leaveRunUI();
+  if (race.battle) return showBattleResult();
   if (race.mode === 'ta') return showTaResult();
   if (race.run === 1) return showRun1Result();
   return afterRun2();
@@ -1611,6 +1627,219 @@ function playersHTML(){
   return html;
 }
 window.__slReloadPlayers = () => loadPlayers(true);
+// =====================================================================
+// Online battle (public web copy with accounts): rooms on the account server, everyone races the same run at the same moment.
+// Other racers appear as named ghosts; positions travel about once a second, so they lag a little.
+// =====================================================================
+const BT = { code: null, room: null, pos: {}, offset: 0, raceId: 0, poll: 0, sending: false, lastSend: 0, lastLive: 0, finSent: false };
+const GHOST_COL = ['#E8590C', '#7048E8', '#0CA678', '#D6336C', '#1C7ED6', '#F59F00', '#495057'];
+const BT_ERR = { auth: 'もう一度ログインしてください。', noroom: 'その番号の部屋が見つかりません（番号違いか、部屋が終了しています）。', full: '部屋が満員です（最大8人）。', host: 'スタートできるのは部屋を作った人だけです。', course: 'コースを選び直してください。', busy: '混み合っています。少し待ってからもう一度。' };
+async function btCall(action, extra){
+  const r = await cloudCall(Object.assign({ action, token: CLOUD.token, code: BT.code }, extra || {}));
+  if (r && r.now) BT.offset = r.now - Date.now();
+  if (r && r.room) BT.room = r.room;
+  if (r && r.pos) BT.pos = r.pos;
+  return r;
+}
+const serverNow = () => Date.now() + BT.offset;
+function courseLabelOf(key){
+  const [g, date] = key.split('_'); const ev = slRaces(g).find(r => r.date === date);
+  return ev ? `${g === 'men' ? '男子' : '女子'} ${JP[ev.venue] || ev.venue}（${ev.nat}）` : key;
+}
+function battleTabHTML(){
+  if (!CLOUD.url) return '<p class="note">オンライン対戦は公開サイト（https://ameft-oyaji.github.io/slalom-game/）で、ユーザー登録して遊べます。</p>';
+  if (!CLOUD.token) return '<p class="note">オンライン対戦にはユーザー登録（無料）が必要です。「選手・用具」タブで名前と暗証番号を登録してください。</p>';
+  const opts = seasonSL().map(r => `<option value="${taKey(gender, r.date)}">${JP[r.venue] || r.venue}（${r.nat}）</option>`).join('');
+  return `<p class="note">友だちと同じコースを同時に滑って、1本勝負のタイムを競います。部屋を作ると4桁の番号が出るので、相手にその番号を伝えてください（最大8人）。</p>
+    <h3>部屋を作る（${gender === 'men' ? '男子' : '女子'}コース）</h3>
+    <div class="g-who"><select id="btCourse" aria-label="コース">${opts}</select><button class="btn small hot" type="button" id="btCreate">部屋を作る</button></div>
+    <h3>部屋に入る</h3>
+    <div class="g-who"><input type="text" id="btCode" inputmode="numeric" maxlength="4" placeholder="部屋番号（4桁）" autocomplete="off"><button class="btn small" type="button" id="btJoin">入る</button></div>
+    <p class="lock-err" id="btErr" hidden></p>
+    <p class="note">相手の位置は1秒ほど遅れて表示されます。順位は各自のタイム（スタートバーを切ってからゴールまで）で決まります。</p>`;
+}
+function bindBattleTab(root){
+  const err = m => { const e = root.querySelector('#btErr'); e.textContent = m; e.hidden = false; };
+  const c = root.querySelector('#btCreate'), j = root.querySelector('#btJoin');
+  if (c) c.onclick = async () => {
+    c.disabled = true;
+    try { const r = await btCall('room_create', { course: root.querySelector('#btCourse').value }); if (!r.ok) throw new Error(BT_ERR[r.error] || '部屋を作れませんでした。'); BT.code = r.room.code; showLobby(); }
+    catch(e){ err(e.message); } c.disabled = false;
+  };
+  if (j) j.onclick = async () => {
+    const code = root.querySelector('#btCode').value.trim();
+    if (!/^\d{4}$/.test(code)) return err('部屋番号は4桁の数字です。');
+    j.disabled = true;
+    try { BT.code = code; const r = await btCall('room_join'); if (!r.ok){ BT.code = null; throw new Error(BT_ERR[r.error] || '部屋に入れませんでした。'); } showLobby(); }
+    catch(e){ err(e.message); } j.disabled = false;
+  };
+}
+function lobbyHTML(){
+  const r = BT.room; if (!r) return '';
+  const host = r.host === CLOUD.name;
+  let html = `<div class="btcode"><span>部屋番号</span><b>${r.code}</b></div>
+    <dl class="rows"><dt>コース</dt><dd style="font-family:var(--f-body);font-size:15px">${esc(courseLabelOf(r.course))}・1本勝負</dd><dt>参加者</dt><dd>${r.members.length} / 8 人</dd></dl>
+    <ul class="btmem">${r.members.map((m, i) => `<li><span class="dot" style="background:${m === CLOUD.name ? 'var(--amber)' : GHOST_COL[i % GHOST_COL.length]}"></span>${esc(m)}${m === r.host ? ' <span class="badge">ホスト</span>' : ''}${m === CLOUD.name ? '（あなた）' : ''}</li>`).join('')}</ul>`;
+  html += host ? `<p class="note">全員そろったら「スタート」を押してください。9秒後に全員同時にレースが始まります。</p>` : `<p class="note">ホスト（${esc(r.host)}）がスタートするのを待っています…</p>`;
+  html += `<div class="btns">${host ? '<button class="btn primary" type="button" id="btStart">スタート</button>' : ''}<button class="btn" type="button" id="btLeave">部屋を出る</button></div>`;
+  return html;
+}
+function showLobby(){
+  state = state === 'demo' ? 'demo' : 'sheet';
+  openSheet('Online Battle · Lobby', 'オンライン対戦の部屋', lobbyHTML());
+  bindLobby();
+  BT.raceId = BT.room ? BT.room.raceId : 0;
+  clearInterval(BT.poll);
+  BT.poll = setInterval(pollRoom, 2000);
+}
+function bindLobby(){
+  const st = $('#btStart'), lv = $('#btLeave');
+  if (st) st.onclick = async () => { st.disabled = true; const r = await btCall('room_start').catch(() => null); if (r && r.ok) checkRaceStart(); else st.disabled = false; };
+  if (lv) lv.onclick = leaveRoom;
+}
+async function pollRoom(){
+  if (!BT.code) return;
+  try {
+    const r = await btCall('room_state');
+    if (!r.ok){ if (r.error === 'noroom'){ clearInterval(BT.poll); BT.code = null; showMenu('battle'); } return; }
+  } catch(e){ return; }
+  if (checkRaceStart()) return;
+  if (!$('#sheet').hidden && $('#shTitle').textContent === 'オンライン対戦の部屋'){ $('#shBody').innerHTML = lobbyHTML(); bindLobby(); }
+  if (!$('#sheet').hidden && $('#shTitle').textContent === 'オンライン対戦の結果') renderBattleResult();
+}
+function checkRaceStart(){
+  const r = BT.room;
+  if (!r || r.state !== 'race' || r.raceId === BT.raceId) return false;
+  if (state === 'run' || state === 'gate' || state === 'countdown') return false;
+  BT.raceId = r.raceId;
+  startBattleRace();
+  return true;
+}
+function startBattleRace(){
+  const [g, date] = BT.room.course.split('_');
+  gender = g;
+  const ev = slRaces(g).find(x => x.date === date);
+  race = makeRace(ev, 'ta');
+  race.battle = { code: BT.code, raceId: BT.raceId };
+  clearInterval(BT.poll);                                          // positions now travel with room_pos
+  BT.finSent = false; BT.lastSend = 0;
+  ac();
+  beginRun();
+  race.leader = null; $('#vs').hidden = true;
+  cdT = Math.max(1, (BT.room.startAt - serverNow()) / 1000);      // everyone's READY ends at the same moment
+}
+function battleTick(){
+  const now = performance.now();
+  if (now - BT.lastLive > 500){ BT.lastLive = now; renderBattleLive(); }
+  if (!BT.code || BT.sending) return;
+  const racing = state === 'countdown' || state === 'gate' || state === 'run' || state === 'finished';
+  if (!racing || now - BT.lastSend < 1000) return;
+  sendBattlePos();
+}
+async function sendBattlePos(final){
+  BT.sending = true; BT.lastSend = performance.now();
+  const tt = race.taTimes[0];
+  const out = race.playerDsq[0] ? String(race.playerDsq[0]) : '';
+  const done = tt != null || !!out;
+  try {
+    await btCall('room_pos', { raceId: BT.raceId, t: timing ? t : 0, x: sk.x, y: sk.y, v: sk.v, th: sk.th, ng: sk.ng, fin: tt != null ? tt : null, out });
+    if (done) BT.finSent = true;
+  } catch(e){}
+  BT.sending = false;
+}
+function battleEntries(){
+  const r = BT.room; if (!r) return [];
+  return r.members.map((m, i) => {
+    const p = BT.pos[m];
+    const cur = p && p.raceId === BT.raceId ? p : null;
+    return { name: m, me: m === CLOUD.name, col: m === CLOUD.name ? '#FFC93C' : GHOST_COL[i % GHOST_COL.length], p: cur };
+  });
+}
+function renderBattleLive(){
+  const box = $('#btLive'); if (!box || box.hidden) return;
+  const list = battleEntries().map(e => {
+    let k, label;
+    if (e.me){ const done = race.taTimes[0] != null; const o = race.playerDsq[0]; k = o ? 1e9 : done ? race.taTimes[0] : 1e6 - sk.y; label = o ? o : done ? fmt(race.taTimes[0]) : timing ? `第${Math.min(sk.ng + 1, course.gates.length)}旗門` : 'スタート前'; }
+    else if (!e.p){ k = 2e9; label = '待機中'; }
+    else if (e.p.out){ k = 1e9; label = e.p.out; }
+    else if (e.p.fin != null){ k = e.p.fin; label = fmt(e.p.fin); }
+    else { k = 1e6 - e.p.y; label = e.p.y > 0 ? `第${Math.min(e.p.ng + 1, course.gates.length)}旗門` : 'スタート前'; }
+    return { e, k, label };
+  }).sort((a, b) => a.k - b.k);
+  box.innerHTML = list.map((x, i) => `<div class="${x.e.me ? 'me' : ''}"><b>${i + 1}</b><span class="dot" style="background:${x.e.col}"></span><span class="nm">${esc(x.e.name)}</span><span class="st">${x.label}</span></div>`).join('');
+}
+function battleGhosts(sprites, yNear, yFar){
+  battleEntries().forEach(e => {
+    if (e.me || !e.p || e.p.out || e.p.fin != null) return;
+    const age = clamp((serverNow() - e.p.ts) / 1000, 0, 2);
+    const y = e.p.y + Math.cos(e.p.th || 0) * e.p.v * age, x = e.p.x + Math.sin(e.p.th || 0) * e.p.v * age;
+    if (y < yNear - 30 || y > yFar + 30) return;
+    sprites.push({ y, d: () => drawGhost(x, y, e.p.th || 0, e.name, e.col) });
+  });
+}
+function drawGhost(x, y, th, name, col){
+  const p = proj(x, y); if (!p) return;
+  const u = p.k * 1.75;
+  ctx.save();
+  ctx.globalAlpha = .55;
+  const tipA = proj(x - Math.sin(th) * 7, y - Math.cos(th) * 7), tipB = proj(x + Math.sin(th) * 12, y + Math.cos(th) * 12);
+  if (tipA && tipB){ ctx.strokeStyle = col; ctx.lineWidth = Math.max(1.5, 1.8 * u); ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(tipA.X, tipA.Y); ctx.lineTo(tipB.X, tipB.Y); ctx.stroke(); }
+  ctx.translate(p.X, p.Y); ctx.scale(u, u);
+  ctx.fillStyle = col;
+  ctx.beginPath(); ctx.ellipse(0, -5, 2.6, 5, 0, 0, 7); ctx.fill();
+  rrect(-3.1, -14.5, 6.2, 7, 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(0, -16.8, 2.5, 0, 7); ctx.fill();
+  ctx.restore();
+  // name tag
+  ctx.save();
+  ctx.font = "700 12px 'Noto Sans JP', sans-serif"; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  const w = ctx.measureText(name).width + 12, ty = p.Y - 21 * u - 10;
+  ctx.fillStyle = 'rgba(14,26,46,.8)'; ctx.fillRect(p.X - w / 2, ty - 9, w, 18);
+  ctx.fillStyle = col; ctx.fillRect(p.X - w / 2, ty + 7, w, 2);
+  ctx.fillStyle = '#fff'; ctx.fillText(name, p.X, ty);
+  ctx.restore();
+}
+async function showBattleResult(){
+  state = 'sheet';
+  openSheet('Online Battle · Results', 'オンライン対戦の結果', '<div id="btRes"></div>');
+  await sendBattlePos(true);
+  renderBattleResult();
+  clearInterval(BT.poll); BT.poll = setInterval(pollRoom, 2000);
+}
+function renderBattleResult(){
+  const box = $('#btRes'); if (!box) return;
+  const host = BT.room && BT.room.host === CLOUD.name;
+  const rows = battleEntries().map(e => {
+    let t = null, out = '', running = false;
+    if (e.me){ t = race.taTimes[0]; out = race.playerDsq[0] || ''; }
+    else if (e.p){ t = e.p.fin; out = e.p.out || ''; running = t == null && !out; }
+    else running = true;
+    return { e, t, out, running };
+  });
+  const fin = rows.filter(r => r.t != null).sort((a, b) => a.t - b.t);
+  const best = fin.length ? fin[0].t : null;
+  fin.forEach(r => { r.rank = 1 + fin.filter(x => x.t < r.t).length; });
+  const order = [...fin, ...rows.filter(r => r.t == null && r.running), ...rows.filter(r => r.t == null && !r.running)];
+  const all = order.every(r => !r.running);
+  const me = rows.find(r => r.e.me);
+  let html = '';
+  html += me && me.rank ? `<div><span class="big">${me.rank}位</span> ${me.rank === 1 && all && fin.length > 1 ? '<span class="badge">勝利！</span>' : ''}</div>` : `<div><span class="big" style="font-size:40px">${me && me.out ? me.out : '—'}</span></div>`;
+  html += `<p class="conn ${all ? 'ok' : ''}">${all ? '全員の結果が出ました。' : 'まだ滑っている人がいます…（自動で更新します）'}</p>`;
+  html += table(['順位', 'プレーヤー', 'タイム', '差'], order.map(r => `<tr class="${r.e.me ? 'me' : ''}"><td class="n">${r.rank || '—'}</td><td><span class="dot" style="background:${r.e.col}"></span> ${esc(r.e.name)}${r.e.me ? '（あなた）' : ''}</td><td class="n">${r.t != null ? fmt(r.t) : r.out || '滑走中'}</td><td class="r">${r.rank > 1 ? fmtDiff(r.t - best) : ''}</td></tr>`));
+  html += `<div class="btns">${host ? '<button class="btn primary" type="button" id="btAgain">もう一度（同じ部屋で）</button>' : ''}<button class="btn" type="button" id="btLobby">部屋に戻る</button><button class="btn" type="button" id="btLeave2">部屋を出る</button></div>`;
+  if (!host) html += `<p class="note">ホストが「もう一度」を押すと、自動で次のレースが始まります。</p>`;
+  box.innerHTML = html;
+  const again = $('#btAgain'); if (again) again.onclick = async () => { again.disabled = true; const r = await btCall('room_start').catch(() => null); if (r && r.ok) checkRaceStart(); else again.disabled = false; };
+  $('#btLobby').onclick = () => { race = null; showLobby(); };
+  $('#btLeave2').onclick = leaveRoom;
+}
+async function leaveRoom(){
+  clearInterval(BT.poll);
+  const code = BT.code; BT.code = null; BT.room = null; BT.pos = {};
+  race = null;
+  try { await cloudCall({ action: 'room_leave', token: CLOUD.token, code }); } catch(e){}
+  showMenu('battle');
+}
 // =====================================================================
 // Sheets
 // =====================================================================
@@ -1798,7 +2027,7 @@ function sheetFinalsBlocked(ev){
 // Menu
 // =====================================================================
 let tab = 'cal';
-const TABS = [['tCal','cal'],['tStand','stand'],['tTa','ta'],['tPl','players'],['tGear','gear'],['tRules','rules']];
+const TABS = [['tCal','cal'],['tStand','stand'],['tTa','ta'],['tBt','battle'],['tPl','players'],['tGear','gear'],['tRules','rules']];
 // ---- athlete & equipment picker ----
 const MOD_LABEL = { turn: ['ターンのキレ', 1], drag: ['空気・雪の抵抗', -1], carve: ['ターン中の減速', -1], tuck: ['クローチの抵抗', -1], pole: ['ポール接触の減速', -1], net: ['ネット接触の減速', -1], night: ['ナイターの暗さ', -1], haze: ['遠くのかすみ', -1] };
 function gearSummary(){
@@ -1859,6 +2088,7 @@ function renderTab(){
   else if (tab === 'stand') body.innerHTML = standingsHTML();
   else if (tab === 'ta') body.innerHTML = taListHTML();
   else if (tab === 'players'){ body.innerHTML = playersHTML(); loadPlayers(); }
+  else if (tab === 'battle'){ body.innerHTML = battleTabHTML(); bindBattleTab(body); }
   else if (tab === 'gear'){ body.innerHTML = gearEditorHTML(); bindGear(body); }
   else body.innerHTML = rulesHTML();
   body.querySelectorAll('[data-race]').forEach(b => b.onclick = () => enterRace(slRaces(gender)[+b.dataset.race], b.dataset.mode || 'career'));
@@ -2154,6 +2384,7 @@ function render(){
   if (-76 > yNear - 60) sprites.push({ y: -76, d: drawStartHut });
   collectTrees(yNear, yFar, sprites);
   sprites.push({ y: sk.y, d: () => { drawSkier(); drawParts(); } });
+  if (race && race.battle) battleGhosts(sprites, yNear, yFar);
   sprites.sort((a, b) => b.y - a.y);
   for (const s of sprites) s.d();
 
@@ -2174,7 +2405,7 @@ function render(){
   if (wxNow && wxNow.cond === 'snow') drawSnowfall();
   drawProgress();
   const cd = $('#cd');
-  if (state === 'countdown'){ cd.className = 'cd'; cd.textContent = 'READY'; }
+  if (state === 'countdown'){ cd.className = 'cd'; if (race && race.battle){ cd.innerHTML = `READY<em>${Math.max(1, Math.ceil(cdT))}</em>`; } else cd.textContent = 'READY'; }
   else if (state === 'gate'){
     cd.className = 'cd go' + (gateT <= 3 ? ' hurry' : '');
     const hint = document.body.classList.contains('touch') ? '左足＋右足を同時に押してスタート' : '← と → を同時に押してスタート';
@@ -2443,6 +2674,7 @@ function frame(now){
   while (acc >= STEP){ step(STEP); acc -= STEP; }
   if (state === 'finished'){ finT -= dt; if (finT <= 0){ state = 'sheet'; afterFinish(); } }
   hud(); render(); if (actx) updateWind();
+  if (race && race.battle) battleTick();
   requestAnimationFrame(frame);
 }
 document.addEventListener('visibilitychange', () => { last = performance.now(); keys.left = keys.right = keys.down = false; });
