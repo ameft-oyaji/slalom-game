@@ -1,0 +1,2229 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0E1A2E">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="SLALOM">
+<meta name="description" content="2026/27 FISワールドカップ回転の日程で遊べるスラロームゲーム">
+<style>html{-webkit-text-size-adjust:100%}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>スラローム・レース</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,500;0,700;1,800&family=Noto+Sans+JP:wght@400;700&display=swap">
+<style>
+/* Layout: full-screen piste on canvas (skier low on screen, course rolling in from the top), broadcast-style timing graphics and menus floating above. Single snow look by design. */
+:root{
+  --snow:#F2F6FA; --ink:#13213A; --red:#D42A2F; --blue:#1F55C8; --amber:#FFC93C;
+  --board:#0E1A2E; --board-2:#1A2945; --board-3:#24365A; --muted:#8E9BB3; --good:#3DDC84; --bad:#FF5A5F;
+  --f-num:'Barlow Condensed','Arial Narrow',Impact,sans-serif;
+  --f-body:'Noto Sans JP','Hiragino Sans','Yu Gothic',system-ui,sans-serif;
+  color-scheme:light;
+}
+[hidden]{display:none!important}
+html{height:100%;box-sizing:border-box}
+*,*::before,*::after{box-sizing:inherit}
+body{height:100%;margin:0;overflow:hidden;overscroll-behavior:none;background:var(--snow);color:var(--ink);font-family:var(--f-body)}
+#app{position:relative;width:100%;height:100%;overflow:hidden;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+
+.hud{position:absolute;top:10px;left:max(10px,env(safe-area-inset-left,0px));right:max(10px,env(safe-area-inset-right,0px));display:flex;justify-content:space-between;align-items:flex-start;gap:8px;pointer-events:none}
+.board{background:var(--board);color:#fff;border-radius:4px;padding:5px 10px;box-shadow:0 2px 10px rgba(14,26,46,.25)}
+.board .lbl{font-family:var(--f-num);font-weight:500;font-size:11px;letter-spacing:.14em;color:var(--muted);text-transform:uppercase}
+.board .val{font-family:var(--f-num);font-weight:700;font-size:21px;line-height:1.05;font-variant-numeric:tabular-nums;white-space:nowrap}
+.hud-l{display:flex;gap:6px;flex-wrap:wrap;align-items:flex-start}
+.clock{font-family:var(--f-num);font-style:italic;font-weight:800;font-size:40px;line-height:1;color:var(--amber);font-variant-numeric:tabular-nums;text-align:right;min-width:5.2ch}
+.speed{font-family:var(--f-num);font-weight:500;font-size:15px;color:#fff;text-align:right;font-variant-numeric:tabular-nums}
+.quit{pointer-events:auto;background:var(--board-2);color:#fff;border:0;border-radius:4px;font:700 12px var(--f-body);padding:8px 10px;cursor:pointer}
+
+.speedo{background:rgba(14,26,46,.75);color:#fff;border-radius:4px;padding:5px 9px;font:700 18px var(--f-num);font-variant-numeric:tabular-nums}
+.speedo small{font-size:11px;color:var(--muted);margin-left:3px;font-weight:500}
+
+/* broadcast graphics */
+.tv{position:absolute;inset:0;pointer-events:none;font-family:var(--f-num)}
+.ev-label{position:absolute;left:max(16px,env(safe-area-inset-left,0px));top:58px;color:var(--ink);text-shadow:0 1px 0 rgba(255,255,255,.8)}
+.ev-name{font-weight:700;font-size:20px;letter-spacing:.04em;text-transform:uppercase}
+.ev-place{display:flex;align-items:center;gap:6px;font-weight:500;font-size:15px;letter-spacing:.06em;text-transform:uppercase;margin-top:2px}
+.ev-run{margin-left:6px;color:#56657F}
+.card{position:absolute;right:max(16px,env(safe-area-inset-right,0px));bottom:18px;display:flex;align-items:stretch;background:rgba(255,255,255,.94);box-shadow:0 3px 14px rgba(14,26,46,.22);max-width:calc(100% - 32px)}
+.c-rank{display:flex;align-items:center;justify-content:center;min-width:52px;padding:0 10px;background:var(--board);color:#fff;font-weight:800;font-size:34px;font-variant-numeric:tabular-nums;border-bottom:4px solid rgba(0,0,0,.18)}
+.c-rank.lead{background:linear-gradient(#22B35E,#1E9E53)}
+.c-name{padding:5px 12px 5px 12px;min-width:0;display:flex;flex-direction:column;justify-content:center}
+.c-first{font-weight:500;font-size:15px;color:var(--ink);letter-spacing:.04em;text-transform:uppercase;line-height:1.05;white-space:nowrap}
+.c-last{display:flex;align-items:center;gap:8px;font-weight:800;font-size:25px;color:#1B2E6B;letter-spacing:.01em;line-height:1.05;white-space:nowrap}
+.c-last span:first-child{overflow:hidden;text-overflow:ellipsis;min-width:0}
+.c-bib{font-weight:600;font-size:14px;color:var(--ink);border:1.5px solid var(--ink);padding:0 5px;line-height:1.3;flex:none}
+.c-nat{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:0 10px;font-weight:700;font-size:13px;color:#1B2E6B;letter-spacing:.04em}
+.c-time,.c-diff{display:flex;align-items:center;justify-content:center;min-width:96px;padding:0 14px;font-weight:700;font-size:28px;font-variant-numeric:tabular-nums}
+.c-time{background:#13235E;color:#fff}
+.c-diff{color:#fff;background:var(--board)}
+.c-diff.good{background:#1FA855}
+.c-diff.bad{background:#D93A3F}
+.vs{position:absolute;right:max(16px,env(safe-area-inset-right,0px));font-family:var(--f-body);font-size:12px;font-weight:700;color:var(--ink);background:rgba(255,255,255,.85);padding:2px 8px;border-radius:2px;white-space:nowrap}
+.flag{display:inline-block;width:24px;height:16px;flex:none;box-shadow:0 0 0 1px rgba(19,33,58,.25);background:#C9D2E3}
+.touch .tv.live .card{bottom:108px}
+@media (max-width:560px){
+  .ev-name{font-size:16px} .ev-place{font-size:13px}
+  .c-last{font-size:20px} .c-first{font-size:13px} .c-time,.c-diff{min-width:76px;font-size:22px;padding:0 9px} .c-rank{min-width:40px;font-size:26px} .c-nat{padding:0 6px}
+  .c-name{padding:4px 8px}
+}
+
+.msg{position:absolute;left:50%;top:38%;transform:translateX(-50%);font-weight:700;font-size:17px;background:var(--red);color:#fff;padding:6px 16px;border-radius:3px;white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .2s}
+.msg.show{opacity:1}
+.msg.info{background:var(--board)}
+.cd{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;font-family:var(--f-num);font-style:italic;font-weight:800;font-size:min(22vw,150px);color:var(--board);text-shadow:0 4px 0 rgba(255,255,255,.7)}
+.cd.go{color:var(--red)}
+.cd{flex-direction:column;gap:6px}
+.cd small{display:block;font-family:var(--f-body);font-style:normal;font-weight:700;font-size:clamp(14px,3.4vw,22px);color:var(--board);background:rgba(255,255,255,.85);padding:4px 12px;border-radius:4px;text-shadow:none}
+.cd em{display:block;font-family:var(--f-num);font-style:italic;font-weight:800;font-size:clamp(28px,8vw,56px);color:var(--board);text-shadow:0 3px 0 rgba(255,255,255,.7)}
+.cd.hurry em{color:var(--red)}
+.cd.dsq{color:var(--red);font-size:min(18vw,110px)}
+
+.pad{position:absolute;left:0;right:0;bottom:0;display:none;gap:8px;padding:0 max(10px,env(safe-area-inset-right,0px)) 12px max(10px,env(safe-area-inset-left,0px));pointer-events:none}
+.pad button{pointer-events:auto;flex:1;height:84px;border:0;border-radius:10px;background:rgba(14,26,46,.55);color:#fff;font:800 30px var(--f-num);touch-action:none;-webkit-tap-highlight-color:transparent}
+.pad button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
+.pad button b{font:800 26px var(--f-body);line-height:1.1}
+.pad button small{font:700 12px var(--f-body);opacity:.85}
+.pad button.mid{flex:.7;font:700 14px var(--f-body);background:rgba(14,26,46,.4)}
+.pad button.on{background:rgba(212,42,47,.85)}
+.touch .pad.live{display:flex}
+
+.icon-btn{position:absolute;bottom:12px;right:max(12px,env(safe-area-inset-right,0px));background:var(--board);color:#fff;border:0;border-radius:4px;font:700 13px var(--f-body);padding:8px 12px;cursor:pointer;opacity:.85}
+.icon-btn.raised{bottom:auto;top:10px}
+button:focus-visible,select:focus-visible,input:focus-visible{outline:3px solid var(--amber);outline-offset:2px}
+
+.panel{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(580px,calc(100% - 24px));max-height:calc(100% - 24px);overflow:auto;-webkit-overflow-scrolling:touch;background:var(--board);color:#fff;border-radius:6px;box-shadow:0 12px 40px rgba(14,26,46,.35);overscroll-behavior:contain}
+.panel-head{padding:16px 18px 12px;border-bottom:4px solid;border-image:linear-gradient(90deg,var(--red) 0 50%,var(--blue) 50% 100%) 1}
+.eyebrow{font-family:var(--f-num);font-weight:500;font-size:13px;letter-spacing:.18em;color:var(--muted);text-transform:uppercase}
+h1{margin:2px 0 0;font-family:var(--f-num);font-style:italic;font-weight:800;font-size:50px;line-height:.95;letter-spacing:.01em}
+h1 small{display:block;font-family:var(--f-body);font-style:normal;font-weight:700;font-size:14px;letter-spacing:.04em;margin-top:6px}
+h2{margin:2px 0 0;font-weight:700;font-size:20px;text-wrap:balance}
+h3{margin:0;font-size:14px;color:var(--muted);font-weight:700;letter-spacing:.04em}
+.panel-body{padding:14px 18px 18px;display:flex;flex-direction:column;gap:12px}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.seg{display:inline-flex;background:var(--board-2);border-radius:4px;padding:2px}
+.seg button{border:0;background:transparent;color:#C9D2E3;font:700 14px var(--f-body);padding:7px 14px;border-radius:3px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:#fff;color:var(--board)}
+select,input[type=text]{background:var(--board-2);color:#fff;border:1px solid var(--board-3);border-radius:4px;font:14px var(--f-body);padding:7px 8px;min-width:0}
+input[type=text]{width:9em}
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--board-3);overflow-x:auto}
+.tabs button{border:0;background:transparent;color:var(--muted);font:700 14px var(--f-body);padding:8px 12px;cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap}
+.tabs button[aria-selected="true"]{color:#fff;border-bottom-color:var(--red)}
+.rows{display:grid;grid-template-columns:1fr auto;gap:5px 12px;font-size:14px;margin:0}
+.rows dt{color:var(--muted)}
+.rows dd{margin:0;font-family:var(--f-num);font-weight:700;font-size:19px;text-align:right;font-variant-numeric:tabular-nums}
+.big{font-family:var(--f-num);font-style:italic;font-weight:800;font-size:58px;line-height:1;color:var(--amber);font-variant-numeric:tabular-nums}
+.badge{display:inline-block;background:var(--amber);color:var(--board);font-weight:700;font-size:12px;padding:2px 8px;border-radius:2px;vertical-align:middle;letter-spacing:.04em}
+.badge.red{background:var(--red);color:#fff}
+.badge.night{background:#3B4E78;color:#fff}
+.btns{display:flex;flex-wrap:wrap;gap:8px}
+.btn{flex:1 1 auto;border:0;border-radius:4px;padding:12px 14px;font:700 15px var(--f-body);cursor:pointer;background:var(--board-2);color:#fff}
+.btn.primary{background:var(--red);flex-basis:100%;font-size:17px}
+.btn.small{flex:0 0 auto;padding:6px 10px;font-size:13px}
+.btn.hot{background:var(--red)}
+.btn:hover{filter:brightness(1.15)}
+.note{font-size:12px;line-height:1.6;color:var(--muted);margin:0}
+.howto{font-size:13px;line-height:1.7;color:#C9D2E3;margin:0;padding-left:1.2em}
+.howto b{color:#fff}
+kbd{font-family:var(--f-num);font-weight:700;background:var(--board-2);border-radius:3px;padding:0 6px;color:#fff;font-size:14px}
+
+.cal{display:flex;flex-direction:column}
+.cal .mon{font-family:var(--f-num);font-weight:700;letter-spacing:.12em;color:var(--muted);font-size:13px;padding:10px 0 4px;border-bottom:1px solid var(--board-3)}
+.ev{display:grid;grid-template-columns:4.2em minmax(0,1fr) auto;gap:2px 10px;align-items:center;padding:7px 0;border-bottom:1px solid rgba(36,54,90,.6);font-size:13px}
+.ev .d{font-family:var(--f-num);font-weight:700;font-size:16px;font-variant-numeric:tabular-nums;color:#C9D2E3}
+.ev .d small{font-family:var(--f-body);font-weight:400;font-size:11px;color:var(--muted);margin-left:2px}
+.ev .v{min-width:0}
+.ev .v b{font-weight:700}
+.ev .v .nat{font-family:var(--f-num);color:var(--muted);margin-left:4px}
+.ev .v .real{display:block;font-size:11px;color:var(--muted);margin-top:1px}
+.ev.dim{opacity:.55}
+.ev.sl .d{color:#fff}
+.ev.next{background:linear-gradient(90deg,rgba(212,42,47,.2),transparent)}
+.chip{display:inline-block;font-family:var(--f-num);font-weight:700;font-size:12px;letter-spacing:.06em;padding:1px 6px;border-radius:2px;background:var(--board-3);color:#C9D2E3;margin-right:6px;vertical-align:1px}
+.chip.SL{background:var(--red);color:#fff}
+.ev .st{font-family:var(--f-num);font-weight:700;font-size:15px;text-align:right;white-space:nowrap}
+.ev.wch{grid-template-columns:4.2em minmax(0,1fr);color:var(--amber)}
+.today{font-size:11px;color:var(--amber);padding:6px 0;border-bottom:1px dashed var(--amber);font-weight:700}
+
+.tbl-wrap{overflow-x:auto;max-height:46vh;overflow-y:auto;border:1px solid var(--board-3);border-radius:4px}
+table{border-collapse:collapse;width:100%;font-size:13px;font-variant-numeric:tabular-nums;color:inherit;font-family:inherit}
+th,td{padding:5px 8px;text-align:left;white-space:nowrap;border-bottom:1px solid rgba(36,54,90,.7)}
+th{position:sticky;top:0;background:var(--board-2);color:var(--muted);font-weight:700;font-size:11px;letter-spacing:.06em}
+td.n{text-align:right;font-family:var(--f-num);font-size:15px;font-weight:700}
+td.r{text-align:right;font-family:var(--f-num);font-size:15px;color:var(--muted)}
+tr.me td{background:rgba(255,201,60,.18);color:#fff}
+tr.cut td{border-bottom:2px solid var(--amber)}
+.nat3{font-family:var(--f-num);color:var(--muted)}
+.mv{font-family:var(--f-num);font-weight:700;font-size:13px;margin-left:4px}
+.mv.up{color:var(--good)} .mv.down{color:var(--bad)} .mv.same{color:var(--muted)}
+.globe{display:flex;gap:14px;align-items:center;background:var(--board-2);border-radius:4px;padding:10px 12px;border-left:4px solid var(--amber)}
+.g-rank{display:flex;align-items:baseline;gap:2px;flex:none}
+.g-num{font-family:var(--f-num);font-style:italic;font-weight:800;font-size:44px;line-height:1;color:var(--amber);font-variant-numeric:tabular-nums}
+.g-unit{font-weight:700;font-size:14px}
+.g-txt{min-width:0;display:flex;flex-direction:column;gap:3px}
+.g-head{font-family:var(--f-num);font-weight:700;font-size:16px;letter-spacing:.03em}
+.g-status{font-size:13px;line-height:1.5;color:#C9D2E3}
+.g-status b{color:#fff}
+.gear{display:flex;flex-direction:column;gap:10px}
+.g-who{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.flag.big{width:33px;height:22px}
+.gcards{display:grid;grid-template-columns:repeat(auto-fill,minmax(122px,1fr));gap:8px}
+.gcard{display:flex;flex-direction:column;align-items:stretch;gap:3px;text-align:left;background:var(--board-2);border:2px solid transparent;border-radius:6px;padding:6px;color:#fff;cursor:pointer;font-family:var(--f-body)}
+.gcard svg{display:block;border-radius:4px}
+.gcard.on{border-color:var(--amber);background:var(--board-3)}
+.gcard:hover{filter:brightness(1.1)}
+.gname{font-family:var(--f-num);font-weight:700;font-size:16px;letter-spacing:.04em;margin-top:2px}
+.gorg{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--muted);flex-wrap:wrap}
+.flag.sm{width:15px;height:10px}
+.gstats{display:flex;flex-direction:column;gap:2px;margin-top:3px}
+.gs{display:flex;align-items:center;justify-content:space-between;gap:6px;font-size:11px;color:#C9D2E3}
+.gs i{font-style:normal}
+.gs em{display:flex;gap:2px}
+.gs b,.gs s{display:block;width:9px;height:5px;border-radius:1px;background:var(--amber)}
+.gs s{background:var(--board)}
+.gsum{background:var(--board-2);border-left:4px solid var(--amber);padding:8px 10px;border-radius:4px;font-size:13px;display:flex;flex-direction:column;gap:3px}
+.gsum span{color:#C9D2E3}
+.wxbox{display:flex;gap:12px;align-items:center;background:var(--board-2);border-radius:4px;padding:8px 12px}
+.wxbox .rows{flex:1}
+.wx-icon{font-size:40px;line-height:1;color:var(--amber);flex:none}
+.waxes{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:6px}
+.waxbtn{display:flex;flex-direction:column;align-items:flex-start;gap:1px;background:var(--board-2);border:2px solid transparent;border-radius:5px;padding:6px 8px;color:#fff;cursor:pointer;font-family:var(--f-body);text-align:left}
+.waxbtn.on{border-color:var(--amber);background:var(--board-3)}
+.waxbtn b{font-size:14px}
+.waxbtn small{font-size:11px;color:#C9D2E3}
+.wsw{display:block;width:100%;height:6px;border-radius:2px;margin-bottom:3px}
+.ev-wx{font-family:var(--f-body);font-weight:700;font-size:12px;margin-top:3px;color:var(--ink)}
+.lock{z-index:5;width:min(420px,calc(100% - 24px))}
+.lock input[type=password]{width:100%;font-size:18px;padding:10px 12px}
+.lock-err{margin:0;color:var(--bad);font-size:13px;font-weight:700}
+.conn{font-size:12px;color:var(--muted)}
+.conn.ok{color:var(--good)}
+
+@media (max-width:480px){
+  h1{font-size:42px} .clock{font-size:30px} .big{font-size:48px} .board .val{font-size:17px} .board{padding:4px 8px}
+  .split{top:68px} .split .s-time,.split .s-diff{font-size:17px}
+  .panel{width:calc(100% - 16px);max-height:calc(100% - 16px)}
+  .panel-head{padding:14px 14px 10px} .panel-body{padding:12px 14px 16px}
+}
+/* phone held sideways: thumb buttons in the two bottom corners, card centred between them */
+@media (orientation:landscape) and (max-height:540px){
+  .pad{justify-content:space-between;padding-bottom:max(10px,env(safe-area-inset-bottom,0px))}
+  .pad button{flex:0 0 auto;width:min(19vw,150px);height:min(30vh,120px)}
+  .pad button.mid{position:absolute;left:max(10px,env(safe-area-inset-left,0px));bottom:calc(min(30vh,120px) + max(10px,env(safe-area-inset-bottom,0px)) + 8px);width:min(19vw,150px);height:44px;flex:none}
+  .touch .tv.live .card{bottom:10px;right:50%;transform:translateX(50%);max-width:calc(100% - 2*min(19vw,150px) - 36px)}
+  .touch .tv.live .vs{right:50%;transform:translateX(50%)}
+  .ev-label{top:50px} .ev-name{font-size:14px} .ev-place{font-size:12px}
+  .c-last{font-size:18px} .c-first{font-size:11px} .c-time,.c-diff{min-width:70px;font-size:20px;padding:0 8px} .c-rank{min-width:36px;font-size:22px} .c-nat{padding:0 6px;font-size:11px} .c-name{padding:3px 8px}
+  .panel{max-height:calc(100% - 12px);width:min(640px,calc(100% - 24px))}
+  .panel-head{padding:10px 16px 8px} h1{font-size:32px} h1 small{font-size:12px;margin-top:2px} .panel-body{padding:10px 16px 14px;gap:9px}
+  .big{font-size:40px} .tbl-wrap{max-height:56vh}
+  .cd{font-size:min(16vh,110px)}
+}
+/* big computer screens: larger TV graphics */
+@media (min-width:1200px) and (min-height:700px){
+  .c-last{font-size:30px} .c-first{font-size:17px} .c-time,.c-diff{min-width:120px;font-size:34px} .c-rank{min-width:62px;font-size:40px} .c-bib{font-size:16px}
+  .card{right:28px;bottom:28px} .vs{right:28px;font-size:14px}
+  .ev-name{font-size:24px} .ev-place{font-size:17px} .ev-label{left:28px}
+  .panel{width:min(640px,calc(100% - 24px))}
+}
+/* keyboard hint on computers */
+.keys{position:absolute;left:50%;top:118px;transform:translateX(-50%);display:flex;flex-wrap:wrap;justify-content:center;width:max-content;max-width:calc(100% - 32px);gap:6px 14px;align-items:center;background:rgba(14,26,46,.8);color:#fff;border-radius:4px;padding:6px 12px;font-size:13px;pointer-events:none;transition:opacity .4s}
+.keys kbd{background:#fff;color:var(--board)}
+.keys span{white-space:nowrap}
+.touch .keys{display:none}
+@media (prefers-reduced-motion:reduce){ .msg{transition:none} }
+</style>
+
+</head>
+<body>
+<div id="app">
+  <canvas id="cv" aria-label="スラロームのコース"></canvas>
+
+  <div class="hud" id="hud" hidden>
+    <div class="hud-l">
+      <button class="quit" id="bQuit" type="button">棄権</button>
+      <button class="quit" id="bCtrl" type="button" title="C キーでも切り替え">操作：外足</button>
+      <div class="speedo"><span id="hSpeed">0</span><small>km/h</small></div>
+    </div>
+  </div>
+  <div class="tv" id="tv" hidden>
+    <div class="ev-label" id="evLabel">
+      <div class="ev-name" id="evName">MEN'S SLALOM</div>
+      <div class="ev-place"><span class="flag" id="evFlag"></span><span id="evPlace">LEVI FIN</span><span class="ev-run" id="evRun">RUN 1</span></div>
+      <div class="ev-wx" id="evWx"></div>
+    </div>
+    <div class="card" id="card">
+      <div class="c-rank" id="cRank" hidden>1</div>
+      <div class="c-name"><div class="c-first" id="cFirst"></div><div class="c-last"><span id="cLast"></span><span class="c-bib" id="cBib">7</span></div></div>
+      <div class="c-nat"><span class="flag" id="cFlag"></span><span id="cNat">JPN</span></div>
+      <div class="c-time" id="cTime">0:00.0</div>
+      <div class="c-diff" id="cDiff" hidden>-0.00</div>
+    </div>
+    <div class="vs" id="vs" hidden></div>
+  </div>
+  <div class="keys" id="keys" hidden><span><kbd>←</kbd> <kbd>→</kbd> ターン</span><span><kbd>↓</kbd> クローチ</span><span><kbd>Esc</kbd> 棄権</span></div>
+  <div class="msg" id="msg"></div>
+  <div class="cd" id="cd"></div>
+  <div class="pad" id="pad">
+    <button type="button" data-k="left" id="padL" aria-label="左足に乗る（右へ曲がる）"><b>左足</b><small>右へ曲がる</small></button>
+    <button type="button" data-k="down" class="mid" aria-label="クローチング">クローチ</button>
+    <button type="button" data-k="right" id="padR" aria-label="右足に乗る（左へ曲がる）"><b>右足</b><small>左へ曲がる</small></button>
+  </div>
+  <button class="icon-btn" id="mute" type="button">音 ON</button>
+
+  <section class="panel lock" id="lock" hidden>
+    <div class="panel-head">
+      <div class="eyebrow">FIS Alpine Ski World Cup 2026/27</div>
+      <h1>SLALOM<small>パスワードを入れてください</small></h1>
+    </div>
+    <form class="panel-body" id="lockForm" autocomplete="off">
+      <label class="note" for="lockPw">パスワード</label>
+      <input type="password" id="lockPw" autocomplete="current-password" spellcheck="false" autocapitalize="off">
+      <p class="lock-err" id="lockErr" hidden>パスワードが違います。大文字・小文字も確認してください。</p>
+      <div class="btns"><button class="btn primary" type="submit">はじめる</button></div>
+      <p class="note">一度正しく入れると、この端末では次回から入力を省略します。</p>
+    </form>
+  </section>
+  <section class="panel" id="menu">
+    <div class="panel-head">
+      <div class="eyebrow">FIS Alpine Ski World Cup 2026/27</div>
+      <h1>SLALOM<small>回転（スラローム）ワールドカップ</small></h1>
+    </div>
+    <div class="panel-body">
+      <div class="controls">
+        <div class="seg" role="group" aria-label="種別">
+          <button type="button" id="gMen" aria-pressed="true">男子</button>
+          <button type="button" id="gWomen" aria-pressed="false">女子</button>
+        </div>
+        <select id="level" aria-label="ライバルの強さ">
+          <option value="wc">ライバル：ワールドカップ級</option>
+          <option value="ec" selected>ライバル：ヨーロッパカップ級</option>
+          <option value="jr">ライバル：ジュニア級</option>
+        </select>
+        <select id="ctrl" aria-label="操作方法">
+          <option value="outer">操作：外足に乗って曲がる</option>
+          <option value="dir">操作：押した方向へ曲がる</option>
+        </select>
+        <label class="note" for="pname">名前</label>
+        <input type="text" id="pname" maxlength="14" value="あなた" autocomplete="off">
+      </div>
+      <div class="tabs" role="tablist">
+        <button type="button" role="tab" id="tCal" aria-selected="true">キャリア</button>
+        <button type="button" role="tab" id="tStand" aria-selected="false">ランキング</button>
+        <button type="button" role="tab" id="tTa" aria-selected="false">タイムアタック</button>
+        <button type="button" role="tab" id="tGear" aria-selected="false">選手・用具</button>
+        <button type="button" role="tab" id="tRules" aria-selected="false">ルールと操作</button>
+      </div>
+      <div id="tabBody"></div>
+    </div>
+  </section>
+
+  <section class="panel" id="sheet" hidden>
+    <div class="panel-head">
+      <div class="eyebrow" id="shEyebrow"></div>
+      <h2 id="shTitle"></h2>
+    </div>
+    <div class="panel-body" id="shBody"></div>
+  </section>
+</div>
+
+<script>
+(() => {
+'use strict';
+// =====================================================================
+// Season data: FIS Alpine World Cup 2026/27 (FIS calendar as published, Nov 2026)
+// [date, venue, nation, discipline, flags]  flags: n=night, f=finals, t=venue TBC
+// =====================================================================
+const CAL = {
+  men: [
+    ['2026-10-25','Sölden','AUT','GS'], ['2026-11-15','Levi','FIN','SL'], ['2026-11-22','Gurgl','AUT','SL'],
+    ['2026-11-28','Copper Mountain','USA','SG'], ['2026-11-29','Copper Mountain','USA','GS'],
+    ['2026-12-03','Beaver Creek','USA','DH'], ['2026-12-04','Beaver Creek','USA','DH'], ['2026-12-05','Beaver Creek','USA','SG'], ['2026-12-06','Beaver Creek','USA','GS'],
+    ['2026-12-12',"Val d'Isère",'FRA','GS'], ['2026-12-13',"Val d'Isère",'FRA','SL'],
+    ['2026-12-18','Val Gardena','ITA','SG'], ['2026-12-19','Val Gardena','ITA','DH'],
+    ['2026-12-20','Alta Badia','ITA','GS'], ['2026-12-21','Alta Badia','ITA','SL'],
+    ['2026-12-23','Madonna di Campiglio','ITA','SL','n'],
+    ['2026-12-28','Bormio','ITA','DH'], ['2026-12-29','Bormio','ITA','SG'],
+    ['2027-01-02','Kranjska Gora','SLO','GS'], ['2027-01-03','Kranjska Gora','SLO','SL'],
+    ['2027-01-09','Adelboden','SUI','GS'], ['2027-01-10','Adelboden','SUI','SL'],
+    ['2027-01-15','Wengen','SUI','SG'], ['2027-01-16','Wengen','SUI','DH'], ['2027-01-17','Wengen','SUI','SL'],
+    ['2027-01-22','Kitzbühel','AUT','SG'], ['2027-01-23','Kitzbühel','AUT','DH'], ['2027-01-24','Kitzbühel','AUT','SL'],
+    ['2027-01-26','Schladming','AUT','GS','n'], ['2027-01-27','Schladming','AUT','SL','n'],
+    ['2027-01-30','Chamonix','FRA','SL'],
+    ['2027-02-20','Garmisch-Partenkirchen','GER','DH'], ['2027-02-21','Garmisch-Partenkirchen','GER','SG'],
+    ['2027-02-27','Saalbach','AUT','DH'], ['2027-02-28','Saalbach','AUT','SG'],
+    ['2027-03-06','Kvitfjell','NOR','DH'], ['2027-03-07','Kvitfjell','NOR','SG'],
+    ['2027-03-13','Åre','SWE','GS'], ['2027-03-14','Åre','SWE','SL'],
+    ['2027-03-20','Sun Valley','USA','DH','f'], ['2027-03-21','Sun Valley','USA','SG','f'], ['2027-03-24','Sun Valley','USA','GS','f'], ['2027-03-25','Sun Valley','USA','SL','f'],
+  ],
+  women: [
+    ['2026-10-24','Sölden','AUT','GS'], ['2026-11-14','Levi','FIN','SL'], ['2026-11-21','Gurgl','AUT','SL'],
+    ['2026-11-28','Killington','USA','GS'], ['2026-11-29','Killington','USA','SL'],
+    ['2026-12-05','Tremblant','CAN','GS'], ['2026-12-06','Tremblant','CAN','GS'],
+    ['2026-12-11','Beaver Creek','USA','DH'], ['2026-12-12','Beaver Creek','USA','DH'], ['2026-12-13','Beaver Creek','USA','SG'],
+    ['2026-12-18','St. Moritz','SUI','SG'], ['2026-12-19','St. Moritz','SUI','SG'], ['2026-12-20','St. Moritz','SUI','GS'],
+    ['2026-12-22','Courchevel','FRA','SL','n'],
+    ['2026-12-28','Gosau','AUT','GS','t'], ['2026-12-29','Gosau','AUT','SL','t'],
+    ['2027-01-04','Flachau','AUT','GS'], ['2027-01-05','Flachau','AUT','SL','n'],
+    ['2027-01-09','Val di Fassa','ITA','DH'], ['2027-01-10','Val di Fassa','ITA','SG'],
+    ['2027-01-15',"Cortina d'Ampezzo",'ITA','DH'], ['2027-01-16',"Cortina d'Ampezzo",'ITA','DH'], ['2027-01-17',"Cortina d'Ampezzo",'ITA','SG'],
+    ['2027-01-19','Kronplatz','ITA','GS'],
+    ['2027-01-23','Jasná','SVK','GS'], ['2027-01-24','Jasná','SVK','SL'],
+    ['2027-01-29','Kranjska Gora','SLO','GS'], ['2027-01-30','Kranjska Gora','SLO','SL'],
+    ['2027-02-20','Lenzerheide','SUI','SG'], ['2027-02-21','Lenzerheide','SUI','SG'],
+    ['2027-02-27','Garmisch-Partenkirchen','GER','DH'], ['2027-02-28','Garmisch-Partenkirchen','GER','DH'],
+    ['2027-03-06','Soldeu','AND','GS'], ['2027-03-07','Soldeu','AND','SL'],
+    ['2027-03-12','Narvik','NOR','DH','t'], ['2027-03-13','Narvik','NOR','SG','t'],
+    ['2027-03-20','Sun Valley','USA','DH','f'], ['2027-03-21','Sun Valley','USA','SG','f'], ['2027-03-23','Sun Valley','USA','GS','f'], ['2027-03-25','Sun Valley','USA','SL','f'],
+  ]
+};
+const WCH = { from:'2027-02-01', venue:'Crans-Montana', nat:'SUI' };
+// Races already held at the time of writing (real podiums)
+const REAL = {
+  'men-2026-10-25': '優勝 L. Pinheiro Braathen (BRA)',
+  'men-2026-11-15': '1 L. Pinheiro Braathen (BRA) · 2 C. Noël (FRA) · 3 L. Meillard (SUI)',
+  'women-2026-10-24': '優勝 P. Moltzan (USA)',
+  'women-2026-11-14': '1 E. Aicher (GER) · 2 L. Colturi (ALB) · 3 K. Truppe (AUT)',
+};
+const JP = {
+  'Sölden':'ゼルデン','Levi':'レヴィ','Gurgl':'グルグル','Copper Mountain':'カッパーマウンテン','Beaver Creek':'ビーバークリーク',
+  "Val d'Isère":'ヴァルディゼール','Val Gardena':'ヴァルガルデナ','Alta Badia':'アルタバディア','Madonna di Campiglio':'マドンナ・ディ・カンピリオ',
+  'Bormio':'ボルミオ','Kranjska Gora':'クラニスカ・ゴーラ','Adelboden':'アーデルボーデン','Wengen':'ヴェンゲン','Kitzbühel':'キッツビューエル',
+  'Schladming':'シュラドミング','Chamonix':'シャモニー','Garmisch-Partenkirchen':'ガルミッシュ・パルテンキルヒェン','Saalbach':'ザールバッハ',
+  'Kvitfjell':'クヴィットフィエル','Åre':'オーレ','Sun Valley':'サンバレー','Killington':'キリントン','Tremblant':'トランブラン',
+  'St. Moritz':'サンモリッツ','Courchevel':'クーシュベル','Gosau':'ゴーザウ','Flachau':'フラッハウ','Val di Fassa':'ヴァル・ディ・ファッサ',
+  "Cortina d'Ampezzo":'コルティナ・ダンペッツォ','Kronplatz':'クロンプラッツ','Jasná':'ヤスナ','Lenzerheide':'レンツァーハイデ',
+  'Soldeu':'ソルデウ','Narvik':'ナルヴィク','Crans-Montana':'クラン・モンタナ'
+};
+const DISC = { SL:'回転', GS:'大回転', SG:'スーパーG', DH:'滑降' };
+// Simplified flags (24×16 px) for the TV graphics
+const nordic = (bg, c, inner) => `linear-gradient(${inner || c},${inner || c}) 7.5px 0/${inner ? 2 : 4}px 100% no-repeat,linear-gradient(${inner || c},${inner || c}) 0 ${inner ? 7 : 6}px/100% ${inner ? 2 : 4}px no-repeat,` + (inner ? `linear-gradient(${c},${c}) 6.5px 0/4px 100% no-repeat,linear-gradient(${c},${c}) 0 6px/100% 4px no-repeat,` : '') + bg;
+const tri = (a, b, c, dir) => `linear-gradient(${dir || '180deg'},${a} 0 33.4%,${b} 0 66.7%,${c} 0)`;
+const FLAG = {
+  AUT: tri('#C8102E','#fff','#C8102E'), GER: tri('#000','#DD0000','#FFCE00'), FRA: tri('#002395','#fff','#ED2939','90deg'), ITA: tri('#009246','#fff','#CE2B37','90deg'),
+  CRO: tri('#FF0000','#fff','#171796'), SLO: 'radial-gradient(ellipse 3px 3.6px at 30% 45%,#005DA4 0 2.6px,#fff 2.6px 3px,transparent 3.2px),' + tri('#fff','#005DA4','#ED1C24'), SVK: 'radial-gradient(ellipse 3.2px 4px at 33% 50%,#EE1C25 0 2.8px,#fff 2.8px 3.3px,transparent 3.5px),' + tri('#fff','#0B4EA2','#EE1C25'), AND: tri('#10069F','#FEDD00','#D50032','90deg'),
+  SUI: 'linear-gradient(#fff,#fff) center/12px 4px no-repeat,linear-gradient(#fff,#fff) center/4px 12px no-repeat,#DA291C',
+  NOR: nordic('#BA0C2F', '#fff', '#00205B'), SWE: nordic('#006AA7', '#FECC00'), FIN: nordic('#fff', '#002F6C'),
+  USA: 'linear-gradient(#3C3B6E,#3C3B6E) 0 0/10px 8.6px no-repeat,repeating-linear-gradient(#B22234 0 1.23px,#fff 0 2.46px)',
+  CAN: 'radial-gradient(circle,#D52B1E 0 3.2px,transparent 3.6px),linear-gradient(90deg,#D52B1E 0 25%,#fff 0 75%,#D52B1E 0)',
+  GBR: 'linear-gradient(#C8102E,#C8102E) center/100% 2.5px no-repeat,linear-gradient(#C8102E,#C8102E) center/2.5px 100% no-repeat,linear-gradient(#fff,#fff) center/100% 5px no-repeat,linear-gradient(#fff,#fff) center/5px 100% no-repeat,#012169',
+  CZE: 'linear-gradient(to bottom right,#11457E 50%,transparent 50.5%) 0 0/12px 8px no-repeat,linear-gradient(to top right,#11457E 50%,transparent 50.5%) 0 8px/12px 8px no-repeat,linear-gradient(#fff 0 50%,#D7141A 0)',
+  JPN: 'radial-gradient(circle,#BC002D 0 4.6px,transparent 5px),#fff',
+  KOR: 'radial-gradient(circle at 50% 42%,#CD2E3A 0 3.4px,transparent 3.6px),radial-gradient(circle at 50% 58%,#0047A0 0 3.4px,transparent 3.6px),#fff',
+  CHN: 'radial-gradient(circle at 25% 30%,#FFDE00 0 2.4px,transparent 2.7px),#DE2910',
+  NZL: 'linear-gradient(#C8102E,#C8102E) 5px 0/2px 8px no-repeat,linear-gradient(#C8102E,#C8102E) 0 3px/12px 2px no-repeat,radial-gradient(circle at 75% 40%,#C8102E 0 1.4px,transparent 1.6px),radial-gradient(circle at 68% 70%,#C8102E 0 1.4px,transparent 1.6px),#012169',
+  AUS: 'linear-gradient(#C8102E,#C8102E) 5px 0/2px 8px no-repeat,linear-gradient(#C8102E,#C8102E) 0 3px/12px 2px no-repeat,radial-gradient(circle at 25% 75%,#fff 0 1.8px,transparent 2px),radial-gradient(circle at 75% 45%,#fff 0 1.3px,transparent 1.5px),#012169',
+  ESP: 'linear-gradient(#AA151B 0 25%,#F1BF00 0 75%,#AA151B 0)', POL: 'linear-gradient(#fff 0 50%,#DC143C 0)',
+  BEL: tri('#000','#FDDA24','#EF3340','90deg'), NED: tri('#AE1C28','#fff','#21468B'),
+  BRA: 'radial-gradient(circle,#002776 0 3px,transparent 3.3px),linear-gradient(135deg,transparent 30%,#FEDF00 30% 70%,transparent 70%) center/16px 11px no-repeat,#009C3B',
+  ARG: tri('#74ACDF','#fff','#74ACDF'),
+};
+// Nations the player can race for: [code, name, team-suit colour, trim colour]
+const NATIONS = [
+  ['JPN','日本','#C8102E','#FFFFFF'], ['AUT','オーストリア','#C8102E','#FFFFFF'], ['SUI','スイス','#DA291C','#FFFFFF'], ['NOR','ノルウェー','#00205B','#BA0C2F'],
+  ['FRA','フランス','#1E3A8A','#FFFFFF'], ['ITA','イタリア','#1F5FBF','#FFFFFF'], ['GER','ドイツ','#1A1A1A','#FFCE00'], ['SWE','スウェーデン','#006AA7','#FECC00'],
+  ['USA','アメリカ','#1B2A4A','#B22234'], ['CAN','カナダ','#D52B1E','#FFFFFF'], ['FIN','フィンランド','#FFFFFF','#002F6C'], ['CRO','クロアチア','#E2231A','#FFFFFF'],
+  ['SLO','スロベニア','#005DA4','#4DB848'], ['GBR','イギリス','#012169','#C8102E'], ['CZE','チェコ','#11457E','#D7141A'], ['SVK','スロバキア','#0B4EA2','#FFFFFF'],
+  ['AND','アンドラ','#10069F','#FEDD00'], ['ESP','スペイン','#AA151B','#F1BF00'], ['POL','ポーランド','#FFFFFF','#DC143C'], ['BEL','ベルギー','#111111','#FDDA24'],
+  ['NED','オランダ','#F36C21','#FFFFFF'], ['KOR','韓国','#FFFFFF','#0047A0'], ['CHN','中国','#DE2910','#FFDE00'], ['AUS','オーストラリア','#00843D','#FFCD00'],
+  ['NZL','ニュージーランド','#111111','#FFFFFF'], ['BRA','ブラジル','#009C3B','#FEDF00'], ['ARG','アルゼンチン','#74ACDF','#FFFFFF'],
+];
+const NAT = Object.fromEntries(NATIONS.map(n => [n[0], { jp: n[1], suit: n[2], trim: n[3] }]));
+
+// Equipment. All brands and logos are fictional, original designs made for this game.
+// mod: turn (turn rate), drag (air/snow drag), carve (speed lost while turning), push (start push, km/h-ish),
+//      tuck (drag in a tuck), pole (slowdown when hitting a pole), net (slowdown at the safety net), night, haze (visibility)
+const GEAR = {
+  ski: { label: 'スキー', items: [
+    { id: 'vallorce', org: 'FRA', name: 'ROUGE', model: 'Lame SL 165', c1: '#C8102E', c2: '#1E3A8A', c3: '#FFFFFF', mark: 'peak', font: 'serif', stats: { 'グリップ': 4, '滑走': 4, '安定': 3 }, mod: { turn: 1.03, drag: .985 } },
+    { id: 'ogawa', org: 'JPN', name: 'OGAWA', model: 'SL-R 165', c1: '#F4F1E8', c2: '#B5121B', c3: '#111111', mark: 'sun', font: 'jp', stats: { 'グリップ': 5, '滑走': 3, '安定': 4 }, mod: { turn: 1.05, carve: .96 } },
+    { id: 'silberhorn', org: 'AUT', name: 'ATOMKRAFT', model: 'Gleit SL', c1: '#C9D2DE', c2: '#C8102E', c3: '#1B2E6B', mark: 'diamond', font: 'wide', stats: { 'グリップ': 3, '滑走': 5, '安定': 4 }, mod: { turn: .97, drag: .96 } },
+    { id: 'kantwerk', org: 'GER', name: 'VOLKS', model: 'Präzision SL', c1: '#1A1A1A', c2: '#FFCE00', c3: '#FFFFFF', mark: 'chevron', font: 'italic', stats: { 'グリップ': 4, '滑走': 3, '安定': 5 }, mod: { turn: 1.03, carve: .9 } },
+    { id: 'coldforge', org: 'USA', name: 'HEADGE', model: 'Gatekeeper 165', c1: '#1B2A4A', c2: '#E4002B', c3: '#FFFFFF', mark: 'slash', font: 'italic', stats: { 'グリップ': 5, '滑走': 3, '安定': 3 }, mod: { turn: 1.06 } },
+  ]},
+  bind: { label: 'ビンディング', items: [
+    { id: 'fixance', org: 'FRA', name: 'SALUT', model: 'Course 18', c1: '#2A2F38', c2: '#ED2939', c3: '#FFFFFF', mark: 'ring', font: 'serif', stats: { '伝達': 4, '安定': 3, '軽さ': 5 }, mod: { turn: 1.02 } },
+    { id: 'klamma', org: 'GER', name: 'MARKS', model: 'Plate WC', c1: '#F7F8FA', c2: '#D50F25', c3: '#D50F25', mark: 'chevron', font: 'wide', stats: { '伝達': 3, '安定': 5, '軽さ': 3 }, mod: { carve: .97, net: .8 } },
+    { id: 'tauern', org: 'AUT', name: 'TIRORU', model: 'Race 20', c1: '#1D1D1F', c2: '#FF6A13', c3: '#FF6A13', mark: 'peak', font: 'italic', stats: { '伝達': 5, '安定': 3, '軽さ': 3 }, mod: { carve: .92 } },
+  ]},
+  pole: { label: 'ストック', items: [
+    { id: 'kiri', org: 'JPN', name: 'YAMATO', model: '大和 SL', c1: '#F2F2F2', c2: '#B5121B', c3: '#B5121B', mark: 'sun', font: 'jp', stats: { 'スタート': 4, '空力': 4, '軽さ': 5 }, mod: { push: 7, turn: 1.01 } },
+    { id: 'lanze', org: 'GER', name: 'LENI', model: 'Aero Carbon', c1: '#2B2D42', c2: '#3DDC84', c3: '#3DDC84', mark: 'chevron', font: 'wide', stats: { 'スタート': 3, '空力': 5, '軽さ': 4 }, mod: { tuck: .95 } },
+    { id: 'flintline', org: 'AUT', name: 'KOMPADESU', model: 'SL Guard', c1: '#111111', c2: '#E4002B', c3: '#FFFFFF', mark: 'slash', font: 'italic', stats: { 'スタート': 5, '空力': 3, '軽さ': 3 }, mod: { push: 14 } },
+  ]},
+  boot: { label: 'ブーツ', items: [
+    { id: 'colle', org: 'ITA', name: 'LINGUA', model: 'Pro 130', c1: '#1F5FBF', c2: '#111111', c3: '#FFFFFF', mark: 'ring', font: 'serif', stats: { 'レスポンス': 4, '寛容さ': 5, '保温': 4 }, mod: { turn: 1.01, pole: .75, net: .85 } },
+    { id: 'montvert', org: 'ITA', name: 'NORUCIA', model: 'Corsa 140', c1: '#111111', c2: '#2C2C2E', c3: '#FFFFFF', mark: 'diamond', font: 'wide', stats: { 'レスポンス': 4, '寛容さ': 4, '保温': 4 }, mod: { turn: 1.03 } },
+    { id: 'stahlfuss', org: 'AUT', name: 'ATOMKRAFT', model: 'WC 150', c1: '#B3121B', c2: '#1A1A1A', c3: '#FFFFFF', mark: 'peak', font: 'wide', stats: { 'レスポンス': 5, '寛容さ': 2, '保温': 3 }, mod: { turn: 1.05, pole: 1.2 } },
+    { id: 'ironridge', org: 'USA', name: 'HEADGE', model: 'Race 130', c1: '#1F2A44', c2: '#FFB000', c3: '#FFB000', mark: 'chevron', font: 'italic', stats: { 'レスポンス': 3, '寛容さ': 5, '保温': 5 }, mod: { turn: .99, pole: .7, net: .8 } },
+  ]},
+  gog: { label: 'ゴーグル', items: [
+    { id: 'lumen', org: 'AUT', name: 'UNEX', model: 'Night Amber', c1: '#111111', c2: '#FFB000', c3: '#FFB000', lens: ['#FFD27A', '#E8892B'], mark: 'sun', font: 'italic', stats: { '夜間': 5, '曇天': 3, '視野': 4 }, mod: { night: .4 } },
+    { id: 'nebula', org: 'USA', name: 'OK', model: 'Contrast Rose', c1: '#3A0CA3', c2: '#F72585', c3: '#FFFFFF', lens: ['#FFB3C6', '#C9184A'], mark: 'ring', font: 'wide', stats: { '夜間': 3, '曇天': 5, '視野': 4 }, mod: { haze: .35, night: .8 } },
+    { id: 'sora', org: 'ITA', name: 'BURIKKO', model: 'Specchio Blu', c1: '#F2F4F8', c2: '#1F55C8', c3: '#1F55C8', lens: ['#9AD1FF', '#2B6CB0'], mark: 'diamond', font: 'serif', stats: { '夜間': 4, '曇天': 4, '視野': 5 }, mod: { night: .65, haze: .6 } },
+  ]},
+  helm: { label: 'ヘルメット', items: [
+    { id: 'arx', org: 'GER', name: 'UNEX', model: 'Aero SL', c1: '#E4002B', c2: '#111111', c3: '#FFFFFF', mark: 'chevron', font: 'italic', stats: { '空力': 5, 'ガード': 2, '軽さ': 4 }, mod: { drag: .985 } },
+    { id: 'testa', org: 'SWE', name: 'POT', model: 'SL Chin Guard', c1: '#111111', c2: '#FFD23F', c3: '#FFD23F', mark: 'peak', font: 'serif', chin: true, stats: { '空力': 3, 'ガード': 5, '軽さ': 3 }, mod: { pole: .85 } },
+    { id: 'kabuto', org: 'USA', name: 'OK', model: 'Shield RS', c1: '#F5F5F5', c2: '#B5121B', c3: '#B5121B', mark: 'sun', font: 'italic', stats: { '空力': 4, 'ガード': 4, '軽さ': 4 }, mod: { drag: .99, pole: .92 } },
+  ]},
+};
+const DEFAULT_GEAR = { ski: 'ogawa', bind: 'tauern', pole: 'kiri', boot: 'montvert', gog: 'sora', helm: 'arx' };
+function gearItem(cat, id){ const g = GEAR[cat]; return g.items.find(i => i.id === id) || g.items[0]; }
+function gearMods(eq){
+  const m = { turn: 1, drag: 1, carve: 1, push: 0, tuck: 1, pole: 1, net: 1, night: 1, haze: 1, fr: 1 };
+  for (const cat of Object.keys(GEAR)){
+    const it = gearItem(cat, eq[cat]);
+    for (const [k, v] of Object.entries(it.mod)){ if (k === 'push') m.push += v; else m[k] *= v; }
+  }
+  return m;
+}
+// --- original logo marks and item illustrations (inline SVG) ---
+const LOGO_FONT = {
+  italic: 'font-family="Barlow Condensed,Arial Narrow,sans-serif" font-style="italic" font-weight="800"',
+  wide: 'font-family="Barlow Condensed,Arial Narrow,sans-serif" font-weight="700" letter-spacing="1.6"',
+  serif: 'font-family="Georgia,Times New Roman,serif" font-style="italic" font-weight="700"',
+  jp: 'font-family="Noto Sans JP,sans-serif" font-weight="700" letter-spacing=".5"',
+};
+function markSVG(kind, x, y, s, c){
+  switch (kind){
+    case 'peak': return `<path d="M${x} ${y + s*.45}L${x + s*.42} ${y - s*.5}L${x + s*.6} ${y - s*.1}L${x + s*.74} ${y - s*.32}L${x + s} ${y + s*.45}Z" fill="${c}"/>`;
+    case 'diamond': return `<rect x="${x + s*.18}" y="${y - s*.32}" width="${s*.64}" height="${s*.64}" transform="rotate(45 ${x + s*.5} ${y})" fill="${c}"/>`;
+    case 'sun': return `<circle cx="${x + s*.5}" cy="${y}" r="${s*.42}" fill="${c}"/>`;
+    case 'slash': return `<path d="M${x} ${y + s*.45}L${x + s*.3} ${y - s*.45}H${x + s*.52}L${x + s*.22} ${y + s*.45}ZM${x + s*.42} ${y + s*.45}L${x + s*.72} ${y - s*.45}H${x + s*.94}L${x + s*.64} ${y + s*.45}Z" fill="${c}"/>`;
+    case 'ring': return `<circle cx="${x + s*.5}" cy="${y}" r="${s*.34}" fill="none" stroke="${c}" stroke-width="${s*.17}"/>`;
+    default: return `<path d="M${x} ${y - s*.42}L${x + s*.5} ${y + s*.05}L${x + s} ${y - s*.42}M${x} ${y + s*.02}L${x + s*.5} ${y + s*.48}L${x + s} ${y + s*.02}" fill="none" stroke="${c}" stroke-width="${s*.18}"/>`;
+  }
+}
+function logoSVG(b, x, y, s, c, mc){ return markSVG(b.mark, x, y, s, mc || c) + `<text x="${x + s*1.18}" y="${y + s*.37}" font-size="${s}" ${LOGO_FONT[b.font]} fill="${c}">${b.name}</text>`; }
+function itemSVG(cat, b){
+  const vb = 'viewBox="0 0 160 92" width="100%" role="img" aria-label="' + b.name + ' ' + b.model + '"';
+  const bg = `<rect width="160" height="92" rx="6" fill="#F3F6FA"/>`;
+  let art = '';
+  if (cat === 'ski'){
+    const one = (dy, op) => `<g transform="translate(0 ${dy}) rotate(-13 80 46)" opacity="${op}"><path d="M8 40Q2 40 3 46Q2 52 9 52L150 50Q157 46 150 42Z" fill="${b.c1}"/><rect x="18" y="48.3" width="128" height="2.4" fill="${b.c2}"/><path d="M3 46Q2 52 9 52L14 51.8L14 40.2L8 40Q2 40 3 46Z" fill="${b.c2}"/>${logoSVG(b, 40, 45.4, 8, b.c3, b.c2)}</g>`;
+    art = one(10, .55) + one(-2, 1) + `<text x="152" y="84" text-anchor="end" font-family="Barlow Condensed,sans-serif" font-size="9" fill="#56657F">${b.model}</text>`;
+  } else if (cat === 'bind'){
+    art = `<rect x="14" y="58" width="132" height="9" rx="2" fill="#BFC7D3"/><rect x="18" y="49" width="124" height="9" rx="2" fill="${b.c1}"/>
+      <path d="M20 49V36Q20 30 28 30H46L52 40V49Z" fill="${b.c1}"/><path d="M26 34H44L48 40H26Z" fill="${b.c2}"/>
+      <path d="M108 49V30Q108 24 116 24H134Q140 24 140 30V49Z" fill="${b.c1}"/><path d="M112 28H150L152 33H112Z" fill="${b.c2}"/>
+      ${logoSVG(b, 58, 54, 7.5, b.c3, b.c2)}<text x="146" y="84" text-anchor="end" font-family="Barlow Condensed,sans-serif" font-size="9" fill="#56657F">${b.model}</text>`;
+  } else if (cat === 'pole'){
+    const one = (x, op) => `<g opacity="${op}"><line x1="${x}" y1="12" x2="${x + 40}" y2="86" stroke="#9AA3B2" stroke-width="2.6" stroke-linecap="round"/><rect x="${x - 5}" y="6" width="10" height="22" rx="4" fill="${b.c1}" transform="rotate(-28 ${x} 17)"/><path d="M${x + 6} ${4}Q${x + 22} ${8} ${x + 18} ${26}L${x + 9} ${24}Q${x + 12} ${12} ${x + 4} ${10}Z" fill="${b.c2}"/><circle cx="${x + 36}" cy="${79}" r="4" fill="${b.c1}"/></g>`;
+    art = one(28, .5) + one(52, 1) + logoSVG(b, 84, 30, 9, '#13213A', b.c2) + `<text x="96" y="46" font-family="Barlow Condensed,sans-serif" font-size="9" fill="#56657F">${b.model}</text>`;
+  } else if (cat === 'boot'){
+    art = `<path d="M44 14L96 10L100 28L120 50L134 56V72H30V58L38 52Z" fill="${b.c1}"/><path d="M44 14L96 10L99 26L42 30Z" fill="${b.c2}"/><rect x="28" y="72" width="108" height="8" rx="2" fill="#2A2F38"/>
+      ${[0,1,2,3].map(i => `<rect x="${66 + i*13}" y="${30 + i*7}" width="11" height="3.6" rx="1" fill="#C9D2DE" transform="rotate(30 ${71 + i*13} ${32 + i*7})"/>`).join('')}
+      ${logoSVG(b, 40, 64, 8, b.c3, b.c3)}<text x="150" y="88" text-anchor="end" font-family="Barlow Condensed,sans-serif" font-size="9" fill="#56657F">${b.model}</text>`;
+  } else if (cat === 'gog'){
+    art = `<defs><linearGradient id="lg-${b.id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${b.lens[0]}"/><stop offset="1" stop-color="${b.lens[1]}"/></linearGradient></defs>
+      <rect x="4" y="38" width="152" height="14" rx="3" fill="${b.c1}"/>${[16, 112].map(x => `<g>${logoSVG(b, x, 45.5, 6.5, b.c2, b.c2)}</g>`).join('')}
+      <rect x="30" y="24" width="100" height="42" rx="20" fill="${b.c1}"/><rect x="36" y="29" width="88" height="32" rx="15" fill="url(#lg-${b.id})"/>
+      <path d="M72 61Q80 50 88 61Z" fill="${b.c1}"/><path d="M44 34Q60 30 70 34" stroke="#fff" stroke-opacity=".6" stroke-width="2" fill="none"/>
+      <text x="80" y="84" text-anchor="middle" font-family="Barlow Condensed,sans-serif" font-size="9" fill="#56657F">${b.model}</text>`;
+  } else {
+    art = `<path d="M30 62Q28 22 76 18Q122 16 128 54L130 62Z" fill="${b.c1}"/><path d="M40 30Q74 12 118 34L120 40Q76 22 40 38Z" fill="${b.c2}"/>
+      <path d="M118 52Q132 54 134 62H118Z" fill="#2A2F38"/>${b.chin ? `<path d="M110 62Q118 84 92 84H74V78H90Q108 78 104 62Z" fill="${b.c2}"/>` : ''}
+      ${logoSVG(b, 48, 50, 9, b.c3, b.c2)}<text x="152" y="88" text-anchor="end" font-family="Barlow Condensed,sans-serif" font-size="9" fill="#56657F">${b.model}</text>`;
+  }
+  return `<svg ${vb} xmlns="http://www.w3.org/2000/svg">${bg}${art}</svg>`;
+}
+function shade(hex, f){ const n = parseInt(hex.slice(1), 16); const r = Math.round(((n >> 16) & 255) * f), g = Math.round(((n >> 8) & 255) * f), b = Math.round((n & 255) * f); return `rgb(${r},${g},${b})`; }
+function setFlag(el, nat){ el.style.background = FLAG[nat] || '#C9D2E3'; el.title = nat; }
+function splitName(n){ const s = String(n).trim(); const i = s.indexOf(' '); if (/^[A-ZÀ-ÞŽŠČĆŘĚŇŤĎĹĽŐŰ'\-]+ /.test(s)) return { first: s.slice(i + 1), last: s.slice(0, i) }; if (i > 0) return { first: s.slice(0, i), last: s.slice(i + 1).toUpperCase() }; return { first: '', last: s }; }
+const WC_POINTS = [100,80,60,50,45,40,36,32,29,26,24,22,20,18,16,15,14,13,12,11,10,9,8,7,6,5,4,3,2,1];
+const START_RANK = 80;
+const TODAY = (() => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); })();
+
+// =====================================================================
+// helpers
+// =====================================================================
+const $ = s => document.querySelector(s);
+const clamp = (v,a,b) => Math.max(a, Math.min(b, v));
+function rng(seed){ let a = seed >>> 0; return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function hash2(a,b){ let h = Math.imul(a|0, 73856093) ^ Math.imul(b|0, 19349663); h = Math.imul(h ^ (h >>> 13), 0x5bd1e995); return (h ^ (h >>> 15)) >>> 0; }
+function hashStr(s){ let h = 2166136261; for (let i = 0; i < s.length; i++){ h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
+function gauss(r){ let u = 0, v = 0; while (!u) u = r(); while (!v) v = r(); return Math.sqrt(-2*Math.log(u)) * Math.cos(2*Math.PI*v); }
+function shuffle(a, r){ for (let i = a.length - 1; i > 0; i--){ const j = Math.floor(r()*(i+1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+const trunc = t => Math.floor(t*100 + 1e-6) / 100;     // FIS timing: 1/100 s, truncated
+function fmt(t){ if (t == null || !isFinite(t)) return '—'; const m = Math.floor(t/60); const s = t - m*60; return m + ':' + (s < 10 ? '0' : '') + s.toFixed(2); }
+function fmtDiff(d){ return (d > 0 ? '+' : d < 0 ? '−' : '±') + Math.abs(d).toFixed(2); }
+function esc(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+const WD = ['日','月','火','水','木','金','土'];
+function dLabel(iso){ const d = new Date(iso + 'T12:00:00'); return `${d.getMonth()+1}/${d.getDate()}<small>${WD[d.getDay()]}</small>`; }
+function load(key){ try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : null; } catch(e){ return null; } }
+function save(key, v){ try { localStorage.setItem(key, JSON.stringify(v)); return true; } catch(e){ return false; } }
+
+// =====================================================================
+// Fictional World Cup field (the player starts ranked 80th)
+// =====================================================================
+const NAMES = {
+  AUT:{ w:9, m:['Lukas','Florian','Matthias','Stefan','Johannes','Raphael','Dominik','Tobias'], f:['Katrin','Lena','Julia','Magdalena','Sophie','Verena','Theresa','Elisabeth'], s:['Steinhauser','Riedl','Pichlmayr','Aigner','Wallner','Ebner','Kogler','Leitgeb','Gruber','Hofer'] },
+  SUI:{ w:8, m:['Noah','Luca','Yannick','Fabio','Marc','Elia','Gian'], f:['Lara','Selina','Nadine','Jasmin','Lea','Céline','Aline'], s:['Zgraggen','Imboden','Ammann','Bärtschi','Gisler','Vonlanthen','Schmid','Arnold'] },
+  NOR:{ w:6, m:['Henrik','Sindre','Eirik','Magnus','Jonas','Aleksander'], f:['Ingrid','Thea','Kristine','Maria','Hanna','Silje'], s:['Haugland','Strand','Bjørnstad','Tveit','Lunde','Moen','Rønning'] },
+  FRA:{ w:7, m:['Hugo','Théo','Bastien','Mathis','Arthur','Paul'], f:['Camille','Léa','Chloé','Manon','Inès','Juliette'], s:['Bérard','Coulon','Favre','Rollet','Gaillard','Perrin','Jacquier'] },
+  ITA:{ w:7, m:['Matteo','Lorenzo','Davide','Simone','Andrea','Pietro'], f:['Giulia','Martina','Sofia','Chiara','Elena','Alessia'], s:['Zanella','Bortolin','Ferraris','Moroder','Pedrotti','Valentini','Zardini'] },
+  GER:{ w:5, m:['Felix','Jakob','Moritz','Leon','Niklas'], f:['Marie','Hannah','Paula','Johanna','Leonie'], s:['Brandl','Schöttl','Rieger','Lechner','Zellner','Hartl'] },
+  SWE:{ w:5, m:['Oskar','Viktor','Axel','Gustav','Elias'], f:['Elsa','Ebba','Moa','Wilma','Tove'], s:['Lindqvist','Sandberg','Holmgren','Ekström','Nyberg','Wikström'] },
+  USA:{ w:5, m:['Tyler','Cole','Brody','Ethan','Garrett'], f:['Abby','Kaitlyn','Madison','Hailey','Brooke'], s:['Hartley','McAllister','Brennan','Whitaker','Sorensen','Doyle'] },
+  CAN:{ w:2, m:['Liam','Owen','Mathieu'], f:['Amélie','Gabrielle','Mia'], s:['Gagnon','Fraser','Lévesque','Pelletier'] },
+  CRO:{ w:2, m:['Ivan','Luka','Marko'], f:['Ana','Petra','Lucija'], s:['Horvat','Babić','Kovačić','Jurić'] },
+  SLO:{ w:2, m:['Žan','Tilen','Miha'], f:['Neža','Tina','Maja'], s:['Kranjc','Zupan','Potočnik','Mlakar'] },
+  GBR:{ w:2, m:['Jack','Callum','Harry'], f:['Charlotte','Isla','Emily'], s:['Ashworth','Pemberton','Kerr','Lomax'] },
+  FIN:{ w:1, m:['Eetu','Joona','Aleksi'], f:['Aino','Ella','Venla'], s:['Salminen','Heikkilä','Rantanen'] },
+  CZE:{ w:1, m:['Jakub','Ondřej'], f:['Tereza','Eliška'], s:['Dvořák','Svoboda'], sf:['Dvořáková','Svobodová'] },
+  SVK:{ w:1, m:['Adam','Matej'], f:['Zuzana','Petra'], s:['Hlavatý','Kučera'], sf:['Hlavatá','Kučerová'] },
+  JPN:{ w:1, m:['Haruto','Sota','Yuto'], f:['Yui','Hana','Sakura'], s:['Takeda','Ishikawa','Kubota','Morioka'] },
+};
+const FIELD_N = 88;
+function buildField(gender){
+  const r = rng(gender === 'men' ? 4401 : 8803);
+  const bag = []; for (const [nat, d] of Object.entries(NAMES)) for (let i = 0; i < d.w*2; i++) bag.push(nat);
+  const used = new Set(), out = [];
+  while (out.length < FIELD_N){
+    const nat = bag[Math.floor(r()*bag.length)], d = NAMES[nat];
+    const firsts = gender === 'men' ? d.m : d.f;
+    const first = firsts[Math.floor(r()*firsts.length)];
+    const sur = (gender === 'women' && d.sf ? d.sf : d.s)[Math.floor(r()*d.s.length)];
+    const key = first + sur; if (used.has(key)) continue; used.add(key);
+    const i = out.length;
+    out.push({ id: gender[0] + i, name: sur.toUpperCase() + ' ' + first, nat, skill: 1 - Math.pow(i/(FIELD_N-1), .8), fis: i + 1 + (i + 1 >= START_RANK ? 1 : 0), aggr: r() });
+  }
+  return out;
+}
+const FIELDS = { men: buildField('men'), women: buildField('women') };
+const LEVEL_K = { wc: 1.00, ec: 1.04, jr: 1.085 };
+const LEVEL_NAME = { wc:'ワールドカップ級', ec:'ヨーロッパカップ級', jr:'ジュニア級' };
+
+// =====================================================================
+// Course (10 units = 1 m)
+// =====================================================================
+const STEP = 1/120;
+const W = 440;              // piste width between safety nets (44 m)
+const GH = 25;              // half gate width -> 5.0 m between the two poles (FIS 4–6 m)
+const POLE_R = 3, SK_R = 6;
+const G = 125, DRAG = 0.0022, FR = 14;
+
+function buildCourse(seedN, gender){
+  const r = rng(seedN);
+  const vd = gender === 'men' ? 180 + Math.round(r()*40) : 150 + Math.round(r()*45);   // vertical drop (m)
+  const N = Math.round(vd * (0.30 + r()*0.04));                                       // ≈ 30–34 % of vertical drop
+  const combos = [];
+  const nHair = 2 + (r() < .5 ? 1 : 0), nVert = 1 + Math.floor(r()*3);
+  for (let i = 0; i < nHair; i++) combos.push({ n: 2, tag: 'ヘアピン' });
+  for (let i = 0; i < nVert; i++) combos.push({ n: 3 + (r() < .5 ? 1 : 0), tag: 'バーティカル' });
+  const comboGates = combos.reduce((s, c) => s + c.n, 0);
+  const seq = Array(Math.max(8, N - comboGates)).fill(null);
+  shuffle(combos, r);
+  combos.forEach((c, k) => { const pos = Math.floor((k + .5 + (r() - .5)*.6) / combos.length * (seq.length - 8)) + 4; seq.splice(pos + k, 0, c); });
+  const gates = [];
+  let y = 150, side = r() < .5 ? -1 : 1, prevT = 0, first = true;
+  for (const it of seq){
+    if (!it){
+      const x = side * (12 + r()*30);
+      const dist = 104 + r()*24;                     // gate-to-gate 10.4–12.8 m, so turning poles stay within FIS 6–13 m
+      if (!first){ const dx = Math.abs(x - prevT); y += Math.max(92, dx*1.15, Math.sqrt(Math.max(0, dist*dist - dx*dx))); }
+      gates.push({ x, y, tag: '' }); prevT = x; side = -side; first = false;
+    } else {
+      const cx = side * (4 + r()*18);
+      const dist = 100 + r()*25;
+      if (!first){ const dx = Math.abs(cx - prevT); y += Math.sqrt(Math.max(86*86, dist*dist - dx*dx)); }
+      for (let k = 0; k < it.n; k++){ if (k) y += 62 + r()*8; gates.push({ x: cx + (it.n > 2 ? (k % 2 ? 6 : -6) : 0), y, tag: k === 0 ? it.tag : '' }); }
+      prevT = cx; side = -side; first = false;
+    }
+  }
+  gates.forEach((g, i) => { g.col = i % 2 ? 'blue' : 'red'; g.bend = [0,0]; g.bv = [0,0]; g.cool = [0,0]; g.res = 0; g.i = i; });
+  const n = gates.length;
+  return { gates, finishY: gates[n-1].y + 130, checks: [Math.floor(n*.25), Math.floor(n*.5), Math.floor(n*.75)], vd, nGates: n };
+}
+function resetCourseState(c){ c.gates.forEach(g => { g.bend = [0,0]; g.bv = [0,0]; g.cool = [0,0]; g.res = 0; }); }
+function courseSeed(g, date){ return hashStr(`${g}-${date}`); }
+
+// =====================================================================
+// Physics (shared by the player, the demo skier and the reference simulation)
+// =====================================================================
+function newBody(){ return { x:0, y:-14, th:0, v:0, lean:0, tuck:false, px:0, py:-14, ng:0, block:null, pushT:0, pushCd:0 }; }
+const PUSH_DUR = .48;
+const START_WINDOW = 10;
+let gateT = 0;
+const NOMOD = { turn: 1, drag: 1, carve: 1, push: 0, tuck: 1, pole: 1, net: 1, night: 1, haze: 1, fr: 1 };
+function physStep(b, ctl, dt, braking){
+  b.lean += (ctl.inp - b.lean) * Math.min(1, dt*10);
+  b.tuck = ctl.tuck;
+  const m = b.mod || NOMOD;
+  b.th = clamp(b.th + ctl.inp * (ctl.tuck ? 1.8 : 3.4) * m.turn * dt, -1.45, 1.45);
+  if (braking){ b.v = Math.max(0, b.v - 150*dt); b.th *= (1 - dt*2); }
+  else {
+    let a = G*Math.cos(b.th) - DRAG*m.drag*(ctl.tuck ? .55*m.tuck : 1)*b.v*b.v - FR*(m.fr || 1);
+    if (ctl.inp) a -= .3*m.carve*b.v;
+    b.v = Math.max(0, b.v + a*dt);
+  }
+  b.px = b.x; b.py = b.y;
+  b.x += Math.sin(b.th)*b.v*dt;
+  b.y += Math.cos(b.th)*b.v*dt;
+  const lim = W/2 - SK_R;
+  if (Math.abs(b.x) > lim){ const s = Math.sign(b.x); b.x = s*lim; b.th = -b.th*.3; b.v *= 1 - .45*m.net; return s; }
+  return 0;
+}
+function crossGates(b, course, cb){
+  const gs = course.gates;
+  while (b.ng < gs.length && gs[b.ng].y <= b.y && b.py < gs[b.ng].y + 1e-9){
+    const g = gs[b.ng];
+    const f = b.y === b.py ? 1 : (g.y - b.py) / (b.y - b.py);
+    const xc = b.px + (b.x - b.px) * f;
+    cb(g, Math.abs(xc - g.x) < GH);
+    b.ng++;
+  }
+}
+function aiCtl(b, course){
+  let g = course.gates[b.ng];
+  if (g && g.y - b.y < 8 + b.v*.22 && Math.abs(b.x - g.x) < GH - 6) g = course.gates[b.ng + 1];
+  const tx = g ? g.x : 0, ty = g ? g.y : course.finishY;
+  const want = Math.atan2(tx - b.x, Math.max(30, ty - b.y));
+  const d = want - b.th;
+  return { inp: Math.abs(d) < .05 ? 0 : Math.sign(d), tuck: !g };
+}
+// Reference run: a clean robot run that sets the pace of the simulated field
+function refRun(course){
+  const b = newBody(); b.v = 45;
+  let t = 0, timing = false; const at = [];
+  for (let i = 0; i < 120*240; i++){
+    physStep(b, aiCtl(b, course), STEP, false);
+    if (!timing && b.py < 0 && b.y >= 0){ timing = true; t = 0; } else if (timing) t += STEP;
+    crossGates(b, course, () => at.push(t));
+    if (b.y >= course.finishY) break;
+  }
+  return { time: t, frac: at.map(s => s / t) };
+}
+
+// =====================================================================
+// Career storage
+// =====================================================================
+let gender = 'men', level = 'ec', pname = 'あなた', ctrl = 'outer', myNat = 'JPN', myGear = Object.assign({}, DEFAULT_GEAR), setupDone = false;
+const prefs = load('slalomwc-prefs');
+if (prefs){ gender = prefs.gender || gender; level = prefs.level || level; pname = prefs.pname || pname; ctrl = prefs.ctrl || ctrl; myNat = NAT[prefs.nat] ? prefs.nat : myNat; myGear = Object.assign({}, DEFAULT_GEAR, prefs.gear || {}); for (const c of Object.keys(DEFAULT_GEAR)) if (!GEAR[c].items.some(i => i.id === myGear[c])) myGear[c] = DEFAULT_GEAR[c]; setupDone = !!prefs.setupDone; }
+function savePrefs(){ save('slalomwc-prefs', { gender, level, pname, ctrl, nat: myNat, gear: myGear, setupDone }); }
+function applyCtrlLabels(){
+  const outer = ctrl === 'outer';
+  $('#padL').innerHTML = outer ? '<b>左足</b><small>右へ曲がる</small>' : '<b>◀</b><small>左へ曲がる</small>';
+  $('#padR').innerHTML = outer ? '<b>右足</b><small>左へ曲がる</small>' : '<b>▶</b><small>右へ曲がる</small>';
+  $('#padL').setAttribute('aria-label', outer ? '左足に乗る（右へ曲がる）' : '左へ曲がる');
+  $('#padR').setAttribute('aria-label', outer ? '右足に乗る（左へ曲がる）' : '右へ曲がる');
+  $('#keys').innerHTML = (outer ? '<span><kbd>←</kbd> 左足 → 右ターン</span><span><kbd>→</kbd> 右足 → 左ターン</span>' : '<span><kbd>←</kbd> <kbd>→</kbd> ターン</span>') + '<span><kbd>←</kbd>+<kbd>→</kbd> スタート／ストックで漕ぐ</span><span><kbd>↓</kbd> クローチ</span><span><kbd>C</kbd> 操作切替</span><span><kbd>Esc</kbd> 棄権</span>';
+  $('#ctrl').value = ctrl;
+  $('#bCtrl').textContent = outer ? '操作：外足' : '操作：方向';
+}
+function toggleCtrl(){
+  ctrl = ctrl === 'outer' ? 'dir' : 'outer'; savePrefs(); applyCtrlLabels();
+  flash(ctrl === 'outer' ? '操作：外足に乗って曲がる' : '操作：押した方向へ曲がる', false);
+}
+function seasonKey(){ return `slalomwc-2627-${gender}-${level}`; }
+function season(){ const s = load(seasonKey()) || {}; return { pts: s.pts || {}, done: s.done || {}, fis: s.fis || (START_RANK - .5), places: s.places || {}, form: s.form || {}, prev: s.prev || null, hist: s.hist || [] }; }
+// FIS tie-break for the standings: more wins, then more 2nd places, and so on
+function cmpPlaces(a, b){ for (let i = 0; i < 30; i++){ const d = (b[i] || 0) - (a[i] || 0); if (d) return d; } return 0; }
+function seasonSL(){ return slRaces(gender).filter(r => r.disc === 'SL'); }
+function nextRace(){ const s = season(); return seasonSL().find(r => !s.done[r.date]) || null; }
+function maxLeft(){ const s = season(); return seasonSL().filter(r => !s.done[r.date]).length * 100; }
+function slRaces(g){ return CAL[g].map((e, i) => ({ idx: i, date: e[0], venue: e[1], nat: e[2], disc: e[3], night: (e[4]||'').includes('n'), finals: (e[4]||'').includes('f'), tbc: (e[4]||'').includes('t') })); }
+function ranking(){
+  const s = season();
+  const list = FIELDS[gender].map(a => ({ id: a.id, name: a.name, nat: a.nat, pts: s.pts[a.id] || 0, fis: a.fis, places: s.places[a.id] || [] }));
+  list.push({ id: 'you', name: pname, nat: myNat, pts: s.pts.you || 0, fis: s.fis, me: true, places: s.places.you || [] });
+  list.sort((a, b) => b.pts - a.pts || (b.pts ? cmpPlaces(a.places, b.places) : 0) || a.fis - b.fis);
+  list.forEach((e, i) => { e.rank = i + 1; e.wins = e.places[0] || 0; });
+  return list;
+}
+
+// =====================================================================
+// Shared time-attack leaderboard (artifact db; per-viewer best on this device as a fallback)
+// =====================================================================
+const TA = { db: null, uid: null, docs: {}, status: 'connecting', canWrite: true };
+function taKey(g, date){ return `${g}_${date}`; }
+function taLocal(){ return load('slalomwc-ta') || {}; }
+function validEntry(e){ return !!e && typeof e === 'object' && isFinite(e.t) && e.t > 15 && e.t < 400 && isFinite(e.r1) && isFinite(e.r2); }
+function taBoard(key){
+  const rows = [];
+  for (const [uid, d] of Object.entries(TA.docs)){
+    const e = d && d.best && d.best[key];
+    if (!validEntry(e)) continue;
+    rows.push({ uid, handle: String(d.handle || '名無し').slice(0, 14), t: +e.t, r1: +e.r1, r2: +e.r2, at: e.at, me: uid === TA.uid });
+  }
+  if (!TA.db){ const l = taLocal()[key]; if (validEntry(l)) rows.push({ uid: 'local', handle: pname, t: l.t, r1: l.r1, r2: l.r2, me: true }); }
+  rows.sort((a, b) => a.t - b.t);
+  rows.forEach(r => { r.rank = 1 + rows.filter(x => x.t < r.t).length; });
+  return rows;
+}
+async function initTA(){
+  const timer = setTimeout(() => { if (TA.status === 'connecting'){ TA.status = 'slow'; if (tab === 'ta' && !$('#menu').hidden) renderTab(); } }, 10000);
+  try {
+    if (!window.claude || !window.claude.use){ TA.status = 'off'; clearTimeout(timer); return; }
+    const [db, user] = await Promise.all([window.claude.use('db'), window.claude.use('user')]);
+    if (!db){ TA.status = 'off'; clearTimeout(timer); if (tab === 'ta' && !$('#menu').hidden) renderTab(); return; }
+    TA.db = db;
+    TA.uid = user ? await user.id() : null;
+    db.collection('ta').onSnapshot(snap => {
+      const docs = {};
+      for (const d of snap.docs) if (d.exists) docs[d.id] = d.data();
+      TA.docs = docs;
+      if (!snap.metadata.fromCache){ TA.status = 'ok'; clearTimeout(timer); }
+      if (tab === 'ta' && !$('#menu').hidden) renderTab();
+    }, err => { TA.status = 'error'; clearTimeout(timer); if (tab === 'ta' && !$('#menu').hidden) renderTab(); });
+  } catch(e){ TA.status = 'off'; clearTimeout(timer); }
+}
+async function taSubmit(key, entry){
+  // keep the personal best on this device in any case
+  const loc = taLocal(); if (!validEntry(loc[key]) || entry.t < loc[key].t){ loc[key] = entry; save('slalomwc-ta', loc); }
+  if (!TA.db || !TA.uid) return { shared: false };
+  const mine = TA.docs[TA.uid] || {};
+  const prev = mine.best && mine.best[key];
+  if (validEntry(prev) && prev.t <= entry.t && mine.handle === pname) return { shared: true, improved: false };
+  const best = Object.assign({}, mine.best || {});
+  if (!validEntry(prev) || entry.t < prev.t) best[key] = entry;
+  try { await TA.db.collection('ta').doc(TA.uid).set({ handle: pname.slice(0, 14), best }); return { shared: true, improved: !validEntry(prev) || entry.t < prev.t }; }
+  catch(e){ if (e && e.code === 'invalid_argument') TA.canWrite = false; return { shared: false, error: e && e.code }; }
+}
+
+// =====================================================================
+// Weather and wax. Each run gets its own sky, air temperature and snow temperature.
+// =====================================================================
+const COLD_VENUES = ['Levi', 'Åre', 'Kvitfjell', 'Jasná', 'Narvik', 'Gurgl', 'Sölden'];
+const MILD_VENUES = ['Sun Valley', 'Killington', 'Soldeu', 'Courchevel', 'Tremblant', 'Kranjska Gora'];
+const COND = { sun: { jp: '晴れ', icon: '☀' }, cloud: { jp: 'くもり', icon: '☁' }, snow: { jp: '雪', icon: '❄' } };
+function weatherFor(ev, g){
+  const r = rng(hashStr('wx|' + g + '|' + ev.date + '|' + ev.venue));
+  const mon = +ev.date.slice(5, 7);
+  const base = ({ 10: -2, 11: -5, 12: -7, 1: -9, 2: -6, 3: -3 })[mon] ?? -6;
+  const air0 = base + (COLD_VENUES.includes(ev.venue) ? -3 : 0) + (MILD_VENUES.includes(ev.venue) ? 2 : 0) + (ev.night ? -3 : 0) + (r() - .5) * 8;
+  const pick = () => { const x = r(); return x < .48 ? 'sun' : x < .78 ? 'cloud' : 'snow'; };
+  let cond = pick();
+  const out = [];
+  for (let run = 1; run <= 2; run++){
+    if (run === 2 && r() < .35) cond = pick();                              // the sky can change between runs
+    const air = air0 + (run === 2 ? (ev.night ? -1.2 : 1.6) : 0) + (r() - .5) * 1.6;
+    let snowT = cond === 'snow' ? air - .6 - r() * .8 : air - 1.6 - r() * 2.4;
+    snowT = Math.min(snowT, -.2);
+    const surface = snowT > -1.5 ? '湿った雪' : cond === 'snow' ? '新雪まじり' : snowT < -11 ? 'アイス（とても硬い）' : '硬く締まったバーン';
+    out.push({ cond, air: Math.round(air * 10) / 10, snowT: Math.round(snowT * 10) / 10, surface });
+  }
+  return out;
+}
+// All waxes are fluoro-free (FIS banned fluorinated wax from the 2023/24 season).
+const WAXES = [
+  { id: 'blue',   name: 'ブルー',       sub: '極寒用',     lo: -22, hi: -10, col: '#2B6CB0' },
+  { id: 'green',  name: 'グリーン',     sub: '低温用',     lo: -14, hi: -7,  col: '#2F9E44' },
+  { id: 'violet', name: 'バイオレット', sub: '中温用',     lo: -9,  hi: -3,  col: '#7048E8' },
+  { id: 'red',    name: 'レッド',       sub: '高温用',     lo: -5,  hi: -1,  col: '#D6336C' },
+  { id: 'yellow', name: 'イエロー',     sub: '湿雪用',     lo: -2,  hi: 1,   col: '#F2A900' },
+  { id: 'fresh',  name: 'ニュースノー', sub: '降雪・新雪用', lo: -10, hi: -2, col: '#AEB8C6', fresh: true },
+];
+function waxById(id){ return WAXES.find(w => w.id === id) || WAXES[2]; }
+function waxMatch(w, wx){
+  const d = wx.snowT < w.lo ? w.lo - wx.snowT : wx.snowT > w.hi ? wx.snowT - w.hi : 0;
+  let m = 1 - d * .22;
+  if (wx.cond === 'snow') m += w.fresh ? .25 : -.15; else if (w.fresh) m -= .12;
+  return clamp(m, 0, 1);
+}
+function waxGrade(m){ return m > .9 ? '◎ ぴったり' : m > .7 ? '○ 良い' : m > .4 ? '△ いまひとつ' : '× 合っていない'; }
+// gear + wax for the player's run
+function runMods(){
+  const m = gearMods(myGear);
+  if (race && race.wx){
+    const wx = race.wx[race.run - 1], mt = waxMatch(waxById(race.wax[race.run - 1]), wx);
+    m.drag *= 1 + (1 - mt) * .05;
+    m.fr = 1 + (1 - mt) * .35;
+    if (wx.cond === 'snow') m.haze *= 1.7; else if (wx.cond === 'cloud') m.haze *= 1.25;
+  }
+  return m;
+}
+function wxLine(wx){ return `${COND[wx.cond].icon} ${COND[wx.cond].jp} · 気温 ${wx.air.toFixed(1)}℃ · 雪温 ${wx.snowT.toFixed(1)}℃`; }
+function waxPickerHTML(){
+  const wx = race.wx[race.run - 1], cur = race.wax[race.run - 1];
+  return `<div class="wxbox"><div class="wx-icon">${COND[wx.cond].icon}</div><dl class="rows">
+      <dt>天気</dt><dd style="font-family:var(--f-body);font-size:15px">${COND[wx.cond].jp}${wx.cond === 'snow' ? '（降雪で視界がやや悪い）' : wx.cond === 'cloud' ? '（光が平坦で凹凸が見えにくい）' : ''}</dd>
+      <dt>気温</dt><dd>${wx.air.toFixed(1)} ℃</dd><dt>雪温</dt><dd>${wx.snowT.toFixed(1)} ℃</dd>
+      <dt>雪質</dt><dd style="font-family:var(--f-body);font-size:15px">${wx.surface}</dd></dl></div>
+    <h3>ワックスを選ぶ（${race.run}本目）</h3>
+    <div class="waxes" role="group" aria-label="ワックス">${WAXES.map(w => `<button type="button" class="waxbtn${w.id === cur ? ' on' : ''}" data-wax="${w.id}" aria-pressed="${w.id === cur}"><span class="wsw" style="background:${w.col}"></span><b>${w.name}</b><small>${w.sub}</small><small>適温 ${w.lo}〜${w.hi}℃${w.fresh ? '・降雪時◎' : ''}</small></button>`).join('')}</div>
+    <p class="note">雪温に合ったワックスほどよく滑ります。降っている雪にはニュースノーが効きます。すべてフッ素フリー（FISはフッ素入りワックスを2023/24シーズンから禁止）。</p>`;
+}
+function bindWaxPicker(){
+  document.querySelectorAll('#sheet .waxbtn').forEach(b => b.onclick = () => {
+    race.wax[race.run - 1] = b.dataset.wax; lastWax = b.dataset.wax;
+    if (race.run === 1 && !race.waxSet2) race.wax[1] = b.dataset.wax;
+    document.querySelectorAll('#sheet .waxbtn').forEach(x => { x.classList.toggle('on', x === b); x.setAttribute('aria-pressed', x === b); });
+  });
+}
+let lastWax = 'violet';
+// falling snow, drawn in screen space
+let flakes = [];
+function drawSnowfall(){
+  const want = Math.round(cw * ch / 5200);
+  while (flakes.length < want) flakes.push({ x: Math.random() * cw, y: Math.random() * ch, r: .8 + Math.random() * 2.2, v: .4 + Math.random() });
+  const drift = sk.v * .012;
+  ctx.fillStyle = 'rgba(255,255,255,.85)';
+  for (const f of flakes){
+    f.y += (1.2 + drift) * f.v * (1 + f.r * .4); f.x += Math.sin((f.y + f.r * 50) * .02) * .4 - .25;
+    if (f.y > ch + 4){ f.y = -4; f.x = Math.random() * cw; }
+    if (f.x < -4) f.x = cw + 4;
+    ctx.beginPath(); ctx.arc(f.x, f.y, f.r, 0, 7); ctx.fill();
+  }
+}
+// =====================================================================
+// Race session
+// =====================================================================
+let race = null;
+function makeRace(ev, mode){
+  const g = gender;
+  const sd = courseSeed(g, ev.date);
+  const courses = [buildCourse(sd ^ 0x1111, g), buildCourse(sd ^ 0x2222, g)];   // two runs, two different sets
+  const refs = courses.map(refRun);
+  const base = { ev, mode, courses, refs, run: 1, playerDsq: [false, false], finals: ev.finals, maxV: 0, wx: weatherFor(ev, g), wax: [lastWax, lastWax] };
+  if (mode === 'ta') return Object.assign(base, { key: taKey(g, ev.date), taTimes: [] });
+  const st = ranking();
+  let entrants;
+  if (mode === 'dns'){                // the race goes ahead without you
+    entrants = st.filter(e => !e.me);
+    if (ev.finals) entrants = entrants.slice(0, 25);
+  } else if (ev.finals){
+    entrants = st.slice(0, 25);       // Finals: top 25 of the discipline standings
+    if (!entrants.find(e => e.me)){ if (mode === 'career') return { blocked: true }; entrants = st.slice(0, 24).concat(st.find(e => e.me)); }
+  } else entrants = st.slice();
+  const form = season().form;
+  const r = rng(sd ^ hashStr(level) ^ (mode === 'exh' ? 0x5151 : 0));
+  // run-1 start order: bibs 1–7 drawn among the top 7, 8–15 among 8–15, then ranking order
+  const order = [...shuffle(entrants.slice(0, 7), r), ...shuffle(entrants.slice(7, 15), r), ...entrants.slice(15)];
+  const bib = new Map(order.map((e, i) => [e.id, i + 1]));
+  const k = LEVEL_K[level];
+  const byId = new Map(FIELDS[g].map(a => [a.id, a]));
+  const sim = (id, run) => {
+    const a = byId.get(id);
+    const pDnf = (run === 1 ? .09 : .06) + .07*(1 - a.skill) + .05*a.aggr;
+    if (r() < pDnf) return null;
+    const t0 = refs[run-1].time * k * (1 + .065*Math.pow(1 - a.skill, 1.1) + gauss(r)*.0075 - a.aggr*.002 + (form[id] || 0));
+    const rut = run === 1 ? (bib.get(id) - 1) * .005 : 0;       // later bibs meet a rougher course
+    return trunc(t0 + rut);
+  };
+  const run1 = {};
+  for (const e of order) if (!e.me) run1[e.id] = sim(e.id, 1);
+  return Object.assign(base, { blocked: false, entrants: order, bib, run1, run2: {}, order2: null, sim });
+}
+function nameOf(id){ return id === 'you' ? pname : (FIELDS[gender].find(a => a.id === id) || {}).name; }
+function natOf(id){ return id === 'you' ? myNat : (FIELDS[gender].find(a => a.id === id) || {}).nat; }
+function rankList(times){
+  const fin = Object.entries(times).filter(([, t]) => t != null).sort((a, b) => a[1] - b[1]);
+  return fin.map(([id, t]) => ({ id, t, rank: 1 + fin.filter(x => x[1] < t).length }));
+}
+function rankOf(times, id){ const r = rankList(times).find(x => x.id === id); return r ? r.rank : '—'; }
+function setupRun2(){
+  const rl = rankList(race.run1);
+  const cut = race.finals ? Infinity : 30;
+  const q = rl.filter(x => x.rank <= cut);           // top 30 (ties included) qualify
+  race.order2 = q.slice().sort((a, b) => b.rank - a.rank || race.bib.get(b.id) - race.bib.get(a.id)).map(x => x.id);   // reverse order
+  race.qualified = race.order2.includes('you');
+  for (const id of race.order2) if (id !== 'you') race.run2[id] = race.sim(id, 2);
+}
+function combined(){
+  const out = [];
+  for (const id of race.order2){
+    const a = race.run1[id], b = race.run2[id];
+    if (a != null && b != null) out.push({ id, r1: a, r2: b, t: trunc(a + b) });
+  }
+  out.sort((x, y) => x.t - y.t);
+  out.forEach(o => { o.rank = 1 + out.filter(x => x.t < o.t).length; });
+  const maxPts = race.finals ? 15 : 30;
+  out.forEach(o => { o.pts = o.rank <= maxPts ? WC_POINTS[o.rank - 1] : 0; });
+  return out;
+}
+
+// =====================================================================
+// Game state
+// =====================================================================
+let state = 'demo';            // demo | sheet | countdown | run | finished
+let course = buildCourse(12345, 'men');
+const sk = newBody();
+let timing = false, t = 0, cdT = 0, goT = 0, finT = 0, maxV = 0, dsq = false;
+let trail = [], parts = [];
+let camX = 0, camY = 0;
+const keys = { left:false, right:false, down:false };
+const touches = new Map();
+
+function resetBody(demo){
+  Object.assign(sk, newBody());
+  timing = false; t = 0; maxV = 0; dsq = false;
+  trail = []; parts = []; camX = 0;
+  sk.mod = demo ? null : gearMods(myGear);
+  if (demo) sk.v = 40;
+}
+function startDemo(){
+  course = buildCourse(hashStr('demo' + gender + Math.random()), gender);
+  resetBody(true); state = 'demo';
+}
+
+// =====================================================================
+// Sound
+// =====================================================================
+let actx = null, muted = false, wind = null;
+function ac(){
+  if (!actx){ try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e){ return null; } }
+  if (actx.state === 'suspended') actx.resume();
+  if (!wind) startWind();
+  return actx;
+}
+function tone(f, d, type, vol){
+  if (muted || !actx) return;
+  const o = actx.createOscillator(), g = actx.createGain();
+  o.type = type || 'sine'; o.frequency.value = f;
+  g.gain.setValueAtTime(vol || .15, actx.currentTime);
+  g.gain.exponentialRampToValueAtTime(.0001, actx.currentTime + d);
+  o.connect(g).connect(actx.destination); o.start(); o.stop(actx.currentTime + d + .02);
+}
+function noiseBuf(sec){ const b = actx.createBuffer(1, actx.sampleRate*sec, actx.sampleRate); const d = b.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random()*2-1; return b; }
+function thwack(vol){
+  if (muted || !actx) return;
+  const s = actx.createBufferSource(); s.buffer = noiseBuf(.12);
+  const f = actx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 1400; f.Q.value = 2;
+  const g = actx.createGain(); g.gain.setValueAtTime(vol || .5, actx.currentTime); g.gain.exponentialRampToValueAtTime(.001, actx.currentTime + .12);
+  s.connect(f).connect(g).connect(actx.destination); s.start();
+}
+function startWind(){
+  if (!actx) return;
+  const s = actx.createBufferSource(); s.buffer = noiseBuf(2); s.loop = true;
+  const f = actx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 500;
+  const g = actx.createGain(); g.gain.value = 0;
+  s.connect(f).connect(g).connect(actx.destination); s.start();
+  wind = { g, f };
+}
+function updateWind(){
+  if (!wind) return;
+  const live = state === 'run' || state === 'finished';
+  wind.g.gain.setTargetAtTime(muted || !live ? 0 : Math.min(.16, sk.v / 1600), actx.currentTime, .1);
+  wind.f.frequency.setTargetAtTime(300 + sk.v*4 + (Math.abs(sk.lean) > .3 ? 600 : 0), actx.currentTime, .1);
+}
+
+// =====================================================================
+// Input
+// =====================================================================
+const KEYMAP = { ArrowLeft:'left', KeyA:'left', ArrowRight:'right', KeyD:'right', ArrowDown:'down', KeyS:'down' };
+addEventListener('keydown', e => {
+  if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT')) return;
+  if (KEYMAP[e.code]){ keys[KEYMAP[e.code]] = true; if (state === 'run' || state === 'countdown' || state === 'gate') e.preventDefault(); }
+  if ((e.code === 'Enter' || e.code === 'Space') && !e.repeat && !(document.activeElement && document.activeElement.tagName === 'BUTTON')){
+    const b = !$('#sheet').hidden ? $('#sheet .btn.primary') : null;
+    if (b){ b.click(); e.preventDefault(); }
+  }
+  if (e.code === 'Escape' && (state === 'run' || state === 'countdown' || state === 'gate')) abandon();
+  if (e.code === 'KeyC' && !e.repeat && (state === 'run' || state === 'countdown' || state === 'gate')) toggleCtrl();
+});
+addEventListener('keyup', e => { if (KEYMAP[e.code]) keys[KEYMAP[e.code]] = false; });
+const padState = new Map();
+addEventListener('blur', () => { keys.left = keys.right = keys.down = false; touches.clear(); padState.clear(); document.querySelectorAll('#pad button').forEach(b => b.classList.remove('on')); });
+const cv = $('#cv'), ctx = cv.getContext('2d');
+cv.addEventListener('pointerdown', e => { if (e.pointerType === 'mouse') return; markTouch(); touches.set(e.pointerId, e.clientX < cw/2 ? -1 : 1); try { cv.setPointerCapture(e.pointerId); } catch(_){} e.preventDefault(); });
+cv.addEventListener('pointermove', e => { if (touches.has(e.pointerId)) touches.set(e.pointerId, e.clientX < cw/2 ? -1 : 1); });
+['pointerup','pointercancel','lostpointercapture'].forEach(n => cv.addEventListener(n, e => touches.delete(e.pointerId)));
+document.querySelectorAll('#pad button').forEach(b => {
+  const k = b.dataset.k;
+  b.addEventListener('pointerdown', e => { e.preventDefault(); ac(); padState.set(e.pointerId + k, k); b.classList.add('on'); try { b.setPointerCapture(e.pointerId); } catch(_){} });
+  ['pointerup','pointercancel','lostpointercapture'].forEach(n => b.addEventListener(n, e => { padState.delete(e.pointerId + k); if (![...padState.values()].includes(k)) b.classList.remove('on'); }));
+  b.addEventListener('contextmenu', e => e.preventDefault());
+});
+function markTouch(){ document.body.classList.add('touch'); }
+if (window.matchMedia && matchMedia('(pointer:coarse)').matches) markTouch();
+addEventListener('touchstart', markTouch, { passive: true, once: true });
+
+function playerInput(){
+  let l = keys.left, r = keys.right, d = keys.down;
+  for (const v of touches.values()){ if (v < 0) l = true; else r = true; }
+  for (const k of padState.values()){ if (k === 'left') l = true; else if (k === 'right') r = true; else if (k === 'down') d = true; }
+  // left and right together: plant both poles and push (skating-style double pole)
+  if (l && r) return { inp: 0, tuck: false, push: true };
+  const dir = (r ? 1 : 0) - (l ? 1 : 0);
+  // outer-ski steering (default): weighting the right ski turns you left, like real skiing
+  return { inp: ctrl === 'outer' ? -dir : dir, tuck: d };
+}
+
+// =====================================================================
+// Simulation step
+// =====================================================================
+function step(dt){
+  for (const g of course.gates){
+    for (let k = 0; k < 2; k++){
+      if (g.bend[k] || g.bv[k]){
+        g.bv[k] += (-90*g.bend[k] - 7*g.bv[k]) * dt; g.bend[k] += g.bv[k]*dt;
+        if (Math.abs(g.bend[k]) < .002 && Math.abs(g.bv[k]) < .01){ g.bend[k] = 0; g.bv[k] = 0; }
+      }
+      if (g.cool[k] > 0) g.cool[k] -= dt;
+    }
+  }
+  for (let i = parts.length - 1; i >= 0; i--){ const p = parts[i]; p.life -= dt; if (p.life <= 0){ parts.splice(i,1); continue; } p.x += p.vx*dt; p.y += p.vy*dt; p.vx *= .94; p.vy *= .94; }
+
+  if (state === 'countdown'){
+    cdT -= dt;    // slalom start: "Ready" … then the start signal at an irregular moment
+    if (cdT <= 0){ state = 'gate'; gateT = START_WINDOW; tone(1320, .45, 'square', .1); }
+    return;
+  }
+  if (state === 'gate'){
+    // FIS: after the start signal the racer has 10 seconds to leave the start. Push off with both poles (left + right).
+    const before = Math.ceil(gateT);
+    gateT -= dt;
+    if (Math.ceil(gateT) !== before && gateT > 0 && gateT <= 3) tone(700, .08, 'square', .05);
+    const c = playerInput();
+    if (c.push){
+      state = 'run'; goT = .5;
+      const m = sk.mod || NOMOD;
+      sk.v = 45 + m.push + 6;                          // the start push out of the gate
+      sk.pushT = PUSH_DUR; sk.pushCd = PUSH_DUR + .06;
+      tone(240, .06, 'triangle', .05);
+    } else if (gateT <= 0){
+      dsq = true; state = 'finished'; finT = 2;
+      race.playerDsq[race.run - 1] = 'DSQ';
+      race.dsqWhy = race.dsqWhy || []; race.dsqWhy[race.run - 1] = 'スタート遅れ（合図から10秒以内にスタートしなかった）による失格';
+      $('#cd').className = 'cd dsq'; $('#cd').textContent = 'DSQ';
+      $('#cTime').textContent = 'DSQ'; $('#cTime').hidden = false;
+      flash('スタート遅れ — 失格', true); tone(180, .35, 'sawtooth', .08);
+      recordPlayerTime(null);
+    }
+    return;
+  }
+  if (goT > 0) goT -= dt;
+  if (state !== 'run' && state !== 'finished' && state !== 'demo') return;
+
+  const ctl = state === 'run' ? playerInput() : state === 'demo' ? aiCtl(sk, course) : { inp: 0, tuck: false };
+  const quiet = state === 'demo';
+  if (sk.pushT > 0) sk.pushT -= dt;
+  if (sk.pushCd > 0) sk.pushCd -= dt;
+  if (state === 'run' && ctl.push && !(sk.pushCd > 0)){
+    // double-pole push: strong near the start, fading out by ~43 km/h. The pole you chose sets the strength
+    const m = sk.mod || NOMOD;
+    sk.v += (22 + m.push * 1.6) * clamp(1 - sk.v / 140, 0, 1);
+    sk.pushT = PUSH_DUR; sk.pushCd = PUSH_DUR + .06;
+    if (!quiet) tone(240, .05, 'triangle', .04);
+  }
+  const net = physStep(sk, ctl, dt, state === 'finished');
+  if (state === 'run') maxV = Math.max(maxV, sk.v);
+  if (net){ burst(sk.x, sk.y, -net, 14); if (!quiet){ thwack(.35); flash('セーフティネットに接触', true); } }
+
+  if (!timing && sk.py < 0 && sk.y >= 0){
+    timing = true;
+    const vy = (sk.y - sk.py) / dt;
+    t = vy > 0 ? sk.y / vy : 0;
+    if (!quiet) tone(660, .08, 'sine', .08);
+  } else if (timing && state !== 'finished') t += dt;
+
+  // pole contact (allowed in slalom — the pole folds away).
+  // On a tight line the racer clears the pole with the hand: a cross-block, which costs almost no speed.
+  if (sk.block){ sk.block.t += dt; if (sk.block.t > sk.block.dur) sk.block = null; }
+  for (let i = Math.max(0, sk.ng - 2); i < Math.min(course.gates.length, sk.ng + 3); i++){
+    const g = course.gates[i];
+    const gy = g.y - sk.y;
+    if (gy < -12 || gy > 34) continue;
+    for (let k = 0; k < 2; k++){
+      const px = g.x + (k ? GH : -GH), ddx = px - sk.x;
+      // reach for a pole coming up close beside the line
+      if (!sk.block && g.cool[k] <= 0 && gy > 3 && gy < 30 && Math.abs(ddx) > 2.5 && Math.abs(ddx) < 15 && sk.v > 40)
+      {
+        // deep arc with the pole on the inside: cross-block with the far hand.
+        // shallow arc (or pole on the other side): brush it away with the hand on the turn side
+        // pole on the inside of the turn: always cross-block on a deep arc, and fairly often even on a shallow one
+        const turnSide = Math.abs(sk.lean) > .15 ? Math.sign(sk.lean) : Math.sign(sk.th);
+        const inside = Math.sign(ddx) === turnSide;
+        const deep = Math.abs(sk.th) >= .3 || Math.abs(sk.lean) >= .55;
+        const pCross = inside ? (deep ? 1 : clamp(.45 + Math.abs(sk.th) * 1.2 + Math.abs(sk.lean) * .4, 0, .85)) : .15;
+        const mode = Math.random() < pCross ? 'cross' : 'near';
+        sk.block = { t: 0, dur: clamp(gy / Math.max(60, sk.v) + .18, .26, .5), side: Math.sign(ddx), gi: i, k, mode };
+      }
+      const mine = sk.block && sk.block.gi === i && sk.block.k === k;
+      const reach = mine ? 14 : POLE_R + SK_R;
+      if (Math.abs(gy) < 6 && Math.hypot(ddx, gy) < reach && g.cool[k] <= 0){
+        g.cool[k] = .5;
+        const blocked = mine && Math.abs(ddx) > 2.5;
+        g.bv[k] += (Math.sign(ddx) || 1) * (blocked ? 10 + sk.v*.05 : 6 + sk.v*.04);
+        if (state !== 'finished') sk.v *= 1 - (blocked ? .012 : .05) * (sk.mod ? sk.mod.pole : 1);
+        if (!quiet) thwack(blocked ? .32 : .22);
+      }
+    }
+  }
+
+  crossGates(sk, course, (g, ok) => {
+    if (ok){ g.res = 1; if (!quiet && state === 'run') tone(g.col === 'red' ? 520 : 620, .06, 'triangle', .05); }
+    else { g.res = -1; if (state === 'run') onMiss(g); }
+    if (state === 'run') onGateSplit(g.i);
+  });
+
+  if (state === 'run' && sk.py < course.finishY && sk.y >= course.finishY){
+    const vy = (sk.y - sk.py) / dt;
+    t -= vy > 0 ? (sk.y - course.finishY) / vy : 0;
+    finishRun();
+  }
+  if (state === 'demo' && (sk.y > course.finishY + 200 || (sk.v < 2 && sk.y > 0))) startDemo();
+
+  const lp = trail[trail.length - 1];
+  if (!lp || Math.hypot(sk.x - lp.x, sk.y - lp.y) > 5) trail.push({ x: sk.x, y: sk.y, th: sk.th });
+  if (ctl.inp && sk.v > 50 && Math.random() < .8){
+    const px = Math.cos(sk.th), py = -Math.sin(sk.th);
+    for (let n = 0; n < 2; n++){
+      const sp = 30 + Math.random()*70;
+      parts.push({ x: sk.x - Math.sin(sk.th)*6, y: sk.y - Math.cos(sk.th)*6, vx: -ctl.inp*px*sp + Math.sin(sk.th)*sk.v*.3, vy: -ctl.inp*py*sp + Math.cos(sk.th)*sk.v*.3, life: .5 + Math.random()*.4, max: .9, r: 1 + Math.random()*1.8 });
+    }
+  }
+}
+function burst(x, y, dir, n){ for (let i = 0; i < n; i++) parts.push({ x, y, vx: dir*(40+Math.random()*90), vy: (Math.random()-.3)*90, life: .6, max: .6, r: 1.5 + Math.random()*2 }); }
+
+function onMiss(g){
+  // FIS: every gate must be passed correctly, otherwise the racer is disqualified
+  tone(180, .35, 'sawtooth', .08);
+  dsq = true; state = 'finished'; finT = 1.8;
+  race.playerDsq[race.run - 1] = 'DSQ';
+  $('#cd').className = 'cd dsq'; $('#cd').textContent = 'DSQ';
+  $('#cTime').textContent = 'DSQ'; $('#cTime').hidden = false;
+  flash(`第${g.i + 1}旗門 不通過 — 失格`, true);
+  recordPlayerTime(null);
+}
+
+// =====================================================================
+// Live timing
+// =====================================================================
+function leaderBefore(){
+  if (race.mode === 'ta'){
+    const b = taBoard(race.key)[0];
+    return b ? { name: b.handle, total: race.run === 1 ? b.r1 : b.t, run: race.run === 1 ? b.r1 : b.r2, r1: b.r1, label: 'コースレコード' } : null;
+  }
+  if (race.run === 1){
+    const myBib = race.bib.get('you');
+    let best = null;
+    for (const e of race.entrants){ if (e.me || race.bib.get(e.id) > myBib) continue; const tt = race.run1[e.id]; if (tt != null && (!best || tt < best.total)) best = { id: e.id, name: nameOf(e.id), total: tt, run: tt }; }
+    return best && Object.assign(best, { label: 'トップ' });
+  }
+  const idx = race.order2.indexOf('you');
+  let best = null;
+  for (let i = 0; i < idx; i++){ const id = race.order2[i]; const a = race.run1[id], b = race.run2[id]; if (a != null && b != null){ const tot = trunc(a + b); if (!best || tot < best.total) best = { id, name: nameOf(id), total: tot, run: b, r1: a }; } }
+  return best && Object.assign(best, { label: 'トップ' });
+}
+// diff to the leader at every gate (negative = ahead); drives the progress bar colours and the flag beside it
+let gateDiff = [], lastDiff = null;
+function onGateSplit(gi){
+  if (dsq) return;
+  const ld = race.leader;
+  if (!ld) return;
+  const mine = race.run === 1 ? t : race.run1Me + t;
+  const f = race.refs[race.run - 1].frac[gi] || ((gi + 1) / course.gates.length);
+  const lt = (race.run === 1 ? 0 : ld.r1) + ld.run * f;
+  gateDiff[gi] = mine - lt;
+  lastDiff = { gi, d: mine - lt };
+}
+function setupCard(){
+  const nm = splitName(pname);
+  $('#cFirst').textContent = nm.first; $('#cFirst').hidden = !nm.first;
+  $('#cLast').textContent = nm.last;
+  const ta = race.mode === 'ta';
+  $('#cBib').hidden = ta; if (!ta) $('#cBib').textContent = race.bib.get('you');
+  setFlag($('#cFlag'), myNat); $('#cNat').textContent = myNat;
+  $('#cRank').hidden = true; $('#cDiff').hidden = true; $('#cTime').hidden = false; $('#cTime').textContent = '0:00.0';
+  $('#evName').textContent = (gender === 'men' ? "Men's " : "Women's ") + (ta ? 'Slalom · Time Attack' : 'Slalom');
+  $('#evPlace').textContent = `${race.ev.venue} ${race.ev.nat}`;
+  setFlag($('#evFlag'), race.ev.nat);
+  $('#evRun').textContent = 'Run ' + race.run;
+  $('#evWx').textContent = race.wx ? wxLine(race.wx[race.run - 1]) + ' · ' + waxById(race.wax[race.run - 1]).name : '';
+  const ld = race.leader;
+  $('#vs').hidden = !ld; if (ld) $('#vs').textContent = `${ld.label}：${ld.name}　${fmt(ld.total)}`;
+  gateDiff = []; lastDiff = null;
+  $('#tv').hidden = false; $('#tv').classList.add('live');
+}
+function finishCard(total, ref, rank){
+  $('#cTime').textContent = fmt(total);
+  const r = $('#cRank');
+  if (rank != null){ r.hidden = false; r.textContent = rank; r.className = 'c-rank' + (rank === 1 ? ' lead' : ''); }
+  const d = $('#cDiff');
+  if (ref != null){ const diff = trunc(Math.abs(total - ref)) * Math.sign(total - ref); d.hidden = false; d.textContent = fmtDiff(diff); d.className = 'c-diff ' + (diff <= 0 ? 'good' : 'bad'); }
+  else d.hidden = true;
+}
+
+// =====================================================================
+// Run flow
+// =====================================================================
+function enterRace(ev, mode){
+  ac();
+  const r = makeRace(ev, mode);
+  if (r.blocked){ sheetFinalsBlocked(ev); return; }
+  race = r;
+  showIntro();
+}
+function showIntro(){
+  state = 'sheet';
+  course = race.courses[race.run - 1]; resetCourseState(course); resetBody(false);
+  const ev = race.ev;
+  const ta = race.mode === 'ta';
+  let html = `<div><span class="badge red">回転 SL</span> ${ev.night ? '<span class="badge night">ナイター</span> ' : ''}${race.mode === 'exh' ? '<span class="badge">ポイント対象外</span>' : ''}${ta ? '<span class="badge">タイムアタック</span>' : ''}</div><dl class="rows">
+    <dt>${race.run}本目のコース</dt><dd>${course.nGates} 旗門</dd>
+    <dt>高低差（ゲーム内設定）</dt><dd>${course.vd} m</dd>`;
+  if (!ta){
+    const myBib = race.run === 1 ? race.bib.get('you') : race.order2.indexOf('you') + 1;
+    html += `<dt>${race.run === 1 ? 'あなたのビブ' : 'スタート順'}</dt><dd>${race.run === 1 ? 'Bib ' + myBib : myBib + '番目 / ' + race.order2.length + '名'}</dd>
+    <dt>出走人数</dt><dd>${race.run === 1 ? race.entrants.length : race.order2.length} 名</dd>`;
+  } else {
+    const rec = taBoard(race.key)[0];
+    html += `<dt>コースレコード</dt><dd>${rec ? fmt(rec.t) + ' ' : '—'}</dd>`;
+  }
+  html += '</dl>';
+  if (rec2Note()) html += `<p class="note">${rec2Note()}</p>`;
+  if (!ta && race.run === 1 && race.bib.get('you') > 30) html += `<p class="note">ビブが後ろのほど荒れたコースを滑ることになります。上位に入ってランキングを上げれば、早いスタート順がもらえます。</p>`;
+  html += waxPickerHTML();
+  html += `<p class="note">旗門を1つでも外すとその場で失格（DSQ）。ポールは倒しても構いません。</p>`;
+  html += `<div class="btns"><button class="btn primary" type="button" id="goStart">スタートハウスへ</button><button class="btn" type="button" id="goBack">${race.run === 1 ? 'やめる' : '棄権する'}</button></div>`;
+  openSheet(ta ? 'Time Attack' : `Run ${race.run} · Start List`, `${JP[ev.venue] || ev.venue} — ${race.run}本目`, html, `${ev.date.replace(/-/g, '.')} · ${ev.venue} (${ev.nat})${ev.finals ? ' · Finals' : ''}`);
+  bindWaxPicker();
+  if (race.run === 2) race.waxSet2 = true;
+  $('#goStart').onclick = beginRun;
+  $('#goBack').onclick = () => {
+    if (race.run === 2){ race.playerDsq[1] = 'DNF'; recordPlayerTime(null); afterRun2(); }
+    else { race = null; showMenu(); }
+  };
+}
+function waxRow(run){ if (!race.wx) return ''; const w = waxById(race.wax[run - 1]), wx = race.wx[run - 1]; return `<dt>${run}本目のワックス（雪温 ${wx.snowT.toFixed(1)}℃）</dt><dd style="font-family:var(--f-body);font-size:14px">${w.name} ${waxGrade(waxMatch(w, wx))}</dd>`; }
+function rec2Note(){
+  if (race.run !== 2) return '';
+  if (race.mode === 'ta') return `1本目：${fmt(race.taTimes[0])}。2本の合計タイムがランキングに載ります。`;
+  return `2本目は1本目の${race.finals ? '完走者全員' : '上位30名'}が、1本目の順位の逆順でスタートします。あなたの1本目：${fmt(race.run1.you)}（${rankOf(race.run1, 'you')}位）`;
+}
+function beginRun(){
+  closeSheet();
+  race.leader = leaderBefore();
+  race.run1Me = race.mode === 'ta' ? (race.taTimes[0] || 0) : (race.run1 && race.run1.you) || 0;
+  course = race.courses[race.run - 1]; resetCourseState(course); resetBody(false);
+  sk.mod = runMods();
+  state = 'countdown'; cdT = 1.2 + Math.random()*1.4; goT = 0;
+  $('#cd').className = 'cd';
+  $('#hud').hidden = false;
+  $('#pad').classList.add('live'); $('#mute').classList.add('raised');
+  setupCard();
+  const kh = $('#keys'); kh.hidden = false; kh.style.opacity = 1;
+  clearTimeout(kh._t); kh._t = setTimeout(() => { kh.style.opacity = 0; kh._t = setTimeout(() => kh.hidden = true, 450); }, 5000);
+  tone(880, .12, 'square', .06);
+}
+function recordPlayerTime(tt){
+  if (race.mode === 'ta'){ race.taTimes[race.run - 1] = tt; return; }
+  if (race.run === 1) race.run1.you = tt; else race.run2.you = tt;
+}
+function finishRun(){
+  state = 'finished'; finT = 1.6;
+  const tt = trunc(t);
+  race.maxV = Math.max(race.maxV, maxV);
+  tone(784, .18, 'triangle', .1); setTimeout(() => tone(1047, .4, 'triangle', .1), 160);
+  recordPlayerTime(tt);
+  const ld = race.leader;
+  if (race.mode === 'ta'){
+    const tot = race.run === 1 ? tt : trunc(race.taTimes[0] + tt);
+    finishCard(tot, ld ? ld.total : null, ld ? (tot < ld.total ? 1 : 2) : 1);
+    return;
+  }
+  if (race.run === 1){
+    const pool = {}; for (const e of race.entrants){ if (race.bib.get(e.id) <= race.bib.get('you')) pool[e.id] = e.me ? tt : race.run1[e.id]; }
+    finishCard(tt, ld ? ld.total : null, rankOf(pool, 'you'));
+  } else {
+    const idx = race.order2.indexOf('you');
+    const pool = {}; for (let i = 0; i <= idx; i++){ const id = race.order2[i]; const a = race.run1[id], b = id === 'you' ? tt : race.run2[id]; pool[id] = a != null && b != null ? trunc(a + b) : null; }
+    finishCard(trunc(race.run1.you + tt), ld ? ld.total : null, rankOf(pool, 'you'));
+  }
+}
+function leaveRunUI(){
+  $('#keys').hidden = true;
+  $('#hud').hidden = true; $('#tv').hidden = true; $('#tv').classList.remove('live'); $('#cd').textContent = '';
+  $('#pad').classList.remove('live'); $('#mute').classList.remove('raised');
+}
+function afterFinish(){
+  leaveRunUI();
+  if (race.mode === 'ta') return showTaResult();
+  if (race.run === 1) return showRun1Result();
+  return afterRun2();
+}
+function afterRun2(){ showFinal(); }
+function abandon(){
+  if (!race || !(state === 'run' || state === 'countdown' || state === 'gate')) return;
+  race.playerDsq[race.run - 1] = 'DNF'; recordPlayerTime(null);
+  dsq = true; state = 'finished'; finT = .01;
+}
+
+// =====================================================================
+// Sheets
+// =====================================================================
+function openSheet(eyebrow, title, html, sub){
+  $('#menu').hidden = true;
+  $('#shEyebrow').textContent = eyebrow + (sub ? ' · ' + sub : '');
+  $('#shTitle').textContent = title;
+  $('#shBody').innerHTML = html;
+  $('#sheet').hidden = false; $('#sheet').scrollTop = 0;
+}
+function closeSheet(){ $('#sheet').hidden = true; }
+function table(head, rows){
+  return `<div class="tbl-wrap"><table><thead><tr>${head.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>${rows.join('')}</tbody></table></div>`;
+}
+function scrollMeIntoView(){ const tr = document.querySelector('#sheet tr.me'); if (tr){ const w = tr.closest('.tbl-wrap'); if (w) w.scrollTop = Math.max(0, tr.offsetTop - w.clientHeight/2); } }
+function showRun1Result(){
+  state = 'sheet';
+  const rl = rankList(race.run1);
+  const dnf = Object.values(race.run1).filter(v => v == null).length;
+  const best = rl.length ? rl[0].t : null;
+  setupRun2();
+  const me = rl.find(x => x.id === 'you');
+  const cut = race.finals ? Infinity : 30;
+  const rows = rl.map((x, i) => {
+    const next = rl[i + 1];
+    const cls = (x.id === 'you' ? 'me' : '') + (x.rank <= cut && next && next.rank > cut ? ' cut' : '');
+    return `<tr class="${cls}"><td class="n">${x.rank}</td><td class="r">${race.bib.get(x.id)}</td><td>${esc(nameOf(x.id))}</td><td class="nat3">${natOf(x.id)}</td><td class="n">${fmt(x.t)}</td><td class="r">${x.rank === 1 ? '' : fmtDiff(x.t - best)}</td></tr>`;
+  });
+  let html = '';
+  if (me) html += `<div><span class="big">${fmt(me.t)}</span></div><dl class="rows"><dt>1本目の順位</dt><dd>${me.rank}位 / ${rl.length}名完走</dd><dt>トップとの差</dt><dd>${me.rank === 1 ? 'トップ' : fmtDiff(me.t - best)}</dd>${waxRow(1)}</dl>`;
+  else html += `<div><span class="big">${race.playerDsq[0] || 'DSQ'}</span></div><p class="note">${race.playerDsq[0] === 'DNF' ? '途中棄権' : ((race.dsqWhy && race.dsqWhy[0]) || '旗門不通過による失格')}のため2本目には進めません。</p>`;
+  html += `<h3>1本目 結果（途中棄権・失格 ${dnf}名）</h3>` + table(['順位','Bib','選手','国','タイム','差'], rows);
+  html += `<p class="note">${race.finals ? 'ファイナルは1本目の完走者全員が2本目に進みます。' : '黄色の線までが2本目に進む上位30名（同タイムは全員進出）。'}</p><div class="btns">`;
+  html += race.qualified ? `<button class="btn primary" type="button" id="toRun2">2本目へ（${race.order2.indexOf('you') + 1}番目スタート）</button>` : `<button class="btn primary" type="button" id="toFinal">最終結果を見る</button>`;
+  html += '</div>';
+  openSheet('Run 1 · Official Results', `${JP[race.ev.venue]} 1本目 結果`, html);
+  scrollMeIntoView();
+  if ($('#toRun2')) $('#toRun2').onclick = () => { race.run = 2; showIntro(); };
+  if ($('#toFinal')) $('#toFinal').onclick = showFinal;
+}
+// Add a race's World Cup points to the season, record placings, history and form, and report the standings change
+function commitResults(ev, res, status){
+  const s = season();
+  const before = ranking();
+  const prevRank = {}; before.forEach(e => { prevRank[e.id] = e.rank; });
+  for (const o of res){
+    if (o.pts) s.pts[o.id] = (s.pts[o.id] || 0) + o.pts;
+    if (o.rank <= 30){ const p = s.places[o.id] || []; while (p.length < o.rank) p.push(0); p[o.rank - 1] = (p[o.rank - 1] || 0) + 1; s.places[o.id] = p; }
+  }
+  const me = res.find(o => o.id === 'you');
+  if (me) s.fis = Math.min(s.fis, Math.max(1, Math.round((s.fis + me.rank) / 2) - .5));     // good results also improve your seeding
+  // form swings: a racer on a run of good results keeps a little momentum, and vice versa
+  const r = rng(hashStr(ev.date + level + gender));
+  for (const a of FIELDS[gender]){
+    const o = res.find(x => x.id === a.id);
+    const push = o ? (o.rank <= 5 ? -.002 : o.rank > 20 ? .001 : 0) : .0015;
+    s.form[a.id] = clamp((s.form[a.id] || 0) * .6 + push + gauss(r) * .003, -.012, .012);
+  }
+  s.prev = prevRank;
+  s.done[ev.date] = { rank: me ? me.rank : null, pts: me ? me.pts : 0, t: me ? me.t : null, status };
+  s.hist = s.hist.filter(h => h.date !== ev.date);
+  s.hist.push({ date: ev.date, venue: ev.venue, podium: res.slice(0, 3).map(o => o.id), my: me ? me.rank : null, pts: me ? me.pts : 0, status });
+  const saved = save(seasonKey(), s);
+  const after = ranking();
+  return { saved, before: prevRank, after, gained: me ? me.pts : 0 };
+}
+function arrow(prev, now){
+  if (prev == null || prev === now) return '<span class="mv same">–</span>';
+  return prev > now ? `<span class="mv up">▲${prev - now}</span>` : `<span class="mv down">▼${now - prev}</span>`;
+}
+function movementHTML(mv){
+  const st = mv.after, me = st.find(e => e.me), lead = st[0];
+  const rows = st.slice(0, 10).map(e => `<tr class="${e.me ? 'me' : ''}"><td class="n">${e.rank}</td><td>${arrow(mv.before[e.id], e.rank)}</td><td>${esc(e.name)}</td><td class="nat3">${e.nat}</td><td class="n">${e.pts}</td></tr>`);
+  if (me.rank > 10) rows.push(`<tr><td class="r">…</td><td></td><td></td><td></td><td></td></tr><tr class="me"><td class="n">${me.rank}</td><td>${arrow(mv.before.you, me.rank)}</td><td>${esc(me.name)}</td><td class="nat3">${myNat}</td><td class="n">${me.pts}</td></tr>`);
+  return `<h3>回転ランキングの変動</h3><dl class="rows"><dt>あなた</dt><dd>${mv.before.you}位 → ${me.rank}位 ${arrow(mv.before.you, me.rank)}</dd><dt>獲得 / 合計</dt><dd>+${mv.gained} pt / ${me.pts} pt</dd><dt>トップ（${esc(lead.name)}）との差</dt><dd>${me.rank === 1 ? (st[1] ? '2位に +' + (me.pts - st[1].pts) + ' pt' : '—') : '−' + (lead.pts - me.pts) + ' pt'}</dd></dl>` + table(['順位','変動','選手','国','Pt'], rows);
+}
+// Run a World Cup race without you (you did not start): the season moves on
+function runWithoutYou(ev){
+  const prevRace = race;
+  race = makeRace(ev, 'dns');
+  setupRun2();
+  const res = combined();
+  const mv = commitResults(ev, res, 'dns');
+  const ev2 = race.ev; race = prevRace;
+  return { res, mv, ev: ev2 };
+}
+function showSkipped(ev){
+  const out = runWithoutYou(ev);
+  const best = out.res[0];
+  const pod = out.res.slice(0, 3).map(o => `${o.rank}位 ${esc(nameOf(o.id))}（${natOf(o.id)}）${fmt(o.t)}`).join('<br>');
+  let html = `<p>${JP[ev.venue]}の回転はあなた抜きで行われました。</p><dl class="rows"><dt>優勝</dt><dd style="font-family:var(--f-body);font-size:15px">${best ? esc(nameOf(best.id)) : '—'}</dd></dl><p class="note">${pod}</p>`;
+  html += movementHTML(out.mv);
+  html += `<div class="btns"><button class="btn primary" type="button" id="toCal">日程に戻る</button></div>`;
+  openSheet('Did Not Start', `${JP[ev.venue]} 回転 — 欠場`, html);
+  scrollMeIntoView();
+  $('#toCal').onclick = () => showMenu('cal');
+}
+function showFinal(){
+  state = 'sheet';
+  if (!race.order2) setupRun2();
+  const res = combined();
+  const best = res.length ? res[0].t : null;
+  const me = res.find(x => x.id === 'you');
+  let saved = false, mv = null;
+  if (race.mode === 'career'){
+    const out = commitResults(race.ev, res, me ? 'ok' : (race.run1.you == null ? 'r1' : race.qualified ? 'r2' : 'nq'));
+    saved = out.saved; mv = out;
+  }
+  const rows = res.map(o => `<tr class="${o.id === 'you' ? 'me' : ''}"><td class="n">${o.rank}</td><td>${esc(nameOf(o.id))}</td><td class="nat3">${natOf(o.id)}</td><td class="r">${fmt(o.r1)}</td><td class="r">${fmt(o.r2)}</td><td class="n">${fmt(o.t)}</td><td class="r">${o.rank === 1 ? '' : fmtDiff(o.t - best)}</td><td class="n">${o.pts || ''}</td></tr>`);
+  let html = '';
+  if (me){
+    html += `<div><span class="big">${me.rank}位</span> ${me.rank === 1 ? '<span class="badge">優勝</span>' : me.rank <= 3 ? '<span class="badge">表彰台</span>' : ''}</div>`;
+    html += `<dl class="rows"><dt>合計タイム</dt><dd>${fmt(me.t)}</dd><dt>1本目 / 2本目</dt><dd>${fmt(me.r1)} / ${fmt(me.r2)}</dd><dt>優勝との差</dt><dd>${me.rank === 1 ? '優勝' : fmtDiff(me.t - best)}</dd><dt>獲得ポイント</dt><dd>${race.mode === 'exh' ? '対象外' : me.pts + ' pt'}</dd><dt>最高速度</dt><dd>${Math.round(race.maxV*.36)} km/h</dd>${waxRow(1)}${waxRow(2)}</dl>`;
+  } else {
+    const why = race.run1.you == null ? `1本目 ${race.playerDsq[0] === 'DNF' ? '途中棄権（DNF）' : '失格（DSQ）'}` : !race.qualified ? `1本目 ${rankOf(race.run1, 'you')}位で2本目に進めず` : `2本目 ${race.playerDsq[1] === 'DNF' ? '途中棄権（DNF）' : '失格（DSQ）'}`;
+    html += `<div><span class="big" style="font-size:40px">${why.includes('DSQ') ? 'DSQ' : why.includes('DNF') ? 'DNF' : '2本目進めず'}</span></div><p class="note">${why}。ポイントは0です。</p>`;
+  }
+  if (mv) html += movementHTML(mv);
+  html += `<h3>最終結果${race.finals ? '（ファイナル：15位までポイント）' : '（30位までWCポイント）'}</h3>` + table(['順位','選手','国','1本目','2本目','合計','差','Pt'], rows);
+  if (race.mode === 'career' && !saved) html += `<p class="note">このブラウザでは記録を保存できないため、キャリアの成績は残りません。</p>`;
+  html += `<div class="btns"><button class="btn primary" type="button" id="toCal">キャリアの日程に戻る</button><button class="btn" type="button" id="toStand">ランキングを見る</button></div>`;
+  openSheet('Official Results', `${JP[race.ev.venue]} 回転 最終結果`, html);
+  scrollMeIntoView();
+  $('#toStand').onclick = () => { race = null; showMenu('stand'); };
+  $('#toCal').onclick = () => { race = null; showMenu('cal'); };
+}
+async function showTaResult(){
+  state = 'sheet';
+  const ev = race.ev;
+  const tt = race.taTimes[race.run - 1];
+  if (race.run === 1 && tt != null){
+    const ld = race.leader;
+    let html = `<div><span class="big">${fmt(tt)}</span></div><dl class="rows"><dt>1本目</dt><dd>${fmt(tt)}</dd>${ld ? `<dt>コースレコードの1本目との差</dt><dd>${fmtDiff(tt - ld.r1)}</dd>` : ''}<dt>最高速度</dt><dd>${Math.round(race.maxV*.36)} km/h</dd>${waxRow(1)}</dl>`;
+    html += `<div class="btns"><button class="btn primary" type="button" id="taNext">2本目へ</button><button class="btn" type="button" id="taRetry">1本目からやり直す</button></div>`;
+    openSheet('Time Attack', `${JP[ev.venue]} 1本目`, html);
+    $('#taNext').onclick = () => { race.run = 2; showIntro(); };
+    $('#taRetry').onclick = () => enterRace(ev, 'ta');
+    return;
+  }
+  let html = '';
+  let res = null;
+  if (race.taTimes[0] != null && race.taTimes[1] != null){
+    const total = trunc(race.taTimes[0] + race.taTimes[1]);
+    html += `<div><span class="big">${fmt(total)}</span> <span class="badge" id="taBadge" hidden>自己ベスト</span></div><dl class="rows"><dt>1本目 / 2本目</dt><dd>${fmt(race.taTimes[0])} / ${fmt(race.taTimes[1])}</dd><dt>最高速度</dt><dd>${Math.round(race.maxV*.36)} km/h</dd>${waxRow(1)}${waxRow(2)}</dl><p class="conn" id="taSend">記録を送信中…</p>`;
+    res = { t: total, r1: race.taTimes[0], r2: race.taTimes[1], at: new Date().toISOString().slice(0, 10) };
+  } else {
+    const which = race.taTimes[0] == null ? 1 : 2;
+    html += `<div><span class="big">${race.playerDsq[which - 1] || 'DSQ'}</span></div><p class="note">${which}本目で${race.playerDsq[which - 1] === 'DNF' ? '途中棄権' : ((race.dsqWhy && race.dsqWhy[which - 1]) || '旗門不通過により失格')}。記録は残りません。</p>`;
+  }
+  html += `<h3>${JP[ev.venue]}（${gender === 'men' ? '男子' : '女子'}コース）ランキング</h3><div id="taTable">${taTableHTML(race.key)}</div>`;
+  html += `<div class="btns"><button class="btn primary" type="button" id="taAgain">もう一度挑戦</button><button class="btn" type="button" id="taBack">コース一覧</button></div>`;
+  openSheet('Time Attack · Results', `${JP[ev.venue]} 2本合計`, html);
+  const key = race.key;
+  $('#taAgain').onclick = () => enterRace(ev, 'ta');
+  $('#taBack').onclick = () => { race = null; showMenu('ta'); };
+  if (res){
+    const out = await taSubmit(key, res);
+    const sendEl = $('#taSend');
+    if (sendEl){
+      if (out.shared){ sendEl.className = 'conn ok'; sendEl.textContent = out.improved ? '共有ランキングを更新しました。' : '共有ランキングの自己ベストのほうが速いため、更新はありません。'; }
+      else sendEl.textContent = TA.db ? 'このアカウントでは共有ランキングに書き込めないため、この端末だけに記録しました。' : '共有ランキングに接続できないため、この端末だけに記録しました。';
+      if (out.improved && $('#taBadge')) $('#taBadge').hidden = false;
+    }
+    if ($('#taTable')) $('#taTable').innerHTML = taTableHTML(key);
+    scrollMeIntoView();
+  }
+}
+function taTableHTML(key){
+  const rows = taBoard(key);
+  if (!rows.length) return '<p class="note">まだ記録がありません。最初のコースレコードを狙いましょう。</p>';
+  const best = rows[0].t;
+  return table(['順位','名前','1本目','2本目','合計','差'], rows.slice(0, 100).map(r => `<tr class="${r.me ? 'me' : ''}"><td class="n">${r.rank}</td><td>${esc(r.handle)}${r.me ? '（あなた）' : ''}</td><td class="r">${fmt(r.r1)}</td><td class="r">${fmt(r.r2)}</td><td class="n">${fmt(r.t)}</td><td class="r">${r.rank === 1 ? '' : fmtDiff(r.t - best)}</td></tr>`));
+}
+function sheetFinalsBlocked(ev){
+  state = 'demo';
+  const st = ranking(); const myRank = st.findIndex(e => e.me) + 1;
+  const html = `<p>ワールドカップ・ファイナルに出場できるのは、回転ランキング上位25名です。あなたは現在 <b>${myRank}位</b>（${st[myRank-1].pts} pt）。</p><p class="note">ファイナルはあなた抜きで行われ、シーズンが終わります。ポイントなしのエキシビションとして滑ることもできます。</p><div class="btns"><button class="btn primary" type="button" id="dns">ファイナルを観る（欠場）</button><button class="btn" type="button" id="exh">エキシビションで滑る</button><button class="btn" type="button" id="back">日程に戻る</button></div>`;
+  openSheet('World Cup Finals', 'ファイナル出場資格がありません', html);
+  $('#dns').onclick = () => showSkipped(ev);
+  $('#exh').onclick = () => enterRace(ev, 'exh');
+  $('#back').onclick = () => showMenu('cal');
+}
+
+// =====================================================================
+// Menu
+// =====================================================================
+let tab = 'cal';
+const TABS = [['tCal','cal'],['tStand','stand'],['tTa','ta'],['tGear','gear'],['tRules','rules']];
+// ---- athlete & equipment picker ----
+const MOD_LABEL = { turn: ['ターンのキレ', 1], drag: ['空気・雪の抵抗', -1], carve: ['ターン中の減速', -1], tuck: ['クローチの抵抗', -1], pole: ['ポール接触の減速', -1], net: ['ネット接触の減速', -1], night: ['ナイターの暗さ', -1], haze: ['遠くのかすみ', -1] };
+function gearSummary(){
+  const m = gearMods(myGear), out = [];
+  for (const [k, [label]] of Object.entries(MOD_LABEL)){ if (Math.abs(m[k] - 1) > .004) out.push(`${label} ${m[k] > 1 ? '+' : '−'}${Math.round(Math.abs(m[k] - 1) * 100)}%`); }
+  if (m.push) out.push(`スタートの押し出し +${Math.round(m.push * .36)} km/h`);
+  return out.join(' · ');
+}
+function gearCard(cat, it){
+  const on = myGear[cat] === it.id;
+  const bars = Object.entries(it.stats).map(([k, v]) => `<span class="gs"><i>${k}</i><em>${'<b></b>'.repeat(v)}${'<s></s>'.repeat(5 - v)}</em></span>`).join('');
+  return `<button type="button" class="gcard${on ? ' on' : ''}" data-cat="${cat}" data-id="${it.id}" aria-pressed="${on}">${itemSVG(cat, it)}<span class="gname">${it.name}</span><span class="gorg">${it.org ? `<span class="flag sm" style="background:${FLAG[it.org]}"></span>${NAT[it.org].jp}製 · ` : ''}${it.model}</span><span class="gstats">${bars}</span></button>`;
+}
+function gearEditorHTML(){
+  const opts = NATIONS.map(n => `<option value="${n[0]}"${n[0] === myNat ? ' selected' : ''}>${n[1]}（${n[0]}）</option>`).join('');
+  return `<div class="gear">
+    <div class="g-who"><label class="note" for="gName">選手名</label><input type="text" id="gName" maxlength="14" value="${esc(pname)}" autocomplete="off">
+      <label class="note" for="gNat">国</label><span class="flag big" id="gFlag"></span><select id="gNat">${opts}</select></div>
+    <p class="note">国を選ぶと、レースのウェアの色と中継画面の国旗が変わります。</p>
+    ${Object.entries(GEAR).map(([cat, g]) => `<h3>${g.label}</h3><div class="gcards" role="group" aria-label="${g.label}">${g.items.map(it => gearCard(cat, it)).join('')}</div>`).join('')}
+    <div class="gsum"><b>この組み合わせの性能</b><span id="gSum">${gearSummary() || '標準'}</span></div>
+    <p class="note">ブランド名・ロゴはすべてこのゲームのための架空のデザインです。性能差は数％の小さなもので、組み合わせで乗り味が変わります。</p>
+  </div>`;
+}
+function bindGear(root){
+  root.querySelectorAll('.gcard').forEach(b => b.onclick = () => {
+    myGear[b.dataset.cat] = b.dataset.id; savePrefs();
+    root.querySelectorAll(`.gcard[data-cat="${b.dataset.cat}"]`).forEach(x => { x.classList.toggle('on', x === b); x.setAttribute('aria-pressed', x === b); });
+    const sm = root.querySelector('#gSum'); if (sm) sm.textContent = gearSummary() || '標準';
+  });
+  const nat = root.querySelector('#gNat'), fl = root.querySelector('#gFlag');
+  if (nat){ setFlag(fl, myNat); nat.onchange = () => { myNat = nat.value; setFlag(fl, myNat); savePrefs(); }; }
+  const nm = root.querySelector('#gName');
+  if (nm) nm.oninput = () => { pname = nm.value.trim().slice(0, 14) || 'あなた'; $('#pname').value = pname; savePrefs(); };
+}
+function showSetup(){
+  state = 'demo';
+  openSheet('Athlete Registration', '選手登録 — 国と用具を選ぶ', gearEditorHTML() + '<div class="btns"><button class="btn primary" type="button" id="gDone">この用具でシーズンへ</button></div>');
+  bindGear($('#sheet'));
+  $('#gDone').onclick = () => { setupDone = true; savePrefs(); showMenu('cal'); };
+}
+function showMenu(which){
+  if (which) tab = which;
+  closeSheet(); leaveRunUI();
+  $('#gMen').setAttribute('aria-pressed', gender === 'men'); $('#gWomen').setAttribute('aria-pressed', gender === 'women');
+  $('#level').value = level; $('#pname').value = pname;
+  $('#level').hidden = tab === 'ta';
+  for (const [id, k] of TABS) $('#' + id).setAttribute('aria-selected', tab === k);
+  renderTab();
+  $('#menu').hidden = false;
+  if (state !== 'demo') startDemo();
+}
+function renderTab(){
+  const body = $('#tabBody');
+  if (tab === 'cal') body.innerHTML = calendarHTML();
+  else if (tab === 'stand') body.innerHTML = standingsHTML();
+  else if (tab === 'ta') body.innerHTML = taListHTML();
+  else if (tab === 'gear'){ body.innerHTML = gearEditorHTML(); bindGear(body); }
+  else body.innerHTML = rulesHTML();
+  body.querySelectorAll('[data-race]').forEach(b => b.onclick = () => enterRace(slRaces(gender)[+b.dataset.race], b.dataset.mode || 'career'));
+  body.querySelectorAll('[data-skip]').forEach(b => b.onclick = () => { if (b.dataset.armed){ showSkipped(slRaces(gender)[+b.dataset.skip]); } else { b.dataset.armed = '1'; b.textContent = '欠場を確定'; } });
+  if ($('#bReset')) $('#bReset').onclick = () => { const b = $('#bReset'); if (b.dataset.armed){ save(seasonKey(), {}); renderTab(); } else { b.dataset.armed = '1'; b.textContent = 'もう一度押すとリセット'; } };
+}
+function calendarHTML(){
+  const races = slRaces(gender);
+  const s = season();
+  const nextIdx = races.findIndex(r => r.disc === 'SL' && !s.done[r.date]);
+  const st = ranking(); const myRank = st.findIndex(e => e.me) + 1;
+  const nSL = races.filter(r => r.disc === 'SL').length;
+  let html = raceForHTML();
+  html += `<dl class="rows"><dt>消化レース</dt><dd>${Object.keys(s.done).length} / ${nSL} 戦</dd></dl>`;
+  html += `<p class="note">ランキング${START_RANK}位からのスタート。回転（SL）の全${nSL}戦を転戦してポイントを稼ぎ、クリスタルグローブ（種目別総合優勝）を目指します。2026/27シーズン ${gender === 'men' ? '男子' : '女子'}の全${races.length}レースを掲載。</p><div class="cal">`;
+  let mon = '', todayShown = false, wchShown = false;
+  races.forEach((r, i) => {
+    const m = r.date.slice(0, 7);
+    if (!wchShown && r.date > WCH.from){ wchShown = true; html += `<div class="mon">2027.02</div><div class="ev wch"><div class="d">2/1–14</div><div class="v"><b>世界選手権</b> ${JP[WCH.venue]}<span class="nat">${WCH.nat}</span><span class="real">FIS アルペンスキー世界選手権（ワールドカップポイント対象外）</span></div></div>`; mon = '2027-02'; }
+    if (m !== mon){ mon = m; html += `<div class="mon">${m.replace('-', '.')}</div>`; }
+    if (!todayShown && r.date >= TODAY){ todayShown = true; html += `<div class="today">▼ 今日 ${+TODAY.slice(5,7)}/${+TODAY.slice(8)}</div>`; }
+    const sl = r.disc === 'SL';
+    const real = REAL[gender + '-' + r.date];
+    const done = s.done[r.date];
+    let st2 = '', extra = '';
+    if (sl){
+      if (done){
+        const lab = done.status === 'ok' ? `${done.rank}位 <span class="nat3">${done.pts}pt</span>` : done.status === 'nq' ? '2本目進めず' : done.status === 'r1' ? '1本目 DSQ/DNF' : done.status === 'dns' ? '欠場' : '2本目 DSQ/DNF';
+        st2 = `<div class="st">${lab}<br><button class="btn small" type="button" data-race="${i}" data-mode="exh">もう一度</button></div>`;
+      } else if (i === nextIdx) st2 = `<div class="st"><button class="btn small hot" type="button" data-race="${i}">出走</button> <button class="btn small" type="button" data-skip="${i}">欠場</button></div>`;
+      else st2 = `<div class="st"><span class="nat3">未開催</span></div>`;
+    }
+    if (sl && done){
+      const h = s.hist.find(x => x.date === r.date);
+      if (h && h.podium[0]) extra = `優勝 ${nameOf(h.podium[0])}（${natOf(h.podium[0])}）`;
+    }
+    html += `<div class="ev ${sl ? 'sl' : 'dim'} ${i === nextIdx ? 'next' : ''}"><div class="d">${dLabel(r.date)}</div><div class="v"><span class="chip ${r.disc}">${r.disc}</span><b>${JP[r.venue] || r.venue}</b><span class="nat">${r.nat}</span>${r.tbc ? ' <span class="nat">（会場未確定）</span>' : ''}${r.night ? ' <span class="badge night">ナイター</span>' : ''}${r.finals ? ' <span class="badge">ファイナル</span>' : ''}<span class="real">${DISC[r.disc]}${extra ? ' · ゲーム：' + esc(extra) : ''}${real ? ' · 実際の結果：' + real : ''}</span></div>${st2}</div>`;
+  });
+  html += '</div><p class="note">日程は FIS 公表のワールドカップ・カレンダー（2026年11月時点）に基づきます。天候などで変更・中止になることがあります。ゲーム内で一緒に走る選手は架空の選手です。「もう一度」はポイント対象外のエキシビションです。</p>';
+  return html;
+}
+// The crystal-globe race summary: leader, your gap, points still available, clinch
+function raceForHTML(){
+  const st = ranking(), s = season();
+  const me = st.find(e => e.me), lead = st[0], second = st[1];
+  const left = maxLeft(), nLeft = left / 100;
+  const total = seasonSL().length;
+  let status;
+  if (!lead.pts) status = 'シーズン開幕前。全員0ポイントからのスタートです。';
+  else if (nLeft === 0) status = `シーズン終了。回転のクリスタルグローブは <b>${esc(lead.name)}</b>（${lead.pts} pt）${lead.me ? '— あなたの総合優勝です！' : ''}`;
+  else if (lead.pts - second.pts > left) status = `<b>${esc(lead.name)}</b> がクリスタルグローブ獲得を確定（2位との差 ${lead.pts - second.pts} pt ＞ 残り最大 ${left} pt）`;
+  else if (lead.me) status = `あなたが首位！ 2位との差 ${lead.pts - second.pts} pt。`;
+  else if (lead.pts - me.pts > left) status = `首位との差 ${lead.pts - me.pts} pt は残り${nLeft}戦（最大 ${left} pt）では逆転できません。表彰台圏（3位以内）を目指しましょう。`;
+  else status = `首位 ${esc(lead.name)} まで ${lead.pts - me.pts} pt。残り${nLeft}戦で最大 ${left} pt を獲得できます。`;
+  const prev = s.prev ? s.prev.you : null;
+  return `<div class="globe"><div class="g-rank"><span class="g-num">${me.rank}</span><span class="g-unit">位</span>${prev ? arrow(prev, me.rank) : ''}</div><div class="g-txt"><div class="g-head">回転ランキング · ${me.pts} pt · 残り ${nLeft} / ${total} 戦</div><div class="g-status">${status}</div></div></div>`;
+}
+function standingsHTML(){
+  const st = ranking(), s = season();
+  const myIdx = st.findIndex(e => e.me);
+  const lead = st[0];
+  const row = e => `<tr class="${e.me ? 'me' : ''}${e.rank === 25 ? ' cut' : ''}"><td class="n">${e.rank}</td><td>${s.prev ? arrow(s.prev[e.id], e.rank) : ''}</td><td>${esc(e.name)}</td><td class="nat3">${e.nat}</td><td class="r">${e.wins || ''}</td><td class="n">${e.pts}</td><td class="r">${e.rank === 1 ? '' : lead.pts ? '−' + (lead.pts - e.pts) : ''}</td></tr>`;
+  const rows = st.slice(0, 30).map(row);
+  if (myIdx >= 30) rows.push(`<tr><td class="r">…</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>` + row(st[myIdx]));
+  let html = raceForHTML()
+    + `<h3>回転 ワールドカップ・ランキング</h3>` + table(['順位','変動','選手','国','勝','Pt','差'], rows)
+    + `<p class="note">変動は直前のレースからの順位の上下。黄色の線までの上位25名がファイナル（サンバレー）に出場できます。同点のときは勝利数、次に2位の回数…の多い順（0ポイントの選手は世界ランキング順）。</p>`;
+  if (s.hist.length){
+    const hr = s.hist.slice().sort((a, b) => a.date < b.date ? -1 : 1).map(h => `<tr><td class="r">${+h.date.slice(5,7)}/${+h.date.slice(8)}</td><td>${JP[h.venue] || h.venue}</td><td>${h.podium[0] ? esc(nameOf(h.podium[0])) : '—'}</td><td class="n">${h.status === 'dns' ? '欠場' : h.my ? h.my + '位' : h.status === 'nq' ? '進めず' : 'DSQ/DNF'}</td><td class="n">${h.pts || ''}</td></tr>`);
+    html += `<h3>シーズンの成績</h3>` + table(['日付','会場','優勝','あなた','Pt'], hr);
+  }
+  return html + `<p class="note">ライバルの強さ：${LEVEL_NAME[level]}。男子／女子、ライバルの強さごとに別々のキャリアとして記録されます。</p><div class="btns"><button class="btn small" type="button" id="bReset">このキャリアをリセット</button></div>`;
+}
+function taListHTML(){
+  const races = slRaces(gender).filter(r => r.disc === 'SL');
+  const conn = { connecting: '共有ランキングに接続中…', slow: '共有ランキングにまだつながりません。表示が古い可能性があります。', ok: '共有ランキングに接続しています。', off: '共有ランキングはこの表示では使えません。この端末の自己ベストだけを記録します。', error: '共有ランキングとの接続が切れました。' }[TA.status];
+  let html = `<p class="note">ワールドカップ回転の${races.length}会場のコースで、このゲームを遊ぶ人どうしが2本合計の最速タイムを競います。コースはキャリアモードの同じ大会と同じセットです。</p><p class="conn ${TA.status === 'ok' ? 'ok' : ''}">${conn}</p><div class="cal">`;
+  for (const r of races){
+    const key = taKey(gender, r.date);
+    const b = taBoard(key);
+    const mine = b.find(x => x.me);
+    html += `<div class="ev sl"><div class="d">${dLabel(r.date)}</div><div class="v"><b>${JP[r.venue]}</b><span class="nat">${r.nat}</span>${r.night ? ' <span class="badge night">ナイター</span>' : ''}<span class="real">${b[0] ? `レコード ${fmt(b[0].t)} ${esc(b[0].handle)}` : 'レコードなし'}${mine ? ` · あなた ${fmt(mine.t)}（${mine.rank}位 / ${b.length}人）` : ''}</span></div><div class="st"><button class="btn small hot" type="button" data-race="${r.idx}" data-mode="ta">挑戦</button></div></div>`;
+  }
+  return html + '</div><p class="note">ランキングには上の「名前」が表示されます。</p>';
+}
+function rulesHTML(){
+  return `<ul class="howto">
+    ${ctrl === 'outer'
+      ? `<li><b>外足に乗って曲がります</b>（実際のスキーと同じ感覚）。左に曲がるときは右足＝<kbd>→</kbd>/<kbd>D</kbd>、右に曲がるときは左足＝<kbd>←</kbd>/<kbd>A</kbd></li>
+    <li>スマホ・タブレットは画面下の <b>左足／右足</b> ボタン（または画面の左半分／右半分）を押すと、その足に乗って反対側へ曲がります</li>`
+      : `<li><kbd>←</kbd><kbd>→</kbd> または <kbd>A</kbd><kbd>D</kbd> で押した方向へ曲がります。スマホは画面下の ◀ ▶ ボタン（または画面の左右）</li>`}
+    <li><b>左右を同時に押すとストックで漕ぎます</b>（スタート直後や緩斜面で加速。速くなるほど効きが弱まり、約50km/hで効かなくなります）。押し出しの強さは選んだストックで変わります</li>
+    <li><kbd>↓</kbd>/<kbd>S</kbd> またはクローチボタンでクローチング（速いが曲がりにくい）、<kbd>Esc</kbd> で棄権。縦でも横でも遊べます</li>
+    <li>操作方法はメニュー上部の「操作」で「押した方向へ曲がる」にも切り替えられます。レース中も左上の「操作」ボタン（パソコンは <kbd>C</kbd> キー）でいつでも切り替えられます</li>
+    <li>スキーヤーは画面の下側にいて、コースは上から近づいてきます</li>
+  </ul>
+  <h3>2つのモード</h3>
+  <ul class="howto">
+    <li><b>キャリア</b>：ランキング${START_RANK}位の選手としてシーズン開幕。2026/27の実際の日程どおりに回転の全レースを転戦し、ポイントを積み上げて上位を目指します</li>
+    <li><b>タイムアタック</b>：世界の回転コースで、このゲームを遊ぶ人どうしで2本合計タイムを競います</li>
+  </ul>
+  <h3>FIS ワールドカップ回転のルール（ゲームでの扱い）</h3>
+  <ul class="howto">
+    <li><b>2本制</b>：違うセットのコースを2本滑り、合計タイムで順位を決めます</li>
+    <li><b>1本目のスタート順</b>：ランキング上位7名がビブ1〜7を抽選、8〜15位が8〜15を抽選、以降はランキング順（0ポイントの選手はFISポイント順）</li>
+    <li><b>2本目</b>：1本目の上位30名（同タイムは全員）が進出し、<b>30位から逆順</b>にスタート。トップは最後に滑ります</li>
+    <li><b>旗門</b>：赤と青が交互の2本ポールの旗門（幅5 m）。すべての旗門を正しく通過しないと<b>失格（DSQ）</b>。ポールを倒すのは反則ではありません</li>
+    <li><b>コース</b>：高低差は男子180〜220 m・女子150〜195 m、旗門数は高低差の約30〜34 %。ターニングポール間は約9〜12.5 m。ヘアピン（2旗門）とバーティカル（3〜4旗門）を含みます</li>
+    <li><b>計時</b>：1/100秒、端数は切り捨て。同タイムは同順位・同ポイント</li>
+    <li><b>ポイント</b>：1位100、2位80、3位60、4位50、5位45 … 30位1。ファイナルは上位25名だけが出場し、15位までポイント</li>
+  </ul>
+  <p class="note">FIS国際競技規則（ICR）の要点をゲーム向けに簡略化しています。実際は外した旗門へ登り返すこともできますが、ゲームではその場で失格になります。コースの高低差や旗門の配置はゲーム用に作ったもので、実際の各会場のコースとは異なります。</p>`;
+}
+$('#gMen').onclick = () => { gender = 'men'; savePrefs(); showMenu(); };
+$('#gWomen').onclick = () => { gender = 'women'; savePrefs(); showMenu(); };
+$('#level').onchange = e => { level = e.target.value; savePrefs(); renderTab(); };
+$('#ctrl').onchange = e => { ctrl = e.target.value; savePrefs(); applyCtrlLabels(); if (tab === 'rules') renderTab(); };
+applyCtrlLabels();
+$('#pname').oninput = e => { pname = e.target.value.trim().slice(0, 14) || 'あなた'; savePrefs(); };
+$('#pname').onchange = () => renderTab();
+for (const [id, k] of TABS) $('#' + id).onclick = () => showMenu(k);
+$('#bQuit').onclick = abandon;
+$('#bCtrl').onclick = e => { toggleCtrl(); e.currentTarget.blur(); };
+$('#mute').onclick = () => { muted = !muted; $('#mute').textContent = muted ? '音 OFF' : '音 ON'; ac(); updateWind(); };
+
+// =====================================================================
+// HUD bits
+// =====================================================================
+let msgTimer = 0;
+function flash(text, warn){ const m = $('#msg'); m.textContent = text; m.className = 'msg show' + (warn ? '' : ' info'); clearTimeout(msgTimer); msgTimer = setTimeout(() => m.className = 'msg', 1500); }
+const NEAR_FINISH = .82;     // from here on the card shows the live gap to the leader
+function diffColor(d){ if (d == null) return '#FFC93C'; if (d < -.15) return '#1FA855'; if (d < 0) return '#7ED957'; if (d < .15) return '#FFC93C'; if (d < .4) return '#FF8A3D'; return '#D93A3F'; }
+// Vertical course map on the right: start at the bottom, finish at the top, like the skier's direction of travel
+function drawProgress(){
+  if (!race || !(state === 'run' || state === 'countdown' || state === 'gate' || state === 'finished')) return;
+  const card = $('#card').getBoundingClientRect();
+  const x = cw - 32;
+  let floor = card.right > x - 24 ? card.top : ch - 20;
+  const pad = $('#pad');
+  if (getComputedStyle(pad).display !== 'none'){ const pr = pad.querySelector('[data-k="right"]').getBoundingClientRect(); if (pr.right > x - 12) floor = Math.min(floor, pr.top); }
+  const top = 84, bot = floor - 50;
+  if (bot - top < 80) return;
+  const yOf = p => bot - (bot - top) * p;
+  const p = clamp(sk.y / course.finishY, 0, 1);
+  ctx.lineCap = 'round';
+  ctx.strokeStyle = 'rgba(19,35,94,.92)'; ctx.lineWidth = 10;
+  ctx.beginPath(); ctx.moveTo(x, top); ctx.lineTo(x, bot); ctx.stroke();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 6;
+  ctx.beginPath(); ctx.moveTo(x, top); ctx.lineTo(x, bot); ctx.stroke();
+  // passed sections, coloured by the gap to the leader at each gate
+  ctx.lineCap = 'butt'; ctx.lineWidth = 6;
+  let prev = 0, col = race.leader ? '#FFC93C' : '#7FA7FF';
+  const gs = course.gates;
+  for (let i = 0; i < sk.ng && i < gs.length; i++){
+    const gp = clamp(gs[i].y / course.finishY, 0, 1);
+    if (race.leader) col = diffColor(gateDiff[i]);
+    ctx.strokeStyle = col; ctx.beginPath(); ctx.moveTo(x, yOf(prev)); ctx.lineTo(x, yOf(gp)); ctx.stroke();
+    prev = gp;
+  }
+  if (p > prev){ ctx.strokeStyle = col; ctx.beginPath(); ctx.moveTo(x, yOf(prev)); ctx.lineTo(x, yOf(p)); ctx.stroke(); }
+  // checkpoint ticks at a quarter, half and three quarters of the gates
+  ctx.fillStyle = 'rgba(19,35,94,.9)';
+  for (const ci of course.checks){ const cy = yOf(clamp(gs[ci].y / course.finishY, 0, 1)); ctx.fillRect(x - 9, cy - 1, 18, 2); }
+  // start (bottom) and finish (top) badges
+  const badge = (cy, kind) => {
+    ctx.fillStyle = '#13235E'; ctx.beginPath(); ctx.arc(x, cy, 13, 0, 7); ctx.fill();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+    ctx.fillStyle = '#fff';
+    if (kind === 'finish'){ for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) if ((r + c) % 2 === 0) ctx.fillRect(x - 6 + c*4, cy - 6 + r*4, 4, 4); }
+    else { ctx.beginPath(); ctx.moveTo(x, cy - 7); ctx.lineTo(x + 6, cy - 1); ctx.lineTo(x + 3, cy - 1); ctx.lineTo(x + 3, cy + 6); ctx.lineTo(x - 3, cy + 6); ctx.lineTo(x - 3, cy - 1); ctx.lineTo(x - 6, cy - 1); ctx.closePath(); ctx.fill(); }
+  };
+  badge(top - 16, 'finish'); badge(bot + 16, 'start');
+  // current position
+  const my = yOf(p);
+  ctx.fillStyle = '#FF8A1F'; ctx.beginPath(); ctx.arc(x, my, 8, 0, 7); ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+  // gate number tag just behind the marker
+  const gn = String(Math.min(sk.ng, gs.length));
+  ctx.font = "700 11px 'Barlow Condensed', sans-serif"; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#13235E'; ctx.beginPath(); ctx.moveTo(x, my + 11); ctx.lineTo(x + 11, my + 27); ctx.lineTo(x - 11, my + 27); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#fff'; ctx.fillText(gn, x, my + 22);
+  // gap flag beside the marker
+  if (race.leader && lastDiff && !dsq){
+    const near = p >= NEAR_FINISH;
+    const txt = fmtDiff(trunc(Math.abs(lastDiff.d)) * Math.sign(lastDiff.d));
+    ctx.font = `700 ${near ? 22 : 17}px 'Barlow Condensed', sans-serif`;
+    const w = ctx.measureText(txt).width + (near ? 22 : 16), h = near ? 32 : 24;
+    const bx = x - 16 - w, byy = my - h/2;
+    ctx.fillStyle = lastDiff.d <= 0 ? '#1FA855' : '#D93A3F';
+    ctx.fillRect(bx, byy, w, h);
+    ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.fillText(txt, bx + w/2, my + 1);
+    if (near){ ctx.font = "700 12px 'Noto Sans JP', sans-serif"; ctx.fillStyle = '#13235E'; ctx.textAlign = 'right'; ctx.fillText('トップとの差', bx - 6, my + 1); }
+  }
+}
+
+// =====================================================================
+// Rendering — chase camera a little above and behind the skier, looking down the slope (perspective).
+// The skier sits low on screen; gates, poles and trees grow as they come toward the camera.
+// =====================================================================
+let cw = 0, ch = 0, dpr = 1, S = 1;
+function resize(){
+  const r = cv.getBoundingClientRect();
+  dpr = Math.min(2, window.devicePixelRatio || 1);
+  cw = r.width; ch = r.height;
+  cv.width = Math.round(cw*dpr); cv.height = Math.round(ch*dpr);
+  S = Math.min(cw / 330, ch / 380);        // scale at the skier's depth (pixels per 10 cm)
+}
+addEventListener('resize', resize);
+const CAM = { z0: 500, f: 1, H: 1, yH: 0, camZ: 0, zTop: 900, zBot: 300 };
+function setupCamera(baseFrac){
+  const ys = ch * (1 - baseFrac);                   // where the skier's feet are on screen
+  CAM.yH = -0.95 * ch;                              // horizon well above the screen: a gentle, slightly-from-behind tilt
+  const ratio = (0 - CAM.yH) / (ys - CAM.yH);       // size at the top edge relative to the skier
+  CAM.z0 = 440 / (1 / ratio - 1);                   // about 44 m of slope visible ahead of the skier
+  CAM.f = S * CAM.z0;
+  CAM.H = (ys - CAM.yH) / S;
+  CAM.camZ = sk.y - CAM.z0;
+  CAM.zTop = CAM.f / ((0 - CAM.yH) / CAM.H);
+  CAM.zBot = CAM.f / ((ch - CAM.yH) / CAM.H);
+}
+function proj(x, y){
+  const z = y - CAM.camZ;
+  if (z < 15) return null;
+  const k = CAM.f / z;
+  return { X: cw/2 + (x - camX) * k, Y: CAM.yH + CAM.H * k, k };
+}
+const COL = { snow:'#F2F6FA', snow2:'#E8EEF6', off:'#E6EDF6', ink:'#13213A', red:'#D42A2F', blue:'#1F55C8', net:'#F07A1A', track:'rgba(110,135,180,.42)', shadow:'rgba(40,60,110,.18)' };
+
+function quad(x0, x1, ya, yb){
+  const a = proj(x0, ya), b = proj(x1, ya), c = proj(x1, yb), d = proj(x0, yb);
+  if (!a || !b || !c || !d) return false;
+  ctx.beginPath(); ctx.moveTo(a.X, a.Y); ctx.lineTo(b.X, b.Y); ctx.lineTo(c.X, c.Y); ctx.lineTo(d.X, d.Y); ctx.closePath();
+  return true;
+}
+
+function render(){
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const live = state === 'run' || state === 'countdown' || state === 'gate' || state === 'finished';
+  // keep the skier just above the athlete card / touch buttons, whatever the screen shape
+  let baseFrac = Math.min(.36, 110 / ch + .1);
+  if (live){ const cr = $('#card').getBoundingClientRect(); if (cr.height) baseFrac = clamp((ch - cr.top + 30) / ch, .16, .5); }
+  camX += (sk.x * .75 - camX) * .1;
+  setupCamera(baseFrac);
+  const yNear = CAM.camZ + CAM.zBot, yFar = CAM.camZ + CAM.zTop;
+
+  // sky-side haze and off-piste snow
+  ctx.fillStyle = COL.off; ctx.fillRect(0, 0, cw, ch);
+  // piste + groomed corduroy
+  ctx.fillStyle = COL.snow; if (quad(-W/2, W/2, yNear - 5, yFar + 5)) ctx.fill();
+  ctx.fillStyle = COL.snow2;
+  for (let x = -W/2; x < W/2; x += 14){ if (quad(x, x + 6, yNear - 5, yFar + 5)) ctx.fill(); }
+  // speckles
+  const C = 44;
+  ctx.fillStyle = 'rgba(150,170,205,.38)';
+  for (let cy = Math.floor(yNear / C); cy <= Math.floor(yFar / C); cy++){
+    for (let cx = Math.floor((-W/2 - 260) / C); cx <= Math.floor((W/2 + 260) / C); cx++){
+      const h = hash2(cx, cy);
+      const p = proj(cx*C + (h & 63) / 64 * C, cy*C + ((h >>> 6) & 63) / 64 * C);
+      if (p && p.Y > -4 && p.Y < ch + 4 && p.X > -4 && p.X < cw + 4) ctx.fillRect(p.X, p.Y, 1.4*p.k, .9*p.k);
+    }
+  }
+  // ski tracks
+  ctx.strokeStyle = COL.track; ctx.lineCap = 'round';
+  for (const off of [-3.4, 3.4]){
+    ctx.beginPath(); let started = false, lw = 1;
+    for (const tp of trail){
+      if (tp.y < yNear - 10 || tp.y > yFar){ started = false; continue; }
+      const p = proj(tp.x + Math.cos(tp.th)*off, tp.y - Math.sin(tp.th)*off);
+      if (!p){ started = false; continue; }
+      if (!started){ ctx.moveTo(p.X, p.Y); started = true; } else ctx.lineTo(p.X, p.Y);
+      lw = Math.max(lw, 1.2*p.k);
+    }
+    ctx.lineWidth = lw; ctx.stroke();
+  }
+  // start line and finish checks painted on the snow
+  ctx.fillStyle = COL.red; if (quad(-W/2, W/2, -1.5, 1.5)) ctx.fill();
+  const fy = course.finishY, sq = 10;
+  if (fy > yNear - 20 && fy < yFar + 20){
+    for (let x = -W/2, kx = 0; x < W/2; x += sq, kx++) for (let r = 0; r < 2; r++){
+      ctx.fillStyle = (kx + r) % 2 ? COL.ink : '#fff';
+      if (quad(x, x + sq, fy - sq/2 + r*sq/2, fy + r*sq/2)) ctx.fill();
+    }
+  }
+  drawNets(yNear, yFar);
+
+  // everything that stands up off the snow, painted far to near
+  const sprites = [];
+  const gs = course.gates;
+  for (const g of gs) if (g.y > yNear - 30 && g.y < yFar + 40) sprites.push({ y: g.y, d: () => drawGate(g) });
+  const label = race && race.ev ? race.ev.venue.toUpperCase() : 'SLALOM';
+  if (22 > yNear - 30 && 22 < yFar + 40) sprites.push({ y: 22, d: () => banner(22, label + ' · RUN ' + (race ? race.run : 1), COL.blue, COL.red) });
+  if (fy + 2 > yNear - 30 && fy < yFar + 40) sprites.push({ y: fy + 2, d: () => banner(fy + 2, 'FINISH', COL.red, COL.blue) });
+  if (-76 > yNear - 60) sprites.push({ y: -76, d: drawStartHut });
+  collectTrees(yNear, yFar, sprites);
+  sprites.push({ y: sk.y, d: () => { drawSkier(); drawParts(); } });
+  sprites.sort((a, b) => b.y - a.y);
+  for (const s of sprites) s.d();
+
+  const wxNow = race && race.wx && state !== 'demo' && !$('#tv').hidden ? race.wx[race.run - 1] : null;
+  if (wxNow && wxNow.cond !== 'sun'){ ctx.fillStyle = wxNow.cond === 'snow' ? 'rgba(232,238,246,.16)' : 'rgba(196,205,220,.10)'; ctx.fillRect(0, 0, cw, ch); }
+  // depth haze toward the top of the screen
+  const hz = ctx.createLinearGradient(0, 0, 0, ch * (wxNow && wxNow.cond === 'snow' ? .6 : .45));
+  hz.addColorStop(0, `rgba(226,236,248,${Math.min(.92, .55*(sk.mod ? sk.mod.haze : 1))})`); hz.addColorStop(1, 'rgba(226,236,248,0)');
+  ctx.fillStyle = hz; ctx.fillRect(0, 0, cw, ch * .6);
+
+  if (race && race.ev && race.ev.night && state !== 'demo'){
+    const sp = proj(sk.x, sk.y);
+    const cx = sp ? sp.X : cw/2, cy = sp ? sp.Y - 140 : ch/2;
+    const g = ctx.createRadialGradient(cx, cy, 80, cx, cy, Math.max(cw, ch) * .85);
+    g.addColorStop(0, 'rgba(10,20,50,0)'); g.addColorStop(1, `rgba(10,20,50,${.5*(sk.mod ? sk.mod.night : 1)})`);
+    ctx.fillStyle = g; ctx.fillRect(0, 0, cw, ch);
+  }
+  if (wxNow && wxNow.cond === 'snow') drawSnowfall();
+  drawProgress();
+  const cd = $('#cd');
+  if (state === 'countdown'){ cd.className = 'cd'; cd.textContent = 'READY'; }
+  else if (state === 'gate'){
+    cd.className = 'cd go' + (gateT <= 3 ? ' hurry' : '');
+    const hint = document.body.classList.contains('touch') ? '左足＋右足を同時に押してスタート' : '← と → を同時に押してスタート';
+    cd.innerHTML = `GO<small>${hint}</small><em>${Math.max(0, gateT).toFixed(1)}</em>`;
+  }
+  else if (goT > 0){ cd.className = 'cd go'; cd.textContent = 'GO'; }
+  else if (!dsq) cd.textContent = '';
+}
+function drawNets(yNear, yFar){
+  const top = Math.min(yFar, course.finishY + 600), bot = Math.max(yNear, -260);
+  if (top < bot) return;
+  for (const s of [-1, 1]){
+    const a = proj(s*W/2, bot), b = proj(s*W/2, top);
+    if (!a || !b) continue;
+    // the netting: a low orange fence leaning toward the camera
+    ctx.fillStyle = 'rgba(240,122,26,.55)';
+    ctx.beginPath(); ctx.moveTo(a.X, a.Y); ctx.lineTo(b.X, b.Y); ctx.lineTo(b.X, b.Y - 9*b.k); ctx.lineTo(a.X, a.Y - 9*a.k); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = COL.net; ctx.lineWidth = Math.max(1, 1.4*a.k);
+    ctx.beginPath(); ctx.moveTo(a.X, a.Y - 9*a.k); ctx.lineTo(b.X, b.Y - 9*b.k); ctx.stroke();
+    ctx.fillStyle = COL.ink;
+    for (let y = Math.ceil(bot/36)*36; y < top; y += 36){ const p = proj(s*W/2, y); if (p) ctx.fillRect(p.X - .6*p.k, p.Y - 10*p.k, 1.2*p.k, 10*p.k); }
+  }
+}
+function banner(y, text, colA, colB){
+  const L = proj(-W/2 + 20, y), R = proj(W/2 - 20, y);
+  if (!L || !R) return;
+  const k = L.k, h = 46*k;
+  ctx.fillStyle = COL.shadow; ctx.fillRect(L.X, L.Y, R.X - L.X, 4*k);
+  ctx.fillStyle = COL.ink; ctx.fillRect(L.X - 2*k, L.Y - h, 4*k, h); ctx.fillRect(R.X - 2*k, R.Y - h, 4*k, h);
+  ctx.fillStyle = colA; ctx.fillRect(L.X, L.Y - h, R.X - L.X, 14*k);
+  ctx.fillStyle = '#fff'; ctx.font = `italic 800 ${11*k}px 'Barlow Condensed', sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(text, (L.X + R.X)/2, L.Y - h + 7.5*k);
+  if (colB){ ctx.fillStyle = colB; ctx.fillRect(L.X, L.Y - h + 14*k, R.X - L.X, 2.5*k); }
+}
+function drawStartHut(){
+  const p = proj(0, -76); if (!p) return;
+  const k = p.k, w = 70*k, h = 40*k;
+  ctx.fillStyle = COL.shadow; ctx.fillRect(p.X - w/2 + 6*k, p.Y - 2*k, w, 6*k);
+  ctx.fillStyle = '#2B3B5C'; ctx.fillRect(p.X - w/2, p.Y - h, w, h);
+  ctx.fillStyle = '#3B4E78'; ctx.fillRect(p.X - w/2, p.Y - h - 6*k, w, 6*k);
+  ctx.fillStyle = '#fff'; ctx.font = `italic 800 ${12*k}px 'Barlow Condensed', sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('START', p.X, p.Y - h*.6);
+}
+function drawGate(g){
+  const c = g.col === 'red' ? COL.red : COL.blue;
+  if (g.tag){
+    const right = g.x < 0;
+    const p = proj(g.x + (right ? GH + 14 : -GH - 14), g.y);
+    if (p){
+      ctx.fillStyle = 'rgba(19,33,58,.6)'; ctx.font = `700 ${Math.max(9, 9*p.k)}px 'Noto Sans JP', sans-serif`; ctx.textBaseline = 'middle';
+      ctx.textAlign = right ? 'left' : 'right'; ctx.fillText(g.tag, p.X, p.Y - 4*p.k);
+    }
+  }
+  for (let i = 0; i < 2; i++){
+    const p = proj(g.x + (i ? GH : -GH), g.y); if (!p) continue;
+    const k = p.k, b = clamp(g.bend[i], -1.05, 1.05), h = 26*k;
+    const tx = p.X + b*h*.85, ty = p.Y - h*(1 - Math.min(.55, Math.abs(b)*.35));
+    ctx.strokeStyle = COL.shadow; ctx.lineWidth = 2.4*k; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(p.X, p.Y); ctx.lineTo(p.X + 13*k + b*h*.4, p.Y + 2.5*k); ctx.stroke();
+    ctx.strokeStyle = c; ctx.lineWidth = Math.max(1.3, 2.8*k);
+    ctx.beginPath(); ctx.moveTo(p.X, p.Y); ctx.lineTo(tx, ty); ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = Math.max(.6, .9*k);
+    ctx.beginPath(); ctx.moveTo(p.X - .7*k, p.Y - 2*k); ctx.lineTo(tx - .7*k, ty + 1); ctx.stroke();
+    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(tx, ty, 1.3*k, 0, 7); ctx.fill();
+  }
+  if (g.res === -1){
+    const p = proj(g.x, g.y); if (!p) return;
+    const r = 6*p.k;
+    ctx.strokeStyle = COL.red; ctx.lineWidth = 2*p.k;
+    ctx.beginPath(); ctx.moveTo(p.X - r, p.Y - r*.4); ctx.lineTo(p.X + r, p.Y + r*.4); ctx.moveTo(p.X + r, p.Y - r*.4); ctx.lineTo(p.X - r, p.Y + r*.4); ctx.stroke();
+  }
+}
+function drawParts(){
+  for (const pt of parts){
+    const p = proj(pt.x, pt.y); if (!p) continue;
+    const a = clamp(pt.life/pt.max, 0, 1), lift = (1 - a) * 10 * p.k;
+    ctx.fillStyle = `rgba(255,255,255,${a})`; ctx.beginPath(); ctx.arc(p.X, p.Y - lift, pt.r*p.k, 0, 7); ctx.fill();
+    ctx.strokeStyle = `rgba(150,175,215,${a*.5})`; ctx.lineWidth = .6; ctx.stroke();
+  }
+}
+// The racer seen from behind: skis on the snow in perspective, body angulated into the turn
+function drawSkier(){
+  const p = proj(sk.x, sk.y); if (!p) return;
+  const u = p.k * 1.75;                        // drawn larger than life so the racer reads clearly
+  const dx = Math.sin(sk.th), dy = Math.cos(sk.th), px = Math.cos(sk.th), py = -Math.sin(sk.th);
+  const L = clamp(sk.lean, -1, 1), a = Math.abs(L), s = L >= 0 ? 1 : -1;   // s = inside of the turn (screen side)
+  const tuck = sk.tuck;
+  const look = { suit: NAT[myNat].suit, trim: NAT[myNat].trim, ski: gearItem('ski', myGear.ski), helm: gearItem('helm', myGear.helm), gog: gearItem('gog', myGear.gog), pole: gearItem('pole', myGear.pole) };
+  // shadow
+  ctx.fillStyle = COL.shadow; ctx.beginPath(); ctx.ellipse(p.X + (5 + s*a*3)*u, p.Y + 1*u, 10*u, 2.8*u, 0, 0, 7); ctx.fill();
+  // skis on edge, pushed out from under the body (in world space so they foreshorten)
+  for (const o of [-3, 3]){
+    const off = o - s*a*1.6;                   // feet drift to the outside while the hips drop inside
+    const lead = o * s > 0 ? 1.6*a : 0;         // inside ski a little ahead
+    const bx = sk.x + px*off, by = sk.y + py*off;
+    const t = proj(bx - dx*(7 - lead), by - dy*(7 - lead)), h = proj(bx + dx*(12 + lead), by + dy*(12 + lead));
+    if (!t || !h) continue;
+    ctx.strokeStyle = ['#F4F1E8', '#C9D2DE', '#F5F5F5'].includes(look.ski.c1) ? shade(look.ski.c1, .8) : look.ski.c1; ctx.lineCap = 'round'; ctx.lineWidth = Math.max(1.5, 1.9*u*(1 - a*.35));
+    ctx.beginPath(); ctx.moveTo(t.X, t.Y); ctx.lineTo(h.X, h.Y); ctx.stroke();
+    ctx.strokeStyle = look.ski.c2; ctx.lineWidth = Math.max(1, 1.2*u);
+    ctx.beginPath(); ctx.moveTo(t.X, t.Y); ctx.lineTo(t.X + (h.X - t.X)*.12, t.Y + (h.Y - t.Y)*.12); ctx.stroke();
+  }
+  ctx.save();
+  ctx.translate(p.X, p.Y);
+  ctx.rotate(sk.th * .08);
+  ctx.scale(u, u);
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+
+  // --- skeleton (y up is negative). Angulation: knees and hips into the turn, upper body stays over the outside ski
+  const footO = { x: -s*2.6 - s*a*1.6, y: 0 }, footI = { x: s*2.6 - s*a*1.6, y: 0 };
+  const pushing = sk.pushT > 0 && !tuck;
+  const pp = pushing ? 1 - sk.pushT / PUSH_DUR : 0;
+  const reach = pushing ? (pp < .35 ? pp / .35 : 1 - (pp - .35) / .65) : 0;     // 0 = arms pushed back, 1 = reaching forward
+  const hip = { x: s*a*(tuck ? 2.6 : 4.2), y: (tuck ? -6 : -8.6) + a*1.8 + (pushing ? (1 - reach) * 1.4 : 0) };
+  const kneeO = { x: (footO.x + hip.x)/2 + s*a*.6, y: (footO.y + hip.y)/2 - .2 };                 // outside leg long and almost straight
+  const kneeI = { x: (footI.x + hip.x)/2 + s*a*2.4, y: (footI.y + hip.y)/2 + a*.9 };              // inside leg folded, knee driven in
+  const torsoLen = tuck ? 3.8 : 6.2;
+  let ang = -s*a*.32;                                                                              // torso leans back toward the outside: the "<" shape
+  // cross-block: the outside hand punches across the body to clear the pole
+  const bl = sk.block, bp = bl ? clamp(bl.t / bl.dur, 0, 1) : 0, be = bl ? Math.sin(Math.PI * bp) : 0, bs = bl ? bl.side : 0;
+  ang += bs * be * .12;
+  const sh = { x: hip.x + Math.sin(ang)*torsoLen, y: hip.y - Math.cos(ang)*torsoLen };
+  const head = { x: sh.x + Math.sin(ang)*2.6, y: sh.y - Math.cos(ang)*2.6 - (tuck ? .2 : 0) };
+  const shW = 3.1, perpX = Math.cos(ang), perpY = Math.sin(ang);
+  const shO = { x: sh.x - s*shW*perpX, y: sh.y - s*shW*perpY + a*.4 }, shI = { x: sh.x + s*shW*perpX, y: sh.y + s*shW*perpY - a*.2 };
+  // hands: in front and wide; the inside hand leads, ready to plant
+  let handI = tuck ? { x: sh.x + s*2.4, y: sh.y + 3.2 } : { x: shI.x + s*(2.6 - a*.6), y: shI.y + 4.4 - a*1.2 };
+  let handO = tuck ? { x: sh.x - s*2.4, y: sh.y + 3.2 } : { x: shO.x - s*(2.6 + a*.8), y: shO.y + 4.6 + a*.4 };
+  if (pushing){
+    const hy = hip.y + 1.8 + (sh.y + .4 - hip.y - 1.8) * reach;
+    handI = { x: sh.x + s*(3.6 + (1 - reach)*1.4), y: hy };
+    handO = { x: sh.x - s*(3.6 + (1 - reach)*1.4), y: hy };
+  }
+  let blockO = false;
+  if (bl && !pushing){
+    const cross = bl.mode === 'cross';
+    // cross-block: the far hand punches across the chest; brush: the near hand sweeps out and slightly up
+    const target = cross ? { x: sh.x + bs*(5.6 + 3*be), y: sh.y + .4 - be*1.6 } : { x: sh.x + bs*(6.4 + 3.4*be), y: sh.y + 2.6 - be*1.2 };
+    blockO = cross ? bs === s : bs !== s;      // handO sits on side -s, handI on side s
+    if (blockO) handO = { x: handO.x + (target.x - handO.x)*be, y: handO.y + (target.y - handO.y)*be };
+    else handI = { x: handI.x + (target.x - handI.x)*be, y: handI.y + (target.y - handI.y)*be };
+  }
+  const elbow = (shp, hd, out) => ({ x: (shp.x + hd.x)/2 + out*1.2, y: (shp.y + hd.y)/2 + .9 });
+
+  // poles (behind the body)
+  ctx.strokeStyle = look.pole.c1 === '#F2F2F2' ? '#AEB6C4' : look.pole.c1; ctx.lineWidth = .55;
+  ctx.beginPath();
+  if (tuck){ ctx.moveTo(handI.x, handI.y); ctx.lineTo(handI.x + s*3, handI.y - 6); ctx.moveTo(handO.x, handO.y); ctx.lineTo(handO.x - s*3, handO.y - 6); }
+  else if (pushing){
+    // tips planted beside the boots, then pushed back behind them (toward the camera)
+    const ty = reach > .5 ? -1.4 : 2.6 - reach * 3, tx = 1 + (1 - reach) * 1.2;
+    ctx.moveTo(handI.x, handI.y); ctx.lineTo(handI.x + s*tx, ty);
+    ctx.moveTo(handO.x, handO.y); ctx.lineTo(handO.x - s*tx, ty);
+  }
+  else {
+    ctx.moveTo(handI.x, handI.y); ctx.lineTo(handI.x + s*(1.6 + a), .4);              // inside pole swinging toward the plant
+    ctx.moveTo(handO.x, handO.y); ctx.lineTo(handO.x - s*2.4, .8);
+  }
+  ctx.stroke();
+  // legs: outside first (it is further from the camera's side of the turn), then the folded inside leg
+  const leg = (f, k, col) => { ctx.strokeStyle = col; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(f.x, f.y - .6); ctx.lineTo(k.x, k.y); ctx.lineTo(hip.x + (f === footO ? -s : s)*1.4, hip.y); ctx.stroke(); };
+  leg(footO, kneeO, shade(look.suit, .82));
+  leg(footI, kneeI, shade(look.suit, .7));
+  // boots
+  ctx.fillStyle = '#E8ECF2';
+  for (const f of [footO, footI]){ ctx.save(); ctx.translate(f.x, f.y); ctx.rotate(-s*a*.35); ctx.fillRect(-1.3, -2.3, 2.6, 2.3); ctx.restore(); }
+  // torso in its own leaning frame, with the race bib on the back
+  ctx.save();
+  ctx.translate(hip.x, hip.y); ctx.rotate(ang);
+  ctx.fillStyle = look.suit;
+  if (tuck){ ctx.beginPath(); ctx.ellipse(0, -torsoLen/2, 3.9, 3.4, 0, 0, 7); ctx.fill(); }
+  else {
+    ctx.beginPath(); ctx.moveTo(-2.5, .4); ctx.lineTo(2.5, .4); ctx.lineTo(3.2, -torsoLen + .6); ctx.quadraticCurveTo(0, -torsoLen - .9, -3.2, -torsoLen + .6); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = look.trim; ctx.fillRect(-3.05, -torsoLen + 1, .75, torsoLen - 1.2); ctx.fillRect(2.3, -torsoLen + 1, .75, torsoLen - 1.2);
+  }
+  const bibH = tuck ? 3.2 : 4.3;
+  ctx.fillStyle = '#fff'; rrect(-2.2, -torsoLen + .9, 4.4, bibH, .5); ctx.fill();
+  ctx.fillStyle = COL.red; ctx.fillRect(-2.2, -torsoLen + .9, 4.4, .75);
+  const bibTxt = race && race.mode !== 'ta' && race.bib ? String(race.bib.get('you')) : '';
+  if (bibTxt){ ctx.fillStyle = COL.ink; ctx.font = "800 2.5px 'Barlow Condensed', sans-serif"; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(bibTxt, 0, -torsoLen + .9 + bibH*.6); }
+  ctx.restore();
+  // arms
+  ctx.strokeStyle = look.suit; ctx.lineWidth = 1.7;
+  const eI = elbow(shI, handI, s), eO = elbow(shO, handO, -s);
+  ctx.beginPath(); ctx.moveTo(shO.x, shO.y); ctx.lineTo(eO.x, eO.y); ctx.lineTo(handO.x, handO.y); ctx.moveTo(shI.x, shI.y); ctx.lineTo(eI.x, eI.y); ctx.lineTo(handI.x, handI.y); ctx.stroke();
+  ctx.fillStyle = '#F2F4F8'; ctx.beginPath(); ctx.arc(handO.x, handO.y, .95, 0, 7); ctx.arc(handI.x, handI.y, .95, 0, 7); ctx.fill();
+  // slalom pole guard on the blocking hand
+  if (bl && be > .15){
+    const hd = blockO ? handO : handI;
+    ctx.fillStyle = look.pole.c2; ctx.beginPath(); ctx.ellipse(hd.x + bs*.9, hd.y - .6, 1.2, 2.1, bs*.5, 0, 7); ctx.fill();
+  }
+  // helmet from behind
+  ctx.fillStyle = look.helm.c1; ctx.beginPath(); ctx.arc(head.x, head.y, 2.5, 0, 7); ctx.fill();
+  ctx.save(); ctx.translate(head.x, head.y); ctx.rotate(ang);
+  ctx.fillStyle = look.helm.c2; ctx.fillRect(-.45, -2.4, .9, 4.8);
+  ctx.fillStyle = 'rgba(255,255,255,.35)'; ctx.beginPath(); ctx.arc(-.8, -.9, .9, 0, 7); ctx.fill();
+  ctx.strokeStyle = look.gog.c2; ctx.lineWidth = .7; ctx.beginPath(); ctx.moveTo(-2.4, .4); ctx.lineTo(2.4, .4); ctx.stroke();   // goggle strap
+  ctx.restore();
+  ctx.restore();
+}
+function rrect(x, y, w, h, r){ ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
+// Conifers along the piste, seen at an angle
+function collectTrees(yNear, yFar, out){
+  const C = 120;
+  for (let c = Math.floor(yNear/C) - 1; c <= Math.floor(yFar/C) + 1; c++){
+    const r = rng(hash2(c, 77));
+    for (let i = 0; i < 7; i++){
+      const side = i % 2 ? 1 : -1;
+      const x = side*(W/2 + 34 + r()*420), y = c*C + r()*C, s = 9 + r()*13;
+      const sn = [r(), r(), r(), r()];
+      if (y < yNear - 40 || y > yFar + 40) continue;
+      out.push({ y, d: () => drawTree(x, y, s, sn) });
+    }
+  }
+}
+function drawTree(x, y, s, sn){
+  const p = proj(x, y); if (!p) return;
+  const k = p.k, X = p.X, Y = p.Y;
+  if (X < -80*k || X > cw + 80*k) return;
+  const w = s*1.1*k, h = s*3.4*k;
+  ctx.fillStyle = COL.shadow; ctx.beginPath(); ctx.ellipse(X + w*.9, Y + 1*k, w*1.3, w*.35, 0, 0, 7); ctx.fill();
+  ctx.fillStyle = '#4A3A2C'; ctx.fillRect(X - .9*k, Y - 3*k, 1.8*k, 3*k);
+  const layers = [['#1E4A3A', 1, 0], ['#245640', .78, .3], ['#2C6650', .55, .58]];
+  for (const [col, wf, lift] of layers){
+    const base = Y - 2*k - h*lift*.75, top = base - h*(.55 + (1 - wf)*.2);
+    ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(X - w*wf, base); ctx.lineTo(X + w*wf, base); ctx.lineTo(X, top); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,.8)'; ctx.beginPath(); ctx.moveTo(X - w*wf*.85, base - .5*k); ctx.lineTo(X - w*wf*.35, base - .5*k); ctx.lineTo(X - w*wf*.5, base - 2.2*k*(1 + sn[0])); ctx.closePath(); ctx.fill();
+  }
+}
+
+// =====================================================================
+// Loop
+// =====================================================================
+function hud(){
+  if (state === 'run' || state === 'finished' || state === 'countdown' || state === 'gate'){
+    $('#hSpeed').textContent = Math.round(sk.v*.36);
+    if (state !== 'finished'){
+      const run1 = race && race.run === 2 ? (race.run1Me || 0) : 0;      // run 2 shows the running combined time, like TV
+      const tt = Math.floor((run1 + t) * 10 + 1e-6) / 10;
+      const m = Math.floor(tt / 60), s = tt - m*60;
+      $('#cTime').textContent = m + ':' + (s < 10 ? '0' : '') + s.toFixed(1);
+      // near the finish the card adds the live gap to the leader
+      const d = $('#cDiff');
+      if (race && race.leader && lastDiff && sk.y / course.finishY >= NEAR_FINISH && !dsq){
+        const v = trunc(Math.abs(lastDiff.d)) * Math.sign(lastDiff.d);
+        d.hidden = false; d.textContent = fmtDiff(v); d.className = 'c-diff ' + (v <= 0 ? 'good' : 'bad');
+      } else if (state === 'run' || state === 'countdown' || state === 'gate') d.hidden = true;
+    }
+    const card = $('#card').getBoundingClientRect(), vs = $('#vs');
+    vs.style.top = (card.top - 24) + 'px';
+  }
+}
+let last = performance.now(), acc = 0;
+function frame(now){
+  const dt = Math.min(.05, (now - last) / 1000); last = now;
+  acc += dt;
+  while (acc >= STEP){ step(STEP); acc -= STEP; }
+  if (state === 'finished'){ finT -= dt; if (finT <= 0){ state = 'sheet'; afterFinish(); } }
+  hud(); render(); if (actx) updateWind();
+  requestAnimationFrame(frame);
+}
+document.addEventListener('visibilitychange', () => { last = performance.now(); keys.left = keys.right = keys.down = false; });
+
+resize();
+// =====================================================================
+// Password gate (a light lock: only a salted SHA-256 of the password is stored in the page)
+// =====================================================================
+const GATE_HASH = 'dcb834606f3fd93642a27092fc6c17946b834f5e4f1ab18eff77174e51867dd8';
+function sha256hex(str){
+  const K = [0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2];
+  const bytes = new TextEncoder().encode(str);
+  const len = bytes.length, bitLen = len * 8;
+  const n = ((len + 9 + 63) >> 6) << 6;
+  const m = new Uint8Array(n); m.set(bytes); m[len] = 0x80;
+  const dv = new DataView(m.buffer);
+  dv.setUint32(n - 4, bitLen >>> 0); dv.setUint32(n - 8, Math.floor(bitLen / 4294967296));
+  let h = [0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19];
+  const w = new Uint32Array(64);
+  const rotr = (x, k) => (x >>> k) | (x << (32 - k));
+  for (let off = 0; off < n; off += 64){
+    for (let i = 0; i < 16; i++) w[i] = dv.getUint32(off + i*4);
+    for (let i = 16; i < 64; i++){
+      const s0 = rotr(w[i-15], 7) ^ rotr(w[i-15], 18) ^ (w[i-15] >>> 3);
+      const s1 = rotr(w[i-2], 17) ^ rotr(w[i-2], 19) ^ (w[i-2] >>> 10);
+      w[i] = (w[i-16] + s0 + w[i-7] + s1) >>> 0;
+    }
+    let [a, b, c, d, e, f, g, hh] = h;
+    for (let i = 0; i < 64; i++){
+      const S1 = rotr(e, 6) ^ rotr(e, 11) ^ rotr(e, 25), ch = (e & f) ^ (~e & g);
+      const t1 = (hh + S1 + ch + K[i] + w[i]) >>> 0;
+      const S0 = rotr(a, 2) ^ rotr(a, 13) ^ rotr(a, 22), mj = (a & b) ^ (a & c) ^ (b & c);
+      const t2 = (S0 + mj) >>> 0;
+      hh = g; g = f; f = e; e = (d + t1) >>> 0; d = c; c = b; b = a; a = (t1 + t2) >>> 0;
+    }
+    h = h.map((v, i) => (v + [a, b, c, d, e, f, g, hh][i]) >>> 0);
+  }
+  return h.map(v => v.toString(16).padStart(8, '0')).join('');
+}
+function gateOpen(){ try { return localStorage.getItem('slalomwc-gate') === GATE_HASH; } catch(e){ return false; } }
+function bootGame(){ if (setupDone) showMenu('cal'); else showSetup(); }
+function showLock(){
+  $('#menu').hidden = true; $('#sheet').hidden = true; $('#lock').hidden = false;
+  setTimeout(() => { try { $('#lockPw').focus(); } catch(_){} }, 50);
+  $('#lockForm').onsubmit = e => {
+    e.preventDefault();
+    const ok = sha256hex('slalom-gate|' + $('#lockPw').value) === GATE_HASH;
+    if (!ok){ $('#lockErr').hidden = false; $('#lockPw').select(); return; }
+    try { localStorage.setItem('slalomwc-gate', GATE_HASH); } catch(_){}
+    $('#lock').hidden = true; $('#lockPw').value = '';
+    bootGame();
+  };
+}
+startDemo();
+if (gateOpen()) bootGame(); else showLock();
+initTA();
+requestAnimationFrame(frame);
+})();
+</script>
+
+</body>
+</html>
