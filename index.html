@@ -198,6 +198,8 @@ tr.cut td{border-bottom:2px solid var(--amber)}
 .lock{z-index:5;width:min(420px,calc(100% - 24px))}
 .lock input[type=password]{width:100%;font-size:18px;padding:10px 12px}
 .lock-err{margin:0;color:var(--bad);font-size:13px;font-weight:700}
+.acct{display:flex;flex-direction:column;gap:6px;background:var(--board-2);border-left:4px solid var(--good);border-radius:4px;padding:10px 12px}
+.acct input{flex:1 1 140px}
 .conn{font-size:12px;color:var(--muted)}
 .conn.ok{color:var(--good)}
 
@@ -554,7 +556,87 @@ function esc(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&l
 const WD = ['日','月','火','水','木','金','土'];
 function dLabel(iso){ const d = new Date(iso + 'T12:00:00'); return `${d.getMonth()+1}/${d.getDate()}<small>${WD[d.getDay()]}</small>`; }
 function load(key){ try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : null; } catch(e){ return null; } }
-function save(key, v){ try { localStorage.setItem(key, JSON.stringify(v)); return true; } catch(e){ return false; } }
+function save(key, v){ try { localStorage.setItem(key, JSON.stringify(v)); cloudQueue(key, v); return true; } catch(e){ return false; } }
+
+// =====================================================================
+// Player accounts (only on the public web copy): name + PIN, records kept in the owner's Google Sheet via Apps Script.
+// CLOUD_URL is filled in by build_site.py; it stays empty in the claude.ai version.
+// =====================================================================
+const CLOUD_URL = 'https://script.google.com/macros/s/AKfycbw2YVS3hMxoQkzWI0EqKGVJbpXCJY2G_4hwhTWYIShozKaI7fmA9p1UaB1jl5d-GKKSIg/exec';
+const CLOUD = { url: CLOUD_URL, name: null, token: null, queue: {}, timer: 0, status: '' };
+try { const c = JSON.parse(localStorage.getItem('slalomwc-account') || 'null'); if (c && c.token){ CLOUD.name = c.name; CLOUD.token = c.token; } } catch(e){}
+const CLOUD_SKIP = ['slalomwc-account', 'slalomwc-gate'];
+async function cloudCall(body){
+  const r = await fetch(CLOUD.url, { method: 'POST', body: JSON.stringify(body), headers: { 'Content-Type': 'text/plain;charset=utf-8' } });
+  return r.json();
+}
+function cloudQueue(key, v){
+  if (!CLOUD.url || !CLOUD.token || CLOUD_SKIP.includes(key) || !/^slalomwc-/.test(key)) return;
+  CLOUD.queue[key] = JSON.stringify(v);
+  clearTimeout(CLOUD.timer); CLOUD.timer = setTimeout(cloudFlush, 1500);
+}
+async function cloudFlush(){
+  const items = CLOUD.queue; CLOUD.queue = {};
+  if (!Object.keys(items).length) return;
+  try { const r = await cloudCall({ action: 'save', token: CLOUD.token, items }); CLOUD.status = r.ok ? 'saved' : 'error'; if (r.error === 'auth') cloudLogout(true); }
+  catch(e){ CLOUD.status = 'offline'; Object.assign(CLOUD.queue, items); clearTimeout(CLOUD.timer); CLOUD.timer = setTimeout(cloudFlush, 20000); }
+}
+function localSaves(){
+  const out = {};
+  try { for (let i = 0; i < localStorage.length; i++){ const k = localStorage.key(i); if (/^slalomwc-/.test(k) && !CLOUD_SKIP.includes(k)) out[k] = localStorage.getItem(k); } } catch(e){}
+  return out;
+}
+function cloudSetAccount(name, token){
+  CLOUD.name = name; CLOUD.token = token;
+  try { localStorage.setItem('slalomwc-account', JSON.stringify({ name, token })); } catch(e){}
+}
+function cloudLogout(silent){
+  CLOUD.name = null; CLOUD.token = null;
+  try { localStorage.removeItem('slalomwc-account'); } catch(e){}
+  if (!silent) location.reload();
+}
+const CLOUD_ERR = { name: '名前は2文字以上にしてください。', pin: '暗証番号は4〜8桁の数字です（ログインのときは、登録した番号と違います）。', taken: 'その名前はもう使われています。別の名前にするか、ログインしてください。', nouser: 'その名前は登録されていません。', locked: '番号を何度も間違えたため、このアカウントはロックされています。', auth: 'もう一度ログインしてください。' };
+async function cloudAuth(kind, name, pin){
+  const r = await cloudCall({ action: kind, name, pin });
+  if (!r.ok) throw new Error(CLOUD_ERR[r.error] || '通信に失敗しました。時間をおいて試してください。');
+  if (kind === 'register'){
+    cloudSetAccount(r.name, r.token);
+    // carry this device's progress into the new account
+    await cloudCall({ action: 'save', token: r.token, items: localSaves() });
+    return 'registered';
+  }
+  // login: replace this device's records with the account's records, then restart
+  const d = await cloudCall({ action: 'load', token: r.token });
+  cloudSetAccount(r.name, r.token);
+  if (d.ok){ for (const [k, v] of Object.entries(d.data || {})) { try { localStorage.setItem(k, v); } catch(e){} } }
+  try { const pf = JSON.parse(localStorage.getItem('slalomwc-prefs') || '{}'); pf.pname = r.name; pf.setupDone = true; localStorage.setItem('slalomwc-prefs', JSON.stringify(pf)); } catch(e){}
+  return 'loggedin';
+}
+function accountHTML(){
+  if (!CLOUD.url) return '';
+  if (CLOUD.token) return `<div class="acct"><b>ログイン中：${esc(CLOUD.name)}</b><span class="note">キャリア・用具・タイムアタックの記録は自動でクラウドに保存されます。別のスマホでも同じ名前と暗証番号で続きから遊べます。</span><div class="btns"><button class="btn small" type="button" id="acOut">ログアウト</button></div></div>`;
+  return `<div class="acct"><b>ユーザー登録（無料）</b><span class="note">名前と4〜8桁の暗証番号だけで登録できます。登録すると記録がクラウドに残り、タイムアタックの共有ランキングにも載ります。</span>
+    <div class="g-who"><input type="text" id="acName" maxlength="14" placeholder="名前（2〜14文字）" autocomplete="username" value="${esc(pname === 'あなた' ? '' : pname)}"><input type="password" id="acPin" inputmode="numeric" maxlength="8" placeholder="暗証番号（数字4〜8桁）" autocomplete="current-password"></div>
+    <p class="lock-err" id="acErr" hidden></p>
+    <div class="btns"><button class="btn small hot" type="button" id="acReg">新規登録</button><button class="btn small" type="button" id="acIn">ログイン</button></div></div>`;
+}
+function bindAccount(root){
+  const out = root.querySelector('#acOut'); if (out) out.onclick = () => cloudLogout(false);
+  const reg = root.querySelector('#acReg'), inb = root.querySelector('#acIn');
+  if (!reg) return;
+  const run = async kind => {
+    const name = root.querySelector('#acName').value.trim(), pin = root.querySelector('#acPin').value.trim(), err = root.querySelector('#acErr');
+    err.hidden = true; reg.disabled = inb.disabled = true;
+    try {
+      const res = await cloudAuth(kind, name, pin);
+      if (res === 'loggedin') location.reload();
+      else { pname = CLOUD.name; savePrefs(); $('#pname').value = pname; if (!$('#menu').hidden) renderTab(); else { const box = root.querySelector('.acct'); if (box){ box.outerHTML = accountHTML(); bindAccount(root); } } initTA(); }
+    } catch(e){ err.textContent = e.message; err.hidden = false; }
+    reg.disabled = inb.disabled = false;
+  };
+  reg.onclick = () => run('register');
+  inb.onclick = () => run('login');
+}
 
 // =====================================================================
 // Fictional World Cup field (the player starts ranked 80th)
@@ -750,7 +832,7 @@ function taBoard(key){
     if (!validEntry(e)) continue;
     rows.push({ uid, handle: String(d.handle || '名無し').slice(0, 14), t: +e.t, r1: +e.r1, r2: +e.r2, at: e.at, me: uid === TA.uid });
   }
-  if (!TA.db){ const l = taLocal()[key]; if (validEntry(l)) rows.push({ uid: 'local', handle: pname, t: l.t, r1: l.r1, r2: l.r2, me: true }); }
+  if (!TA.db && !(TA.cloud && CLOUD.token)){ const l = taLocal()[key]; if (validEntry(l)) rows.push({ uid: 'local', handle: pname, t: l.t, r1: l.r1, r2: l.r2, me: true }); }
   rows.sort((a, b) => a.t - b.t);
   rows.forEach(r => { r.rank = 1 + rows.filter(x => x.t < r.t).length; });
   return rows;
@@ -758,7 +840,10 @@ function taBoard(key){
 async function initTA(){
   const timer = setTimeout(() => { if (TA.status === 'connecting'){ TA.status = 'slow'; if (tab === 'ta' && !$('#menu').hidden) renderTab(); } }, 10000);
   try {
-    if (!window.claude || !window.claude.use){ TA.status = 'off'; clearTimeout(timer); return; }
+    if (!window.claude || !window.claude.use){
+      if (CLOUD.url){ TA.cloud = true; TA.uid = CLOUD.name ? 'n:' + CLOUD.name : null; await cloudBoard(); clearTimeout(timer); return; }
+      TA.status = 'off'; clearTimeout(timer); return;
+    }
     const [db, user] = await Promise.all([window.claude.use('db'), window.claude.use('user')]);
     if (!db){ TA.status = 'off'; clearTimeout(timer); if (tab === 'ta' && !$('#menu').hidden) renderTab(); return; }
     TA.db = db;
@@ -772,9 +857,23 @@ async function initTA(){
     }, err => { TA.status = 'error'; clearTimeout(timer); if (tab === 'ta' && !$('#menu').hidden) renderTab(); });
   } catch(e){ TA.status = 'off'; clearTimeout(timer); }
 }
+async function cloudBoard(){
+  try {
+    const r = await (await fetch(CLOUD.url + '?action=board')).json();
+    const docs = {};
+    for (const row of (r.rows || [])){ const id = 'n:' + row.name; (docs[id] = docs[id] || { handle: row.name, best: {} }).best[row.course] = { t: row.t, r1: row.r1, r2: row.r2 }; }
+    TA.docs = docs; TA.status = 'ok';
+  } catch(e){ TA.status = 'error'; }
+  if (tab === 'ta' && !$('#menu').hidden) renderTab();
+}
 async function taSubmit(key, entry){
   // keep the personal best on this device in any case
   const loc = taLocal(); if (!validEntry(loc[key]) || entry.t < loc[key].t){ loc[key] = entry; save('slalomwc-ta', loc); }
+  if (TA.cloud){
+    if (!CLOUD.token) return { shared: false, needLogin: true };
+    try { const r = await cloudCall({ action: 'ta', token: CLOUD.token, course: key, t: entry.t, r1: entry.r1, r2: entry.r2 }); await cloudBoard(); return r.ok ? { shared: true, improved: !!r.improved } : { shared: false }; }
+    catch(e){ return { shared: false }; }
+  }
   if (!TA.db || !TA.uid) return { shared: false };
   const mine = TA.docs[TA.uid] || {};
   const prev = mine.best && mine.best[key];
@@ -1505,7 +1604,7 @@ async function showTaResult(){
     const sendEl = $('#taSend');
     if (sendEl){
       if (out.shared){ sendEl.className = 'conn ok'; sendEl.textContent = out.improved ? '共有ランキングを更新しました。' : '共有ランキングの自己ベストのほうが速いため、更新はありません。'; }
-      else sendEl.textContent = TA.db ? 'このアカウントでは共有ランキングに書き込めないため、この端末だけに記録しました。' : '共有ランキングに接続できないため、この端末だけに記録しました。';
+      else sendEl.textContent = out.needLogin ? 'ユーザー登録（「選手・用具」タブ）すると、共有ランキングに載ります。今回はこの端末だけに記録しました。' : TA.db ? 'このアカウントでは共有ランキングに書き込めないため、この端末だけに記録しました。' : '共有ランキングに接続できないため、この端末だけに記録しました。';
       if (out.improved && $('#taBadge')) $('#taBadge').hidden = false;
     }
     if ($('#taTable')) $('#taTable').innerHTML = taTableHTML(key);
@@ -1549,6 +1648,7 @@ function gearCard(cat, it){
 function gearEditorHTML(){
   const opts = NATIONS.map(n => `<option value="${n[0]}"${n[0] === myNat ? ' selected' : ''}>${n[1]}（${n[0]}）</option>`).join('');
   return `<div class="gear">
+    ${accountHTML()}
     <div class="g-who"><label class="note" for="gName">選手名</label><input type="text" id="gName" maxlength="14" value="${esc(pname)}" autocomplete="off">
       <label class="note" for="gNat">国</label><span class="flag big" id="gFlag"></span><select id="gNat">${opts}</select></div>
     <p class="note">国を選ぶと、レースのウェアの色と中継画面の国旗が変わります。</p>
@@ -1558,6 +1658,7 @@ function gearEditorHTML(){
   </div>`;
 }
 function bindGear(root){
+  bindAccount(root);
   root.querySelectorAll('.gcard').forEach(b => b.onclick = () => {
     myGear[b.dataset.cat] = b.dataset.id; savePrefs();
     root.querySelectorAll(`.gcard[data-cat="${b.dataset.cat}"]`).forEach(x => { x.classList.toggle('on', x === b); x.setAttribute('aria-pressed', x === b); });
