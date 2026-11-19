@@ -203,6 +203,7 @@ tr.cut td{border-bottom:2px solid var(--amber)}
 .insp{position:absolute;top:10px;left:50%;transform:translateX(-50%);display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:8px 14px;width:max-content;max-width:calc(100% - 24px);background:rgba(14,26,46,.88);color:#fff;border-radius:6px;padding:8px 12px;box-shadow:0 4px 16px rgba(14,26,46,.3)}
 .insp-t{display:flex;flex-direction:column;gap:1px;font-size:13px}
 .insp-t span{font-family:var(--f-num);font-size:16px;color:var(--amber)}
+.insp-h{flex-basis:100%;text-align:center;font-size:12px;color:#C9D2E3}
 .conn{font-size:12px;color:var(--muted)}
 .conn.ok{color:var(--good)}
 
@@ -271,7 +272,8 @@ tr.cut td{border-bottom:2px solid var(--amber)}
   <div class="keys" id="keys" hidden><span><kbd>←</kbd> <kbd>→</kbd> ターン</span><span><kbd>↓</kbd> クローチ</span><span><kbd>Esc</kbd> 棄権</span></div>
   <div class="insp" id="insp" hidden>
     <div class="insp-t"><b>インスペクション（コースの下見）</b><span id="inspInfo"></span></div>
-    <div class="btns"><button class="btn small" type="button" id="inspSpd">速さ ×1</button><button class="btn small hot" type="button" id="inspEnd">下見を終える</button></div>
+    <div class="btns"><button class="btn small" type="button" id="inspSpd">自動で進む</button><button class="btn small hot" type="button" id="inspEnd">下見を終える</button></div>
+    <div class="insp-h" id="inspHint"></div>
   </div>
   <div class="msg" id="msg"></div>
   <div class="cd" id="cd"></div>
@@ -1142,7 +1144,7 @@ addEventListener('keyup', e => { if (KEYMAP[e.code]) keys[KEYMAP[e.code]] = fals
 const padState = new Map();
 addEventListener('blur', () => { keys.left = keys.right = keys.down = false; touches.clear(); padState.clear(); document.querySelectorAll('#pad button').forEach(b => b.classList.remove('on')); });
 const cv = $('#cv'), ctx = cv.getContext('2d');
-cv.addEventListener('pointerdown', e => { if (e.pointerType === 'mouse') return; markTouch(); touches.set(e.pointerId, e.clientX < cw/2 ? -1 : 1); try { cv.setPointerCapture(e.pointerId); } catch(_){} e.preventDefault(); });
+cv.addEventListener('pointerdown', e => { if (e.pointerType === 'mouse' || state === 'inspect') return; markTouch(); touches.set(e.pointerId, e.clientX < cw/2 ? -1 : 1); try { cv.setPointerCapture(e.pointerId); } catch(_){} e.preventDefault(); });
 cv.addEventListener('pointermove', e => { if (touches.has(e.pointerId)) touches.set(e.pointerId, e.clientX < cw/2 ? -1 : 1); });
 ['pointerup','pointercancel','lostpointercapture'].forEach(n => cv.addEventListener(n, e => touches.delete(e.pointerId)));
 document.querySelectorAll('#pad button').forEach(b => {
@@ -1184,16 +1186,23 @@ function step(dt){
   if (state === 'inspect'){
     // sideslip down the line of the gates, staying a little beside the turning poles
     const gs = course.gates;
-    while (sk.ng < gs.length && gs[sk.ng].y <= sk.y) sk.ng++;
+    // you move along the course yourself: swipe / drag, wheel or arrow keys. Optional auto-advance.
+    let move = insp.vel * dt;
+    if (insp.drag === null) insp.vel *= Math.pow(.01, dt);                     // a flick keeps gliding, then settles
+    if (Math.abs(insp.vel) < 4) insp.vel = 0;
+    if (insp.keyF) move += 150 * dt;
+    if (insp.keyB) move -= 150 * dt;
+    if (insp.auto) move += 60 * dt;
+    sk.y = clamp(sk.y + move + insp.push, -14, course.finishY + 30); insp.push = 0;
+    sk.ng = 0; while (sk.ng < gs.length && gs[sk.ng].y <= sk.y) sk.ng++;
     const g = gs[sk.ng];
     const tx = g ? g.x + (g.x > 0 ? -GH - 14 : GH + 14) * .4 : 0;
-    sk.y += 52 * INSP_SPEEDS[inspSpeed] * dt;
-    sk.x += (tx - sk.x) * Math.min(1, dt * 1.2);
+    sk.x += (tx - sk.x) * Math.min(1, dt * 2.5);
     sk.th = 1.45 * inspSide; sk.v = 0; sk.lean = 0; sk.tuck = false;
     const lp = trail[trail.length - 1];
     if (!lp || Math.hypot(sk.x - lp.x, sk.y - lp.y) > 5) trail.push({ x: sk.x, y: sk.y, th: 0 });
-    $('#inspInfo').textContent = sk.y < 0 ? 'スタート地点' : sk.ng >= gs.length ? 'フィニッシュ手前' : `第${sk.ng + 1}旗門の手前 / 全${gs.length}旗門`;
-    if (sk.y > course.finishY + 40) endInspection();
+    $('#inspInfo').textContent = sk.y < 0 ? 'スタート地点' : sk.ng >= gs.length ? 'フィニッシュ' : `第${sk.ng + 1}旗門の手前 / 全${gs.length}旗門`;
+    if (insp.auto && sk.y >= course.finishY + 30){ insp.auto = false; $('#inspSpd').textContent = '自動で進む'; }
     return;
   }
   if (state === 'countdown'){
@@ -1487,15 +1496,17 @@ function abandon(){
 // =====================================================================
 // Course inspection: before each run the racer may sideslip down the set and study it (no timing)
 // =====================================================================
-const INSP_SPEEDS = [1, 2, 4];
-let inspSpeed = 0, inspSide = 1;
+let inspSide = 1;
+const insp = { vel: 0, push: 0, drag: null, lastY: 0, lastT: 0, keyF: false, keyB: false, auto: false };
 function startInspection(){
   closeSheet();
   course = race.courses[race.run - 1]; resetCourseState(course); resetBody(false);
   inspSide = Math.random() < .5 ? -1 : 1;
   state = 'inspect';
   $('#insp').hidden = false; $('#hud').hidden = true; $('#tv').hidden = true;
-  $('#inspSpd').textContent = '速さ ×' + INSP_SPEEDS[inspSpeed];
+  Object.assign(insp, { vel: 0, push: 0, drag: null, keyF: false, keyB: false, auto: false });
+  $('#inspSpd').textContent = '自動で進む';
+  $('#inspHint').textContent = document.body.classList.contains('touch') ? '画面を下になぞると先へ、上になぞると戻ります' : '↑キー・ホイール・下へドラッグで先へ／↓キーで戻る';
 }
 function endInspection(){
   if (state !== 'inspect') return;
@@ -1505,7 +1516,32 @@ function endInspection(){
   state = 'sheet';
   showIntro();
 }
-$('#inspSpd').onclick = () => { inspSpeed = (inspSpeed + 1) % INSP_SPEEDS.length; $('#inspSpd').textContent = '速さ ×' + INSP_SPEEDS[inspSpeed]; };
+$('#inspSpd').onclick = () => { insp.auto = !insp.auto; insp.vel = 0; $('#inspSpd').textContent = insp.auto ? '自動を止める' : '自動で進む'; };
+// dragging the course: pulling it down brings the slope ahead into view
+cv.addEventListener('pointerdown', e => {
+  if (state !== 'inspect') return;
+  insp.drag = e.pointerId; insp.lastY = e.clientY; insp.lastT = performance.now(); insp.vel = 0;
+  if (insp.auto){ insp.auto = false; $('#inspSpd').textContent = '自動で進む'; }
+  try { cv.setPointerCapture(e.pointerId); } catch(_){}
+});
+cv.addEventListener('pointermove', e => {
+  if (state !== 'inspect' || insp.drag !== e.pointerId) return;
+  const now = performance.now(), dy = e.clientY - insp.lastY, dt = Math.max(1, now - insp.lastT) / 1000;
+  const d = dy / Math.max(.3, S);
+  insp.push += d; insp.vel = clamp(insp.vel * .5 + (d / dt) * .5, -500, 500);
+  insp.lastY = e.clientY; insp.lastT = now;
+});
+['pointerup', 'pointercancel', 'lostpointercapture'].forEach(n => cv.addEventListener(n, e => { if (insp.drag === e.pointerId){ insp.drag = null; if (performance.now() - insp.lastT > 120) insp.vel = 0; } }));
+cv.addEventListener('wheel', e => { if (state !== 'inspect') return; e.preventDefault(); insp.push += -e.deltaY * .6; }, { passive: false });
+addEventListener('keydown', e => {
+  if (state !== 'inspect') return;
+  if (e.code === 'ArrowUp' || e.code === 'KeyW'){ insp.keyF = true; e.preventDefault(); }
+  if (e.code === 'ArrowDown' || e.code === 'KeyS'){ insp.keyB = true; e.preventDefault(); }
+});
+addEventListener('keyup', e => {
+  if (e.code === 'ArrowUp' || e.code === 'KeyW') insp.keyF = false;
+  if (e.code === 'ArrowDown' || e.code === 'KeyS') insp.keyB = false;
+});
 $('#inspEnd').onclick = endInspection;
 // =====================================================================
 // Sheets
