@@ -223,6 +223,9 @@ tr.cut td{border-bottom:2px solid var(--amber)}
 .btlive b{font-family:var(--f-num);width:1.2em;text-align:right}
 .btlive .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .btlive .st{font-family:var(--f-num);font-weight:700;color:var(--amber)}
+.edgerow{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px}
+.edgerow>span{font-size:13px;color:#C9D2E3;min-width:7.5em}
+.edgerow .seg button{font-family:var(--f-num);font-size:16px;padding:6px 12px}
 .conn{font-size:12px;color:var(--muted)}
 .conn.ok{color:var(--good)}
 
@@ -972,9 +975,22 @@ function runMods(){
     m.drag *= 1 + (1 - mt) * .05;
     m.fr = 1 + (1 - mt) * .35;
     if (wx.cond === 'snow') m.haze *= 1.7; else if (wx.cond === 'cloud') m.haze *= 1.25;
+    // edge tune: sharp side edges and a small base bevel bite on ice, but hook and drag in soft snow
+    const ed = race.edge[race.run - 1], h = snowHardness(wx);
+    const sh = (89 - ed.side) / 3, bb = (1 - ed.base) / .5;
+    m.turn *= 1 + .05 * sh * h - .02 * sh * (1 - h) + .02 * bb * h - .015 * bb * (1 - h);
+    m.carve *= 1 - .08 * sh * h + .07 * sh * (1 - h) + .03 * bb * (1 - h);
   }
   return m;
 }
+// how hard the surface is: 1 = ice … 0.2 = wet snow
+function snowHardness(wx){ return wx.cond === 'snow' ? .35 : wx.snowT > -1.5 ? .2 : wx.snowT < -11 ? 1 : .75; }
+function edgeMatch(ed, wx){
+  const h = snowHardness(wx), idealSide = 89 - 3 * h, idealBase = 1 - .5 * h;
+  return clamp(1 - (Math.abs(ed.side - idealSide) / 3 + Math.abs(ed.base - idealBase) / .5) * .6, 0, 1);
+}
+const EDGE_SIDE = [89, 88, 87, 86], EDGE_BASE = [1.0, .7, .5];
+let lastEdge = { side: 88, base: .7 };
 function wxLine(wx){ return `${COND[wx.cond].icon} ${COND[wx.cond].jp} · 気温 ${wx.air.toFixed(1)}℃ · 雪温 ${wx.snowT.toFixed(1)}℃`; }
 function waxPickerHTML(){
   const wx = race.wx[race.run - 1], cur = race.wax[race.run - 1];
@@ -984,7 +1000,11 @@ function waxPickerHTML(){
       <dt>雪質</dt><dd style="font-family:var(--f-body);font-size:15px">${wx.surface}</dd></dl></div>
     <h3>ワックスを選ぶ（${race.run}本目）</h3>
     <div class="waxes" role="group" aria-label="ワックス">${WAXES.map(w => `<button type="button" class="waxbtn${w.id === cur ? ' on' : ''}" data-wax="${w.id}" aria-pressed="${w.id === cur}"><span class="wsw" style="background:${w.col}"></span><b>${w.name}</b><small>${w.sub}</small><small>適温 ${w.lo}〜${w.hi}℃${w.fresh ? '・降雪時◎' : ''}</small></button>`).join('')}</div>
-    <p class="note">雪温に合ったワックスほどよく滑ります。降っている雪にはニュースノーが効きます。すべてフッ素フリー（FISはフッ素入りワックスを2023/24シーズンから禁止）。</p>`;
+    <p class="note">雪温に合ったワックスほどよく滑ります。降っている雪にはニュースノーが効きます。すべてフッ素フリー（FISはフッ素入りワックスを2023/24シーズンから禁止）。</p>
+    <h3>エッジの調整（${race.run}本目）</h3>
+    <div class="edgerow"><span>サイドエッジ角</span><div class="seg" role="group" aria-label="サイドエッジ角">${EDGE_SIDE.map(v => `<button type="button" data-eside="${v}" aria-pressed="${race.edge[race.run - 1].side === v}">${v}°</button>`).join('')}</div></div>
+    <div class="edgerow"><span>ベースベベル</span><div class="seg" role="group" aria-label="ベースベベル">${EDGE_BASE.map(v => `<button type="button" data-ebase="${v}" aria-pressed="${race.edge[race.run - 1].base === v}">${v.toFixed(1)}°</button>`).join('')}</div></div>
+    <p class="note">サイドエッジは角度が小さいほど鋭く（86°がワールドカップの回転の定番）、硬いバーンやアイスでよく噛みますが、柔らかい雪では引っかかって減速します。ベースベベルは小さいほど反応がダイレクトになり、大きいほど扱いやすくなります。雪質に合わせて選んでください。</p>`;
 }
 function bindWaxPicker(){
   document.querySelectorAll('#sheet .waxbtn').forEach(b => b.onclick = () => {
@@ -992,6 +1012,13 @@ function bindWaxPicker(){
     if (race.run === 1 && !race.waxSet2) race.wax[1] = b.dataset.wax;
     document.querySelectorAll('#sheet .waxbtn').forEach(x => { x.classList.toggle('on', x === b); x.setAttribute('aria-pressed', x === b); });
   });
+  const setEdge = (k, v, attr) => {
+    race.edge[race.run - 1] = Object.assign({}, race.edge[race.run - 1], { [k]: v }); lastEdge = Object.assign({}, race.edge[race.run - 1]);
+    if (race.run === 1 && !race.waxSet2) race.edge[1] = Object.assign({}, race.edge[0]);
+    document.querySelectorAll(`#sheet [${attr}]`).forEach(x => x.setAttribute('aria-pressed', +x.getAttribute(attr) === v));
+  };
+  document.querySelectorAll('#sheet [data-eside]').forEach(b => b.onclick = () => setEdge('side', +b.dataset.eside, 'data-eside'));
+  document.querySelectorAll('#sheet [data-ebase]').forEach(b => b.onclick = () => setEdge('base', +b.dataset.ebase, 'data-ebase'));
 }
 let lastWax = 'violet';
 // falling snow, drawn in screen space
@@ -1017,7 +1044,7 @@ function makeRace(ev, mode){
   const sd = courseSeed(g, ev.date);
   const courses = [buildCourse(sd ^ 0x1111, g), buildCourse(sd ^ 0x2222, g)];   // two runs, two different sets
   const refs = courses.map(refRun);
-  const base = { ev, mode, courses, refs, run: 1, playerDsq: [false, false], finals: ev.finals, maxV: 0, wx: weatherFor(ev, g), wax: [lastWax, lastWax] };
+  const base = { ev, mode, courses, refs, run: 1, playerDsq: [false, false], finals: ev.finals, maxV: 0, wx: weatherFor(ev, g), wax: [lastWax, lastWax], edge: [Object.assign({}, lastEdge), Object.assign({}, lastEdge)] };
   if (mode === 'ta') return Object.assign(base, { key: taKey(g, ev.date), taTimes: [] });
   const st = ranking();
   let entrants;
@@ -1402,7 +1429,7 @@ function setupCard(){
   $('#evPlace').textContent = `${race.ev.venue} ${race.ev.nat}`;
   setFlag($('#evFlag'), race.ev.nat);
   $('#evRun').textContent = 'Run ' + race.run;
-  $('#evWx').textContent = race.wx ? wxLine(race.wx[race.run - 1]) + ' · ' + waxById(race.wax[race.run - 1]).name : '';
+  $('#evWx').textContent = race.wx ? wxLine(race.wx[race.run - 1]) + ' · ' + waxById(race.wax[race.run - 1]).name + ` · エッジ ${race.edge[race.run - 1].side}°/${race.edge[race.run - 1].base.toFixed(1)}°` : '';
   const ld = race.leader;
   $('#vs').hidden = !ld; if (ld) $('#vs').textContent = `${ld.label}：${ld.name}　${fmt(ld.total)}`;
   gateDiff = []; lastDiff = null;
@@ -1460,7 +1487,7 @@ function showIntro(){
     else { race = null; showMenu(); }
   };
 }
-function waxRow(run){ if (!race.wx) return ''; const w = waxById(race.wax[run - 1]), wx = race.wx[run - 1]; return `<dt>${run}本目のワックス（雪温 ${wx.snowT.toFixed(1)}℃）</dt><dd style="font-family:var(--f-body);font-size:14px">${w.name} ${waxGrade(waxMatch(w, wx))}</dd>`; }
+function waxRow(run){ if (!race.wx) return ''; const w = waxById(race.wax[run - 1]), wx = race.wx[run - 1]; return `<dt>${run}本目のワックス（雪温 ${wx.snowT.toFixed(1)}℃）</dt><dd style="font-family:var(--f-body);font-size:14px">${w.name} ${waxGrade(waxMatch(w, wx))}</dd>` + (race.edge ? `<dt>${run}本目のエッジ（${wx.surface}）</dt><dd style="font-family:var(--f-body);font-size:14px">${race.edge[run - 1].side}° / ${race.edge[run - 1].base.toFixed(1)}° ${waxGrade(edgeMatch(race.edge[run - 1], wx))}</dd>` : ''); }
 function rec2Note(){
   if (race.run !== 2) return '';
   if (race.mode === 'ta') return `1本目：${fmt(race.taTimes[0])}。2本の合計タイムがランキングに載ります。`;
