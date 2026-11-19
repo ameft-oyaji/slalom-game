@@ -305,6 +305,10 @@ tr.cut td{border-bottom:2px solid var(--amber)}
     <div class="btns"><button class="btn small" type="button" id="inspSpd">自動で進む</button><button class="btn small hot" type="button" id="inspEnd">下見を終える</button></div>
     <div class="insp-h" id="inspHint"></div>
   </div>
+  <div class="insp" id="watch" hidden>
+    <div class="insp-t"><b>ゴール前で観戦中</b><span id="watchInfo"></span></div>
+    <div class="btns"><button class="btn small" type="button" id="watchSpd">早送り</button><button class="btn small hot" type="button" id="watchSkip">観戦をスキップ</button></div>
+  </div>
   <div class="msg" id="msg"></div>
   <div class="cd" id="cd"></div>
   <div class="pad" id="pad">
@@ -1206,6 +1210,7 @@ function startWind(){
   const g = actx.createGain(); g.gain.value = 0;
   s.connect(f).connect(g).connect(master); s.start();
   wind = { g, f };
+  startCrowdNoise();
 }
 function updateWind(){
   if (!wind) return;
@@ -1554,15 +1559,20 @@ function finishRun(){
   if (race.mode === 'ta'){
     const tot = race.run === 1 ? tt : trunc(race.taTimes[0] + tt);
     finishCard(tot, ld ? ld.total : null, ld ? (tot < ld.total ? 1 : 2) : 1);
+    crowdCheer(ld && tot < ld.total ? .85 : .5);
     return;
   }
   if (race.run === 1){
     const pool = {}; for (const e of race.entrants){ if (race.bib.get(e.id) <= race.bib.get('you')) pool[e.id] = e.me ? tt : race.run1[e.id]; }
-    finishCard(tt, ld ? ld.total : null, rankOf(pool, 'you'));
+    const pr = rankOf(pool, 'you');
+    finishCard(tt, ld ? ld.total : null, pr);
+    onPlayerFinish(pr);
   } else {
     const idx = race.order2.indexOf('you');
     const pool = {}; for (let i = 0; i <= idx; i++){ const id = race.order2[i]; const a = race.run1[id], b = id === 'you' ? tt : race.run2[id]; pool[id] = a != null && b != null ? trunc(a + b) : null; }
-    finishCard(trunc(race.run1.you + tt), ld ? ld.total : null, rankOf(pool, 'you'));
+    const pr = rankOf(pool, 'you');
+    finishCard(trunc(race.run1.you + tt), ld ? ld.total : null, pr);
+    onPlayerFinish(pr);
   }
 }
 function leaveRunUI(){
@@ -1571,13 +1581,20 @@ function leaveRunUI(){
   $('#pad').classList.remove('live'); $('#mute').classList.remove('raised');
 }
 function afterFinish(){
+  if (race.watchQueue && race.watchQueue.length) return startWatch();
   leaveRunUI();
   if (race.battle) return showBattleResult();
   if (race.mode === 'ta') return showTaResult();
   if (race.run === 1) return showRun1Result();
   return afterRun2();
 }
-function afterRun2(){ showFinal(); }
+function afterRun2(){
+  // a winner gets a moment on the snow before the results sheet
+  const res = combined(), me = res.find(o => o.id === 'you');
+  if (me && me.rank === 1 && !race.celebrated){ race.celebrated = true; return celebrate('優勝！', 1, showFinal); }
+  if (me && me.rank <= 3 && !race.celebrated){ race.celebrated = true; return celebrate('表彰台！', .8, showFinal); }
+  showFinal();
+}
 function abandon(){
   if (!race || !(state === 'run' || state === 'countdown' || state === 'gate')) return;
   race.playerDsq[race.run - 1] = 'DNF'; recordPlayerTime(null);
@@ -1910,6 +1927,253 @@ async function leaveRoom(){
   try { await cloudCall({ action: 'room_leave', token: CLOUD.token, code }); } catch(e){}
   showMenu('battle');
 }
+// =====================================================================
+// Finish-area crowd: spectators behind the nets, noise that swells as you come in, and graded cheers
+// =====================================================================
+const CROWD = { excite: .15, base: .15, noise: null };
+function startCrowdNoise(){
+  if (!actx || CROWD.noise) return;
+  const s = actx.createBufferSource(); s.buffer = noiseBuf(3); s.loop = true;
+  const f = actx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 950; f.Q.value = .6;
+  const g = actx.createGain(); g.gain.value = 0;
+  s.connect(f).connect(g).connect(master); s.start();
+  CROWD.noise = { g, f };
+}
+function crowdTick(dt){
+  // excitement relaxes back to a murmur; it rises as the racer nears the finish
+  const near = course && (state === 'run' || state === 'finished') ? clamp(1 - (course.finishY - sk.y) / 700, 0, 1) : 0;
+  const floor = Math.max(CROWD.base, state === 'watch' || state === 'celebrate' ? .3 : 0, near * .45);
+  CROWD.excite += (floor - CROWD.excite) * Math.min(1, dt * .35);
+  if (CROWD.noise && actx){
+    const audible = state === 'run' || state === 'finished' || state === 'watch' || state === 'celebrate';
+    const nearFinish = course && (state === 'watch' || state === 'celebrate' || sk.y > course.finishY - 900);
+    const v = muted || !audible || !nearFinish ? 0 : Math.min(.5, .04 + CROWD.excite * .36) * (1 + .15 * Math.sin(performance.now() / 170));
+    CROWD.noise.g.gain.setTargetAtTime(v, actx.currentTime, .15);
+    CROWD.noise.f.frequency.setTargetAtTime(800 + CROWD.excite * 700, actx.currentTime, .3);
+  }
+}
+// level: 0.2 polite clapping … 1.0 a winner's roar
+function crowdCheer(level){
+  CROWD.excite = Math.max(CROWD.excite, level);
+  if (muted || !actx) return;
+  // a swell of voices
+  const s = actx.createBufferSource(); s.buffer = noiseBuf(3.2);
+  const f = actx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 1100; f.Q.value = .5;
+  const g = actx.createGain(); const t0 = actx.currentTime;
+  g.gain.setValueAtTime(.0001, t0); g.gain.exponentialRampToValueAtTime(.12 + level * .5, t0 + .35); g.gain.exponentialRampToValueAtTime(.0001, t0 + 1.4 + level * 2.2);
+  s.connect(f).connect(g).connect(master); s.start(); s.stop(t0 + 3.6);
+  // clapping
+  const claps = Math.round(6 + level * 20);
+  for (let i = 0; i < claps; i++) setTimeout(() => thwack(.05 + Math.random() * .08 * (.5 + level)), 80 + Math.random() * (1600 + level * 1600));
+  // cowbells for the big moments, horns for the very biggest
+  if (level >= .75) for (let i = 0; i < 8; i++) setTimeout(() => { tone(540, .12, 'square', .05); tone(812, .1, 'square', .035); }, 150 + i * 190);
+  if (level >= .95) [0, 600, 1300].forEach(d => setTimeout(() => { tone(233, .55, 'sawtooth', .07); tone(294, .55, 'sawtooth', .05); }, d));
+}
+function onPlayerFinish(rank){
+  if (race.mode === 'ta') return;
+  const r = typeof rank === 'number' ? rank : 999;
+  let level;
+  if (race.run === 1) level = r <= 3 ? .8 : r <= 30 ? .6 : .2;            // into the top 30 = through to run 2
+  else level = r === 1 ? 1 : r <= 3 ? .85 : r <= 10 ? .5 : .3;
+  crowdCheer(level);
+  // provisionally on the podium with racers still to come: wait at the finish and watch them
+  let rest = [];
+  if (race.run === 1){ const mb = race.bib.get('you'); rest = race.entrants.filter(e => !e.me && race.bib.get(e.id) > mb).map(e => e.id); }
+  else { const i = race.order2.indexOf('you'); rest = race.order2.slice(i + 1); }
+  race.watchQueue = r <= 3 && rest.length && (race.mode === 'career' || race.mode === 'exh') ? rest : null;
+}
+// people behind the safety nets around the finish
+function collectCrowd(sprites, yNear, yFar){
+  if (!course) return;
+  const fy = course.finishY;
+  if (fy - 200 > yFar || fy + 120 < yNear) return;
+  const now = performance.now() / 1000, ex = CROWD.excite;
+  const natCols = NAT[myNat] ? [NAT[myNat].suit, NAT[myNat].trim] : ['#C8102E', '#fff'];
+  for (const side of [-1, 1]){
+    for (let row = 0; row < 4; row++){
+      for (let y = fy - 190; y <= fy + 70; y += 13){
+        const h = hash2(Math.round(y) + row * 977, side * 31);
+        const x = side * (W / 2 + 16 + row * 15 + (h & 7));
+        const yy = y + ((h >>> 3) & 7);
+        if (yy < yNear - 20 || yy > yFar + 20) continue;
+        sprites.push({ y: yy, d: () => drawFan(x, yy, h, now, ex, natCols) });
+      }
+    }
+  }
+}
+const FAN_COLS = ['#D42A2F', '#1F55C8', '#F59F00', '#0CA678', '#7048E8', '#13213A', '#E8590C', '#FFFFFF', '#D6336C'];
+function drawFan(x, y, h, now, ex, natCols){
+  const p = proj(x, y); if (!p || p.X < -30 || p.X > cw + 30) return;
+  const u = p.k * 1.5, ph = (h % 100) / 16;
+  const hop = ex > .45 ? Math.abs(Math.sin(now * (5 + (h & 3)) + ph)) * ex * 3.2 : 0;
+  ctx.save(); ctx.translate(p.X, p.Y - hop * u); ctx.scale(u, u);
+  const col = FAN_COLS[h % FAN_COLS.length];
+  ctx.fillStyle = shade(col === '#FFFFFF' ? '#DDE3EC' : col, .85); rrect(-2.2, -11, 4.4, 9, 1.6); ctx.fill();          // jacket
+  ctx.fillStyle = '#2A2F38'; ctx.fillRect(-1.8, -2.2, 1.5, 2.2); ctx.fillRect(.3, -2.2, 1.5, 2.2);                     // legs
+  ctx.fillStyle = ['#F2C9A0', '#D9A77A', '#8D5A3B'][h % 3]; ctx.beginPath(); ctx.arc(0, -12.8, 1.9, 0, 7); ctx.fill(); // head
+  ctx.fillStyle = FAN_COLS[(h >>> 4) % FAN_COLS.length]; ctx.fillRect(-2, -14.6, 4, 1.4);                            // beanie
+  // arms: down when calm, up and waving when the crowd erupts
+  const up = ex > .35, wave = Math.sin(now * 9 + ph) * ex * 2;
+  ctx.strokeStyle = shade(col === '#FFFFFF' ? '#DDE3EC' : col, .7); ctx.lineWidth = 1.1; ctx.lineCap = 'round';
+  ctx.beginPath();
+  if (up){ ctx.moveTo(-2, -10); ctx.lineTo(-3.4 + wave * .4, -15.5); ctx.moveTo(2, -10); ctx.lineTo(3.4 - wave * .4, -15.5); }
+  else { ctx.moveTo(-2, -10); ctx.lineTo(-2.8, -6); ctx.moveTo(2, -10); ctx.lineTo(2.8, -6); }
+  ctx.stroke();
+  // every few fans holds a flag: often your colours
+  if (h % 5 === 0){
+    const c = h % 2 ? natCols : [FAN_COLS[(h >>> 2) % 9], '#fff'];
+    const fx = up ? 3.4 - wave * .4 : 2.8, fy = up ? -15.5 : -6;
+    ctx.strokeStyle = '#555'; ctx.lineWidth = .4; ctx.beginPath(); ctx.moveTo(fx, fy); ctx.lineTo(fx, fy - 6); ctx.stroke();
+    const flap = Math.sin(now * 7 + ph) * (.6 + ex);
+    ctx.fillStyle = c[0]; ctx.beginPath(); ctx.moveTo(fx, fy - 6); ctx.lineTo(fx + 5, fy - 5.5 + flap); ctx.lineTo(fx + 5, fy - 3.5 + flap); ctx.lineTo(fx, fy - 3.8); ctx.fill();
+    ctx.fillStyle = c[1]; ctx.fillRect(fx, fy - 5, 4.6, .8);
+  }
+  ctx.restore();
+}
+
+// =====================================================================
+// Leader watch: provisionally top 3, the racer waits at the finish with skis in hand and watches the rest come down
+// =====================================================================
+const WATCH = { queue: [], i: 0, phase: '', t: 0, cur: null, speed: 1, myRank: 0, hold: 0 };
+function watchPool(uptoIdx){
+  const pool = {};
+  if (race.run === 1){
+    const mb = race.bib.get('you');
+    for (const e of race.entrants) if (race.bib.get(e.id) <= mb) pool[e.id] = e.me ? race.run1.you : race.run1[e.id];
+    for (let i = 0; i <= uptoIdx; i++) pool[WATCH.queue[i]] = race.run1[WATCH.queue[i]];
+  } else {
+    const idx = race.order2.indexOf('you');
+    const tot = id => { const a = race.run1[id], b = race.run2[id]; return a != null && b != null ? trunc(a + b) : null; };
+    for (let i = 0; i <= idx; i++) pool[race.order2[i]] = tot(race.order2[i]);
+    for (let i = 0; i <= uptoIdx; i++) pool[WATCH.queue[i]] = tot(WATCH.queue[i]);
+  }
+  return pool;
+}
+function startWatch(){
+  WATCH.queue = race.watchQueue; race.watchQueue = null;
+  WATCH.i = -1; WATCH.speed = 1; WATCH.cur = null;
+  state = 'watch';
+  $('#hud').hidden = true; $('#keys').hidden = true; $('#pad').classList.remove('live');
+  $('#tv').hidden = false; $('#vs').hidden = true;
+  sk.y = course.finishY + 34; sk.x = W / 2 - 70; sk.v = 0; sk.th = 0; sk.lean = 0;
+  $('#watch').hidden = false;
+  $('#watchSpd').textContent = '早送り';
+  updateWatchInfo();
+  nextWatcher();
+}
+function nextWatcher(){
+  WATCH.i++;
+  if (WATCH.i >= WATCH.queue.length) return endWatch(false);
+  const id = WATCH.queue[WATCH.i];
+  const time = race.run === 1 ? race.run1[id] : (race.run1[id] != null && race.run2[id] != null ? trunc(race.run1[id] + race.run2[id]) : null);
+  WATCH.cur = { id, time, dnf: time == null, p: 0, x: 0, y: course.finishY - 430, th: 0, label: nameOf(id) };
+  WATCH.phase = 'run'; WATCH.t = 0;
+  // the card shows the racer coming down
+  const nm = splitName(nameOf(id));
+  $('#cFirst').textContent = nm.first; $('#cFirst').hidden = !nm.first; $('#cLast').textContent = nm.last;
+  $('#cBib').hidden = false; $('#cBib').textContent = race.run === 1 ? race.bib.get(id) : (race.order2.indexOf(id) + 1);
+  setFlag($('#cFlag'), natOf(id)); $('#cNat').textContent = natOf(id);
+  $('#cRank').hidden = true; $('#cDiff').hidden = true; $('#cTime').hidden = false; $('#cTime').textContent = '…';
+}
+function watchStep(dt){
+  const c = WATCH.cur; if (!c) return;
+  WATCH.t += dt * WATCH.speed;
+  if (WATCH.phase === 'run'){
+    const dur = c.dnf ? 1.6 : 3.2;
+    c.p = Math.min(1, WATCH.t / dur);
+    c.y = course.finishY - 430 + (c.dnf ? 200 : 470) * c.p;
+    // follow the line of the last gates
+    const gs = course.gates; let gi = gs.findIndex(g => g.y > c.y); if (gi < 0) gi = gs.length;
+    const a = gs[Math.max(0, gi - 1)], b = gs[Math.min(gs.length - 1, gi)];
+    const f = a && b && b.y !== a.y ? clamp((c.y - a.y) / (b.y - a.y), 0, 1) : 0;
+    const tx = a && b ? a.x + (b.x - a.x) * f : 0;
+    c.th = clamp((tx - c.x) * .02, -.9, .9); c.x += (tx - c.x) * Math.min(1, dt * WATCH.speed * 4);
+    if (c.dnf && c.p >= 1){ WATCH.phase = 'hold'; WATCH.t = 0; $('#cTime').textContent = 'DNF'; crowdCheer(.15); return; }
+    if (!c.dnf && c.y >= course.finishY){ WATCH.phase = 'hold'; WATCH.t = 0; revealWatcher(); }
+  } else if (WATCH.phase === 'hold'){
+    if (!c.dnf) c.y += 60 * dt * WATCH.speed;
+    if (WATCH.t > 1.6) nextWatcher();
+  }
+}
+function revealWatcher(){
+  const c = WATCH.cur, pool = watchPool(WATCH.i);
+  const rank = rankOf(pool, c.id), best = Math.min(...Object.values(pool).filter(v => v != null));
+  $('#cTime').textContent = fmt(c.time);
+  const r = $('#cRank'); r.hidden = false; r.textContent = rank; r.className = 'c-rank' + (rank === 1 ? ' lead' : '');
+  const d = $('#cDiff'); d.hidden = rank === 1; if (rank !== 1){ const v = trunc(c.time - best); d.textContent = fmtDiff(v); d.className = 'c-diff bad'; }
+  const before = WATCH.myRank;
+  updateWatchInfo();
+  crowdCheer(rank === 1 ? .8 : rank <= 3 ? .55 : .25);
+  if (WATCH.myRank > before) flash(`あなたは暫定 ${WATCH.myRank}位に`, false);
+}
+function updateWatchInfo(){
+  WATCH.myRank = rankOf(watchPool(WATCH.i), 'you');
+  const left = WATCH.queue.length - Math.max(0, WATCH.i) - (WATCH.phase === 'hold' || WATCH.i < 0 ? 0 : 1);
+  $('#watchInfo').textContent = `あなた：暫定 ${WATCH.myRank}位 · 残り ${Math.max(0, WATCH.queue.length - WATCH.i - 1)}人`;
+}
+function endWatch(skipped){
+  $('#watch').hidden = true;
+  WATCH.cur = null;
+  const run = race.run;
+  const done = () => { state = 'sheet'; leaveRunUI(); afterFinish(); };
+  if (skipped) return done();
+  if (run === 1 && WATCH.myRank === 1) return celebrate('1本目トップ！', .85, done);
+  done();
+}
+// =====================================================================
+// Celebration on the snow: banner, confetti, roar
+// =====================================================================
+let confetti = [];
+function celebrate(text, level, then){
+  state = 'celebrate';
+  $('#tv').hidden = true; $('#watch').hidden = true; $('#hud').hidden = true; $('#pad').classList.remove('live');
+  sk.y = course.finishY + 34; sk.x = W / 2 - 70; sk.v = 0;
+  $('#cd').className = 'cd go'; $('#cd').innerHTML = `${text}`;
+  crowdCheer(level);
+  confetti = [];
+  const n = Math.round(80 + level * 120);
+  for (let i = 0; i < n; i++) confetti.push({ x: Math.random() * cw, y: -Math.random() * ch * .6, vx: (Math.random() - .5) * 60, vy: 80 + Math.random() * 120, r: Math.random() * 6.28, vr: (Math.random() - .5) * 8, c: FAN_COLS[i % FAN_COLS.length] });
+  setTimeout(() => { $('#cd').textContent = ''; confetti = []; state = 'sheet'; leaveRunUI(); then(); }, 3800);
+}
+let lastConf = 0;
+function drawConfetti(){
+  const now = performance.now(), dt = lastConf ? Math.min(.05, (now - lastConf) / 1000) : 0; lastConf = now;
+  if (!confetti.length) return;
+  for (const c of confetti){
+    c.x += c.vx * dt; c.y += c.vy * dt; c.r += c.vr * dt; c.vx += Math.sin(now / 300 + c.r) * 10 * dt;
+    if (c.y > ch + 10){ c.y = -10; c.x = Math.random() * cw; }
+    ctx.save(); ctx.translate(c.x, c.y); ctx.rotate(c.r); ctx.fillStyle = c.c; ctx.fillRect(-4, -2, 8, 4); ctx.restore();
+  }
+}
+// the racer standing at the finish, skis in one hand
+function drawWatcher(){
+  const p = proj(sk.x, sk.y); if (!p) return;
+  const u = p.k * 1.75, ex = CROWD.excite, now = performance.now() / 1000;
+  const look = { suit: NAT[myNat].suit, trim: NAT[myNat].trim, ski: gearItem('ski', myGear.ski), helm: gearItem('helm', myGear.helm) };
+  const cheer = state === 'celebrate' ? Math.abs(Math.sin(now * 6)) * 2.5 : 0;
+  ctx.fillStyle = COL.shadow; ctx.beginPath(); ctx.ellipse(p.X + 3 * u, p.Y + 1 * u, 7 * u, 2.2 * u, 0, 0, 7); ctx.fill();
+  ctx.save(); ctx.translate(p.X, p.Y - cheer * u); ctx.scale(u, u); ctx.lineCap = 'round';
+  // skis held upright beside the body
+  ctx.strokeStyle = ['#F4F1E8', '#C9D2DE', '#F5F5F5'].includes(look.ski.c1) ? shade(look.ski.c1, .8) : look.ski.c1; ctx.lineWidth = 1.6;
+  ctx.beginPath(); ctx.moveTo(5.2, 1); ctx.lineTo(5.6, -21); ctx.moveTo(6.6, 1); ctx.lineTo(7, -21); ctx.stroke();
+  ctx.strokeStyle = look.ski.c2; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.moveTo(5.6, -21); ctx.lineTo(5.65, -18.5); ctx.moveTo(7, -21); ctx.lineTo(7.05, -18.5); ctx.stroke();
+  // legs, body
+  ctx.strokeStyle = shade(look.suit, .8); ctx.lineWidth = 2.4; ctx.beginPath(); ctx.moveTo(-1.6, 0); ctx.lineTo(-1.4, -8); ctx.moveTo(1.6, 0); ctx.lineTo(1.4, -8); ctx.stroke();
+  ctx.fillStyle = '#E8ECF2'; ctx.fillRect(-2.9, -2, 2.6, 2); ctx.fillRect(.3, -2, 2.6, 2);
+  ctx.fillStyle = look.suit; rrect(-3, -14.5, 6, 7, 2); ctx.fill();
+  ctx.fillStyle = '#fff'; rrect(-2.2, -13.4, 4.4, 4.2, .5); ctx.fill();
+  // arms: one holds the skis, the other waves (both up when celebrating)
+  ctx.strokeStyle = look.suit; ctx.lineWidth = 1.6; ctx.beginPath();
+  ctx.moveTo(2.8, -13.5); ctx.lineTo(5.6, -11);
+  const wave = Math.sin(now * 8) * (ex > .5 ? 2 : .4);
+  if (state === 'celebrate' || ex > .7){ ctx.moveTo(-2.8, -13.5); ctx.lineTo(-5 + wave * .3, -19); }
+  else { ctx.moveTo(-2.8, -13.5); ctx.lineTo(-3.6, -8.5); }
+  ctx.stroke();
+  ctx.fillStyle = look.helm.c1; ctx.beginPath(); ctx.arc(0, -16.8, 2.5, 0, 7); ctx.fill();
+  ctx.restore();
+}
+$('#watchSpd').onclick = () => { WATCH.speed = WATCH.speed === 1 ? 3 : 1; $('#watchSpd').textContent = WATCH.speed === 1 ? '早送り' : '普通の速さ'; };
+$('#watchSkip').onclick = () => { if (state === 'watch') endWatch(true); };
 // =====================================================================
 // Sheets
 // =====================================================================
@@ -2467,6 +2731,8 @@ function render(){
   collectTrees(yNear, yFar, sprites);
   sprites.push({ y: sk.y, d: () => { drawSkier(); drawParts(); } });
   if (race && race.battle) battleGhosts(sprites, yNear, yFar);
+  collectCrowd(sprites, yNear, yFar);
+  if (state === 'watch' && WATCH.cur) sprites.push({ y: WATCH.cur.y, d: () => drawGhost(WATCH.cur.x, WATCH.cur.y, WATCH.cur.th, WATCH.cur.label, '#7048E8') });
   sprites.sort((a, b) => b.y - a.y);
   for (const s of sprites) s.d();
 
@@ -2486,6 +2752,7 @@ function render(){
   }
   if (wxNow && wxNow.cond === 'snow') drawSnowfall();
   drawProgress();
+  drawConfetti();
   const cd = $('#cd');
   if (state === 'countdown'){ cd.className = 'cd'; if (race && race.battle){ cd.innerHTML = `READY<em>${Math.max(1, Math.ceil(cdT))}</em>`; } else cd.textContent = 'READY'; }
   else if (state === 'gate'){
@@ -2493,6 +2760,7 @@ function render(){
     const hint = document.body.classList.contains('touch') ? '左足＋右足を同時に押してスタート' : '← と → を同時に押してスタート';
     cd.innerHTML = `GO<small>${hint}</small><em>${Math.max(0, gateT).toFixed(1)}</em>`;
   }
+  else if (state === 'celebrate'){ /* banner set by celebrate() */ }
   else if (goT > 0){ cd.className = 'cd go'; cd.textContent = 'GO'; }
   else if (!dsq) cd.textContent = '';
 }
@@ -2579,6 +2847,7 @@ function drawParts(){
 }
 // The racer seen from behind: skis on the snow in perspective, body angulated into the turn
 function drawSkier(){
+  if (state === 'watch' || state === 'celebrate') return drawWatcher();
   const p = proj(sk.x, sk.y); if (!p) return;
   const u = p.k * 1.75;                        // drawn larger than life so the racer reads clearly
   const dx = Math.sin(sk.th), dy = Math.cos(sk.th), px = Math.cos(sk.th), py = -Math.sin(sk.th);
@@ -2755,6 +3024,7 @@ function frame(now){
   acc += dt;
   while (acc >= STEP){ step(STEP); acc -= STEP; }
   if (state === 'finished'){ finT -= dt; if (finT <= 0){ state = 'sheet'; afterFinish(); } }
+  crowdTick(dt); if (state === 'watch') watchStep(dt);
   hud(); render(); if (actx) updateWind();
   if (race && race.battle) battleTick();
   requestAnimationFrame(frame);
