@@ -223,6 +223,13 @@ tr.cut td{border-bottom:2px solid var(--amber)}
 .btlive b{font-family:var(--f-num);width:1.2em;text-align:right}
 .btlive .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .btlive .st{font-family:var(--f-num);font-weight:700;color:var(--amber)}
+.reco-box{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 12px;background:var(--board-2);border-left:4px solid var(--good);border-radius:4px;padding:10px 12px}
+.reco-box>div{display:flex;flex-direction:column;gap:3px;min-width:0;flex:1 1 220px}
+.reco-box span{font-size:14px}
+.reco-box em{font-style:normal;font-weight:700;color:var(--amber)}
+.reco-box small{font-size:12px;color:#C9D2E3;line-height:1.5}
+.reco-tag{display:inline-block;font-size:10px;font-weight:700;background:var(--good);color:var(--board);border-radius:2px;padding:0 4px;vertical-align:2px}
+.seg button.reco{box-shadow:inset 0 -3px 0 var(--good)}
 .edgerow{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px}
 .edgerow>span{font-size:13px;color:#C9D2E3;min-width:7.5em}
 .edgerow .seg button{font-family:var(--f-num);font-size:16px;padding:6px 12px}
@@ -998,12 +1005,13 @@ function waxPickerHTML(){
       <dt>天気</dt><dd style="font-family:var(--f-body);font-size:15px">${COND[wx.cond].jp}${wx.cond === 'snow' ? '（降雪で視界がやや悪い）' : wx.cond === 'cloud' ? '（光が平坦で凹凸が見えにくい）' : ''}</dd>
       <dt>気温</dt><dd>${wx.air.toFixed(1)} ℃</dd><dt>雪温</dt><dd>${wx.snowT.toFixed(1)} ℃</dd>
       <dt>雪質</dt><dd style="font-family:var(--f-body);font-size:15px">${wx.surface}</dd></dl></div>
+    ${recoHTML(wx)}
     <h3>ワックスを選ぶ（${race.run}本目）</h3>
-    <div class="waxes" role="group" aria-label="ワックス">${WAXES.map(w => `<button type="button" class="waxbtn${w.id === cur ? ' on' : ''}" data-wax="${w.id}" aria-pressed="${w.id === cur}"><span class="wsw" style="background:${w.col}"></span><b>${w.name}</b><small>${w.sub}</small><small>適温 ${w.lo}〜${w.hi}℃${w.fresh ? '・降雪時◎' : ''}</small></button>`).join('')}</div>
+    <div class="waxes" role="group" aria-label="ワックス">${WAXES.map(w => `<button type="button" class="waxbtn${w.id === cur ? ' on' : ''}" data-wax="${w.id}" aria-pressed="${w.id === cur}"><span class="wsw" style="background:${w.col}"></span><b>${w.name}${w.id === recoFor(wx).wax ? ' <span class="reco-tag">おすすめ</span>' : ''}</b><small>${w.sub}</small><small>適温 ${w.lo}〜${w.hi}℃${w.fresh ? '・降雪時◎' : ''}</small></button>`).join('')}</div>
     <p class="note">雪温に合ったワックスほどよく滑ります。降っている雪にはニュースノーが効きます。すべてフッ素フリー（FISはフッ素入りワックスを2023/24シーズンから禁止）。</p>
     <h3>エッジの調整（${race.run}本目）</h3>
-    <div class="edgerow"><span>サイドエッジ角</span><div class="seg" role="group" aria-label="サイドエッジ角">${EDGE_SIDE.map(v => `<button type="button" data-eside="${v}" aria-pressed="${race.edge[race.run - 1].side === v}">${v}°</button>`).join('')}</div></div>
-    <div class="edgerow"><span>ベースベベル</span><div class="seg" role="group" aria-label="ベースベベル">${EDGE_BASE.map(v => `<button type="button" data-ebase="${v}" aria-pressed="${race.edge[race.run - 1].base === v}">${v.toFixed(1)}°</button>`).join('')}</div></div>
+    <div class="edgerow"><span>サイドエッジ角</span><div class="seg" role="group" aria-label="サイドエッジ角">${EDGE_SIDE.map(v => `<button type="button" data-eside="${v}" aria-pressed="${race.edge[race.run - 1].side === v}"${v === recoFor(wx).side ? ' class="reco"' : ''}>${v}°</button>`).join('')}</div></div>
+    <div class="edgerow"><span>ベースベベル</span><div class="seg" role="group" aria-label="ベースベベル">${EDGE_BASE.map(v => `<button type="button" data-ebase="${v}" aria-pressed="${race.edge[race.run - 1].base === v}"${v === recoFor(wx).base ? ' class="reco"' : ''}>${v.toFixed(1)}°</button>`).join('')}</div></div>
     <p class="note">サイドエッジは角度が小さいほど鋭く（86°がワールドカップの回転の定番）、硬いバーンやアイスでよく噛みますが、柔らかい雪では引っかかって減速します。ベースベベルは小さいほど反応がダイレクトになり、大きいほど扱いやすくなります。雪質に合わせて選んでください。</p>`;
 }
 function bindWaxPicker(){
@@ -1019,6 +1027,30 @@ function bindWaxPicker(){
   };
   document.querySelectorAll('#sheet [data-eside]').forEach(b => b.onclick = () => setEdge('side', +b.dataset.eside, 'data-eside'));
   document.querySelectorAll('#sheet [data-ebase]').forEach(b => b.onclick = () => setEdge('base', +b.dataset.ebase, 'data-ebase'));
+  const ap = $('#recoApply');
+  if (ap) ap.onclick = () => {
+    const r = recoFor(race.wx[race.run - 1]);
+    const wb = document.querySelector(`#sheet .waxbtn[data-wax="${r.wax}"]`); if (wb) wb.click();
+    setEdge('side', r.side, 'data-eside'); setEdge('base', r.base, 'data-ebase');
+    ap.textContent = '✓ おすすめに設定しました';
+  };
+}
+// the service technician's pick for this run's snow
+function recoFor(wx){
+  let best = WAXES[0], bm = -1;
+  for (const w of WAXES){ const m = waxMatch(w, wx); if (m > bm + 1e-9){ best = w; bm = m; } }
+  const h = snowHardness(wx), idealSide = 89 - 3 * h, idealBase = 1 - .5 * h;
+  const side = EDGE_SIDE.reduce((a, v) => Math.abs(v - idealSide) < Math.abs(a - idealSide) ? v : a, EDGE_SIDE[0]);
+  const base = EDGE_BASE.reduce((a, v) => Math.abs(v - idealBase) < Math.abs(a - idealBase) ? v : a, EDGE_BASE[0]);
+  return { wax: best.id, side, base };
+}
+function recoHTML(wx){
+  const r = recoFor(wx), w = waxById(r.wax), h = snowHardness(wx);
+  const why = wx.cond === 'snow' ? '雪が降っているので、新雪に強いワックスと、引っかかりにくい少し穏やかなエッジに。'
+    : h >= 1 ? 'カチカチのアイスなので、低温用ワックスと、いちばん鋭いエッジでしっかり噛ませます。'
+    : h <= .2 ? '雪が湿って柔らかいので、湿雪用ワックスと、引っかかりにくい穏やかなエッジに。'
+    : `雪温 ${wx.snowT.toFixed(1)}℃ の硬く締まったバーンなので、その温度に合うワックスと、鋭めのエッジに。`;
+  return `<div class="reco-box"><div><b>サービスマンのおすすめ</b><span>ワックス <em>${w.name}</em>（${w.sub}）・エッジ <em>${r.side}°</em> / <em>${r.base.toFixed(1)}°</em></span><small>${why}</small></div><button class="btn small hot" type="button" id="recoApply">おすすめにする</button></div>`;
 }
 let lastWax = 'violet';
 // falling snow, drawn in screen space
