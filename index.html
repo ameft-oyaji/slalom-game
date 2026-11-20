@@ -1497,7 +1497,7 @@ function step(dt){
   if (state === 'demo' && (sk.y > course.finishY + 200 || (sk.v < 2 && sk.y > 0))) startDemo();
 
   const lp = trail[trail.length - 1];
-  if (!lp || Math.hypot(sk.x - lp.x, sk.y - lp.y) > 5) trail.push({ x: sk.x, y: sk.y, th: sk.th });
+  if (!lp || Math.hypot(sk.x - lp.x, sk.y - lp.y) > 5) trail.push({ x: sk.x, y: sk.y, th: sk.th, inp: ctl.inp || 0 });
   if (ctl.inp && sk.v > 50 && Math.random() < .8){
     const px = Math.cos(sk.th), py = -Math.sin(sk.th);
     for (let n = 0; n < 2; n++){
@@ -3382,13 +3382,62 @@ function aiLine(course, j){
     let tx = 0, ty = course.finishY;
     if (g){ const sd = Math.sign(g.x) || 1; tx = g.x - sd * tight; ty = g.y; }
     const d = Math.atan2(tx - b.x, Math.max(30, ty - b.y)) - b.th;
-    physStep(b, { inp: Math.abs(d) < dead ? 0 : Math.sign(d), tuck: !g }, STEP, false);
+    const inp = Math.abs(d) < dead ? 0 : Math.sign(d);
+    physStep(b, { inp, tuck: !g }, STEP, false);
     crossGates(b, course, () => {});
     const lp = pts[pts.length - 1];
-    if (!lp || Math.hypot(b.x - lp.x, b.y - lp.y) > 4) pts.push({ x: b.x, y: b.y, th: b.th });
+    if (!lp || Math.hypot(b.x - lp.x, b.y - lp.y) > 4) pts.push({ x: b.x, y: b.y, th: b.th, inp });
+    else if (inp) lp.inp = lp.inp || inp;
     if (b.y >= course.finishY + 40) break;
   }
+  // the robot taps its turns; read each turn from how its heading is actually changing instead,
+  // so every turn is one held press, like a player holding the button
+  const th = pts.map(q => q.th);
+  for (let i = 0; i < pts.length; i++){
+    const d = th[Math.min(th.length - 1, i + 2)] - th[Math.max(0, i - 2)];
+    pts[i].inp = Math.abs(d) > .03 ? Math.sign(d) : 0;
+  }
   return pts;
+}
+// a carved track shows only while the skier is turning: each press of a turn button is one arc,
+// deepest at the middle of the press (the apex) and fading to nothing at both ends; straight gliding leaves almost no mark
+function trackWeights(pts){
+  const n = pts.length, wt = new Float32Array(n);
+  let i = 0;
+  while (i < n){
+    const p = pts[i];
+    if (p.inp === undefined){ wt[i] = 1; i++; continue; }            // side-slip marks from the inspection
+    if (!p.inp){ wt[i] = .03; i++; continue; }
+    const sg = Math.sign(p.inp); let e = i, gap = 0;
+    for (let j = i + 1; j < n; j++){
+      const q = pts[j]; if (q.inp === undefined) break;
+      if (Math.sign(q.inp) === sg){ e = j; gap = 0; } else if (!q.inp && gap < 3) gap++; else break;
+    }
+    const L = e - i;
+    for (let k = i; k <= e; k++) wt[k] = Math.max(.03, Math.sin(Math.PI * (k - i + .5) / (L + 1)));
+    i = e + 1;
+  }
+  return wt;
+}
+function drawTrack(pts, wt, rgb, alpha, width, yNear, yFar){
+  ctx.lineCap = 'round';
+  for (const off of [-3.4, 3.4]){
+    let prev = null;
+    for (let i = 0; i < pts.length; i++){
+      const tp = pts[i];
+      if (tp.y < yNear - 10 || tp.y > yFar){ prev = null; continue; }
+      const p = proj(tp.x + Math.cos(tp.th) * off, tp.y - Math.sin(tp.th) * off);
+      if (!p){ prev = null; continue; }
+      if (prev){
+        const ww = (wt[i] + wt[i - 1]) / 2;
+        if (ww > .05){
+          ctx.strokeStyle = `rgba(${rgb},${alpha * ww})`; ctx.lineWidth = Math.max(.6, width * p.k * (.45 + .75 * ww));
+          ctx.beginPath(); ctx.moveTo(prev.X, prev.Y); ctx.lineTo(p.X, p.Y); ctx.stroke();
+        }
+      }
+      prev = p;
+    }
+  }
 }
 function drawRuts(yNear, yFar){
   const w = WEAR;
@@ -3398,18 +3447,8 @@ function drawRuts(yNear, yFar){
   if (course.lines.length < nR) course.lines.push(aiLine(course, course.lines.length));   // one more line per frame, so nothing stalls
   ctx.lineCap = 'round';
   course.lines.slice(0, nR).forEach((pts, j) => {
-    ctx.strokeStyle = `rgba(110,135,180,${(.08 + .2 * w) * (.55 + .45 * ((hash2(j, 9) & 255) / 255))})`;
-    for (const off of [-3.4, 3.4]){
-      ctx.beginPath(); let started = false, lw = 1;
-      for (const tp of pts){
-        if (tp.y < yNear - 10 || tp.y > yFar){ started = false; continue; }
-        const p = proj(tp.x + Math.cos(tp.th) * off, tp.y - Math.sin(tp.th) * off);
-        if (!p){ started = false; continue; }
-        if (!started){ ctx.moveTo(p.X, p.Y); started = true; } else ctx.lineTo(p.X, p.Y);
-        lw = Math.max(lw, (.9 + .5 * w) * p.k);
-      }
-      ctx.lineWidth = lw; ctx.stroke();
-    }
+    pts.wt = pts.wt || trackWeights(pts);
+    drawTrack(pts, pts.wt, '110,135,180', (.12 + .26 * w) * (.55 + .45 * ((hash2(j, 9) & 255) / 255)), .9 + .5 * w, yNear, yFar);
   });
 }
 // ---- raised start platform: a built-up deck behind the gate and a steep ramp down onto the course ----
@@ -3477,19 +3516,8 @@ function render(){
   WEAR = courseWear();
   drawStartDeck(yNear, yFar);
   if (state !== 'inspect' || race) drawRuts(yNear, yFar);
-  // ski tracks
-  ctx.strokeStyle = COL.track; ctx.lineCap = 'round';
-  for (const off of [-3.4, 3.4]){
-    ctx.beginPath(); let started = false, lw = 1;
-    for (const tp of trail){
-      if (tp.y < yNear - 10 || tp.y > yFar){ started = false; continue; }
-      const p = proj(tp.x + Math.cos(tp.th)*off, tp.y - Math.sin(tp.th)*off);
-      if (!p){ started = false; continue; }
-      if (!started){ ctx.moveTo(p.X, p.Y); started = true; } else ctx.lineTo(p.X, p.Y);
-      lw = Math.max(lw, 1.2*p.k);
-    }
-    ctx.lineWidth = lw; ctx.stroke();
-  }
+  // ski tracks (your own)
+  drawTrack(trail, trackWeights(trail), '110,135,180', .5, 1.3, yNear, yFar);
   // start line and finish checks painted on the snow
   ctx.fillStyle = COL.red; if (quad(-W/2, W/2, -1.5, 1.5)) ctx.fill();
   const fy = course.finishY, sq = 10;
