@@ -3368,60 +3368,22 @@ function courseWear(){
   return clamp(w, 0, 1);
 }
 function wearLabel(w){ return w < .12 ? 'ほぼ荒れていない' : w < .35 ? '少し掘れている' : w < .6 ? 'かなり掘れている' : '深くえぐれている'; }
-function rutLine(gs){
-  // where racers actually go: just inside the turning pole of every gate
-  const pts = [{ x: 0, y: -10 }];
-  for (const g of gs){ const sd = Math.sign(g.x) || 1; pts.push({ x: g.x - sd * (GH - 8), y: g.y, g }); }
-  pts.push({ x: pts[pts.length - 1].x * .4, y: course.finishY + 60 });
-  return pts;
-}
 function drawRuts(yNear, yFar){
+  // only a shallow half-circle scraped round each turning pole, deeper the more racers have been through
   const w = WEAR;
-  if (w < .02 || !course.gates.length) return;
-  const pts = rutLine(course.gates);
-  const cr = (a, b, c, d, t) => { const t2 = t * t, t3 = t2 * t; return .5 * (2 * b + (-a + c) * t + (2 * a - 5 * b + 4 * c - d) * t2 + (-a + 3 * b - 3 * c + d) * t3); };
-  const N = 10;
-  // sampled centre line of the worn track
-  const line = [];
-  for (let i = 0; i < pts.length - 1; i++){
-    if (pts[i + 1].y < yNear - 60 || pts[i].y > yFar + 60) continue;
-    const a = pts[Math.max(0, i - 1)], b = pts[i], c = pts[i + 1], d = pts[Math.min(pts.length - 1, i + 2)];
-    for (let k = 0; k < N; k++){ const t = k / N; line.push({ x: cr(a.x, b.x, c.x, d.x, t), y: cr(a.y, b.y, c.y, d.y, t), seg: i }); }
-  }
-  if (line.length < 2) return;
-  const stroke = (off, col, wid) => {
-    ctx.strokeStyle = col; ctx.lineCap = 'round';
-    for (let i = 1; i < line.length; i++){
-      const A = line[i - 1], B = line[i];
-      if (B.seg !== A.seg && B.seg !== A.seg + 1) continue;
-      const pa = proj(A.x + off, A.y), pb = proj(B.x + off, B.y);
-      if (!pa || !pb) continue;
-      ctx.lineWidth = Math.max(.8, wid * (pa.k + pb.k) / 2);
-      ctx.beginPath(); ctx.moveTo(pa.X, pa.Y); ctx.lineTo(pb.X, pb.Y); ctx.stroke();
-    }
-  };
-  // a broad, scraped groove …
-  stroke(0, `rgba(150,170,205,${.08 + .22 * w})`, 10 + 16 * w);
-  stroke(0, `rgba(120,145,190,${.05 + .18 * w})`, 4 + 8 * w);
-  // … made of many racers' edge tracks
-  const nT = 2 + Math.round(w * 7);
-  for (let j = 0; j < nT; j++){ const o = ((hash2(j, 77) & 255) / 255 - .5) * (5 + 12 * w); stroke(o, `rgba(100,125,175,${.08 + .16 * w})`, 1.1); }
-  // ruts just below each gate where everyone loads the outside ski hardest: a hollow with snow piled on the far side
-  for (const P of pts){
-    if (!P.g || P.y < yNear - 40 || P.y > yFar + 20) continue;
-    const sd = Math.sign(P.g.x) || 1;
-    for (let r = 0; r < 2; r++){
-      const y = P.y + 14 + r * 18, x = P.x + sd * (2 + r * 5);
-      const c = proj(x, y); if (!c) continue;
-      const rx = (5 + 9 * w) * c.k * (r ? .8 : 1), ry = (2.4 + 4 * w) * c.k * (r ? .8 : 1);
-      ctx.fillStyle = `rgba(90,115,165,${.10 + .38 * w})`;
-      ctx.beginPath(); ctx.ellipse(c.X, c.Y, rx, ry, 0, 0, 7); ctx.fill();
-      ctx.fillStyle = `rgba(70,95,150,${.06 + .3 * w})`;
-      ctx.beginPath(); ctx.ellipse(c.X + sd * rx * .2, c.Y + ry * .25, rx * .6, ry * .55, 0, 0, 7); ctx.fill();
-      // the snow pushed up on the outside of the rut
-      ctx.strokeStyle = `rgba(255,255,255,${.25 + .6 * w})`; ctx.lineWidth = Math.max(1, (1 + 1.8 * w) * c.k);
-      ctx.beginPath(); ctx.ellipse(c.X, c.Y, rx * 1.08, ry * 1.15, 0, sd > 0 ? -1.2 : Math.PI - .6, sd > 0 ? .6 : Math.PI + 1.2); ctx.stroke();
-    }
+  if (w < .02) return;
+  for (const g of course.gates){
+    if (g.y < yNear - 30 || g.y > yFar + 20) continue;
+    const sd = Math.sign(g.x) || 1, px = g.x - sd * GH;      // the turning pole (nearer the middle of the slope)
+    const c = proj(px, g.y); if (!c) continue;
+    const r = (7 + 7 * w) * c.k, ry = r * .5;
+    // the arc opens toward the gate, the side the racers pass on
+    const a0 = sd > 0 ? -Math.PI / 2 : Math.PI / 2, a1 = sd > 0 ? Math.PI / 2 : Math.PI * 1.5;
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = `rgba(95,120,170,${.18 + .4 * w})`; ctx.lineWidth = Math.max(1, (1.6 + 2.4 * w) * c.k);
+    ctx.beginPath(); ctx.ellipse(c.X, c.Y, r, ry, 0, a0, a1); ctx.stroke();
+    ctx.strokeStyle = `rgba(255,255,255,${.3 + .55 * w})`; ctx.lineWidth = Math.max(.8, (.8 + 1.2 * w) * c.k);
+    ctx.beginPath(); ctx.ellipse(c.X, c.Y, r * 1.18, ry * 1.18, 0, a0, a1); ctx.stroke();
   }
 }
 // ---- raised start platform: a built-up deck behind the gate and a steep ramp down onto the course ----
