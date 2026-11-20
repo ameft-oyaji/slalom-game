@@ -202,6 +202,22 @@ tr.cut td{border-bottom:2px solid var(--amber)}
 .waxbtn small{font-size:11px;color:#C9D2E3}
 .wsw{display:block;width:100%;height:6px;border-radius:2px;margin-bottom:3px}
 .ev-wx{font-family:var(--f-body);font-weight:700;font-size:12px;margin-top:3px;color:var(--ink)}
+.ev-gear{font-family:var(--f-body);font-weight:700;font-size:11px;margin-top:2px;color:var(--ink);opacity:.9;max-width:min(560px,70vw)}
+.ev-gear b{font-family:var(--f-num);letter-spacing:.03em}.ev-gear .up{color:#1E8E4A}.ev-gear .dn{color:#C62828}
+.fperf{margin:10px 0;display:flex;flex-direction:column;gap:10px}
+.fgear{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px}
+.fgi{display:flex;gap:8px;align-items:center;background:var(--board-2);border-radius:4px;padding:5px 7px}
+.fgi svg{width:58px;flex:none;border-radius:3px}
+.fgi span{display:flex;flex-direction:column;font-size:12px;line-height:1.25;min-width:0}
+.fgi small{color:var(--muted);font-size:10px}.fgi b{font-family:var(--f-num);font-size:14px;letter-spacing:.03em}
+.fcond{font-size:12px;color:var(--muted)}.fcond b{color:inherit;font-weight:700}
+.prow{display:grid;grid-template-columns:minmax(110px,auto) 1fr 64px;gap:8px;align-items:center;font-size:12px}
+.pbar{position:relative;height:8px;background:rgba(127,140,160,.22);border-radius:4px}
+.pbar::after{content:'';position:absolute;left:50%;top:-2px;bottom:-2px;width:1px;background:rgba(127,140,160,.7)}
+.pbar i{position:absolute;top:0;bottom:0;border-radius:4px}
+.pbar i.up{left:50%;background:#2FB36A}.pbar i.dn{right:50%;background:#E5484D}
+.pval{font-family:var(--f-num);font-weight:700;text-align:right}.pval.up{color:#2FB36A}.pval.dn{color:#E5484D}
+body.nightrace .ev-gear .up,body.nightrace .ev-gear .dn{color:#fff!important}
 .lock{z-index:5;width:min(420px,calc(100% - 24px))}
 .lock input[type=password]{width:100%;font-size:18px;padding:10px 12px}
 .lock-err{margin:0;color:var(--bad);font-size:13px;font-weight:700}
@@ -339,6 +355,7 @@ body.nightrace .ev-label,body.nightrace .ev-label *,body.nightrace #keys,body.ni
       <div class="ev-name" id="evName">MEN'S SLALOM</div>
       <div class="ev-place"><span class="flag" id="evFlag"></span><span id="evPlace">LEVI FIN</span><span class="ev-run" id="evRun">RUN 1</span></div>
       <div class="ev-wx" id="evWx"></div>
+      <div class="ev-gear" id="evGear" hidden></div>
     </div>
     <div class="card" id="card">
       <div class="c-rank" id="cRank" hidden>1</div>
@@ -1035,14 +1052,18 @@ function waxMatch(w, wx){
 function waxGrade(m){ return m > .9 ? '◎ ぴったり' : m > .7 ? '○ 良い' : m > .4 ? '△ いまひとつ' : '× 合っていない'; }
 // gear + wax for the player's run
 function runMods(){
+  if (race && race.wx) return modsFor(race.wx[race.run - 1], race.wax[race.run - 1], race.edge[race.run - 1]);
+  return gearMods(myGear);
+}
+function modsFor(wx, waxId, ed){
   const m = gearMods(myGear);
-  if (race && race.wx){
-    const wx = race.wx[race.run - 1], mt = waxMatch(waxById(race.wax[race.run - 1]), wx);
+  {
+    const mt = waxMatch(waxById(waxId), wx);
     m.drag *= 1 + (1 - mt) * .05;
     m.fr = 1 + (1 - mt) * .35;
     if (wx.cond === 'snow') m.haze *= 1.7; else if (wx.cond === 'cloud') m.haze *= 1.25;
     // edge tune: sharp side edges and a small base bevel bite on ice, but hook and drag in soft snow
-    const ed = race.edge[race.run - 1], h = snowHardness(wx);
+    const h = snowHardness(wx);
     const sh = (89 - ed.side) / 3, bb = (1 - ed.base) / .5;
     m.turn *= 1 + .05 * sh * h - .02 * sh * (1 - h) + .02 * bb * h - .015 * bb * (1 - h);
     m.carve *= 1 - .08 * sh * h + .07 * sh * (1 - h) + .03 * bb * (1 - h);
@@ -1542,6 +1563,7 @@ function setupCard(){
   $('#evPlace').textContent = `${race.ev.venue} ${race.ev.nat}`;
   setFlag($('#evFlag'), race.ev.nat);
   $('#evRun').textContent = fr ? 'Free Run' : 'Run ' + race.run;
+  const eg = $('#evGear'); eg.hidden = !fr; if (fr) eg.innerHTML = freeGearLine(race.wx[0], race.wax[0], race.edge[0]);
   $('#bQuit').textContent = fr ? 'やめる' : '棄権';
   $('#evWx').textContent = race.wx ? wxLine(race.wx[race.run - 1]) + ' · ' + waxById(race.wax[race.run - 1]).name + ` · エッジ ${race.edge[race.run - 1].side}°/${race.edge[race.run - 1].base.toFixed(1)}°` : '';
   const ld = race.leader;
@@ -2933,6 +2955,53 @@ function freeVenues(){
 function freeBests(){ return load(FREE_KEY + '-best') || {}; }
 function freeKeyOf(f){ return [gender, f.venue, f.gates === 'rhythm' ? 'rhythm-' + (f.gap || 'mid') : f.gates, f.len].join('|'); }
 function freeBestKey(){ return freeKeyOf(FREE); }
+// ---- free ski: the gear in use and what it does in today's conditions ----
+const GEAR_SHORT = { ski: 'スキー', bind: 'ビンディング', pole: 'ストック', boot: 'ブーツ', gog: 'ゴーグル', helm: 'ヘルメット' };
+function freePerfRows(wx, waxId, ed){
+  const m = modsFor(wx, waxId, ed), g = gearMods(myGear);
+  const pct = (v, better) => ({ v: (v - 1) * 100, good: better > 0 ? v > 1 : v < 1 });
+  const rows = [
+    ['ターンのキレ', pct(m.turn, 1), 'スキー・ブーツ・エッジ'],
+    ['空気・雪の抵抗', pct(m.drag, -1), 'ヘルメット・ワックス'],
+    ['ターン中の減速', pct(m.carve, -1), 'スキー・エッジ'],
+    ['クローチの抵抗', pct(m.tuck, -1), 'スキー・ストック'],
+    ['ワックスの滑り', { v: -(m.fr - 1) * 100, good: m.fr <= 1.0001 }, 'ワックス'],
+    ['ポール接触の減速', pct(m.pole, -1), 'ブーツ・ヘルメット'],
+    ['ネット接触の減速', pct(m.net, -1), 'ブーツ'],
+  ];
+  // the goggle: which effect matters depends on the light
+  if (FREE.wx === 'night' || (race && race.ev && race.ev.night)) rows.push(['ゴーグル：夜の暗さ', pct(g.night, -1), 'ゴーグル']);
+  else if (wx.cond === 'sun') rows.push(['ゴーグル：まぶしさ', pct(g.glare, -1), 'ゴーグル']);
+  else rows.push(['ゴーグル：かすみ', pct(g.haze, -1), 'ゴーグル']);
+  rows.push(['スタートの押し出し', { v: m.push * .36, good: m.push > 0, kmh: true }, 'ストック']);
+  return rows;
+}
+function freePerfHTML(){
+  const v = freeVenues().find(x => x.venue === FREE.venue) || freeVenues()[0];
+  const ev = Object.assign({}, v, { night: FREE.wx === 'night' });
+  const wx = freeWeather(ev), rc = recoFor(wx), ed = { side: rc.side, base: rc.base };
+  const gear = Object.keys(GEAR).map(cat => { const it = gearItem(cat, myGear[cat]); return `<div class="fgi">${itemSVG(cat, it)}<span><small>${GEAR_SHORT[cat] || GEAR[cat].label}</small><b>${esc(it.name)}</b><small>${esc(it.model)}</small></span></div>`; }).join('');
+  const rows = freePerfRows(wx, rc.wax, ed).map(([label, r, src]) => {
+    const z = Math.abs(r.v) < .05, cls = z ? '' : r.good ? 'up' : 'dn';
+    const w = z ? 0 : Math.min(50, Math.abs(r.kmh ? r.v * 2 : r.v) * 2.2);
+    const val = z ? '±0' : r.kmh ? `+${r.v.toFixed(1)} km/h` : `${r.v > 0 ? '+' : '−'}${Math.abs(r.v).toFixed(1)}%`;
+    return `<div class="prow" title="${esc(src)}"><span>${label}</span><span class="pbar"><i class="${cls}" style="width:${w}%"></i></span><span class="pval ${cls}">${val}</span></div>`;
+  }).join('');
+  return `<div class="fperf">
+      <h3 style="margin:0;font-size:14px">使用マテリアル</h3>
+      <div class="fgear">${gear}</div>
+      <div class="fcond">この条件の雪：<b>${COND[wx.cond].jp}${ev.night ? '・ナイター' : ''}・気温 ${wx.air}℃・雪温 ${wx.snowT}℃・${wx.surface}</b><br>ワックス <b>${waxById(rc.wax).name}</b>・エッジ <b>${rc.side}° / ${rc.base.toFixed(1)}°</b>（自動でおすすめ）</div>
+      <h3 style="margin:0;font-size:14px">性能への影響 <small class="note" style="font-weight:400">緑＝有利・赤＝不利（標準の用具との差）</small></h3>
+      <div>${rows}</div>
+      <p class="note" style="margin:0">用具は「選手・用具」タブで変えられます。</p>
+    </div>`;
+}
+function freeGearLine(wx, waxId, ed){
+  const names = Object.keys(GEAR).map(cat => `<b>${esc(gearItem(cat, myGear[cat]).name)}</b>`).join(' / ');
+  const eff = freePerfRows(wx, waxId, ed).filter(([, r]) => Math.abs(r.v) >= .5).sort((a, b) => Math.abs(b[1].v) - Math.abs(a[1].v)).slice(0, 3)
+    .map(([label, r]) => `<span class="${r.good ? 'up' : 'dn'}">${label.replace('ゴーグル：', '')} ${r.kmh ? '+' + r.v.toFixed(0) + 'km/h' : (r.v > 0 ? '+' : '−') + Math.abs(r.v).toFixed(0) + '%'}</span>`).join('・');
+  return names + (eff ? '<br>' + eff : '');
+}
 function freeTabHTML(){
   const vs = freeVenues();
   if (!vs.find(v => v.venue === FREE.venue)) FREE.venue = vs[0].venue;
@@ -2948,14 +3017,16 @@ function freeTabHTML(){
       <label class="note" for="fLen">長さ</label>${sel('fLen', FREE_LEN, FREE.len)}
     </div>
     <dl class="rows"><dt>この条件のベスト</dt><dd id="fBest">${best ? `${fmt(best.t)} · 最高 ${best.v} km/h` : '—'}</dd></dl>
-    <p class="note">ワックスとエッジは天気に合わせて自動でおすすめにします。スタートは左右同時押し（合図のあと、時間制限なし）。</p>
-    <div class="btns"><button class="btn primary hot" type="button" id="fGo">滑りに行く</button></div>`;
+    <div class="btns"><button class="btn primary hot" type="button" id="fGo">滑りに行く</button></div>
+    <div id="fPerf">${freePerfHTML()}</div>
+    <p class="note">スタートは左右同時押し（合図のあと、時間制限なし）。</p>`;
 }
 function bindFreeTab(root){
   const upd = () => {
     FREE = { venue: root.querySelector('#fVenue').value, wx: root.querySelector('#fWx').value, gates: root.querySelector('#fGates').value, len: root.querySelector('#fLen').value, gap: root.querySelector('#fGap').value };
     const rh = FREE.gates === 'rhythm'; root.querySelector('label[for=fGap]').hidden = !rh; root.querySelector('#fGapW').hidden = !rh;
     try { localStorage.setItem(FREE_KEY, JSON.stringify(FREE)); } catch(e){}
+    root.querySelector('#fPerf').innerHTML = freePerfHTML();
     const b = freeBests()[freeBestKey()];
     root.querySelector('#fBest').textContent = b ? `${fmt(b.t)} · 最高 ${b.v} km/h` : '—';
   };
@@ -3030,6 +3101,7 @@ function showFreeResult(){
   if (isBest) html += `<p class="note"><b>自己ベスト更新！</b></p>`;
   if (f.gates !== 'none' && race.misses) html += `<p class="note">旗門を外した滑りは自己ベストに残りません。</p>`;
   html += `<div class="btns"><button class="btn primary" type="button" id="frAgain">もう一度滑る</button><button class="btn" type="button" id="frSet">条件を変える</button></div>`;
+  html += freePerfHTML();
   openSheet('Free Ski', 'フリースキー', html);
   if (isBest) crowdCheer(.8);
   $('#frAgain').onclick = () => { closeSheet(); FREE = Object.assign({}, f); startFree(); };
@@ -3375,9 +3447,9 @@ function render(){
   const cd = $('#cd');
   if (state === 'countdown'){ cd.className = 'cd'; if (race && race.battle){ cd.innerHTML = `READY<em>${Math.max(1, Math.ceil(cdT))}</em>`; } else cd.textContent = 'READY'; }
   else if (state === 'gate'){
-    cd.className = 'cd go' + (gateT <= 3 ? ' hurry' : '');
+    cd.className = 'cd go' + (gateT <= 3 && !(race && race.mode === 'free') ? ' hurry' : '');
     const hint = document.body.classList.contains('touch') ? '左足＋右足を同時に押してスタート' : '← と → を同時に押してスタート';
-    cd.innerHTML = `GO<small>${hint}</small><em>${Math.max(0, gateT).toFixed(1)}</em>`;
+    cd.innerHTML = `GO<small>${hint}</small>${race && race.mode === 'free' ? '' : `<em>${Math.max(0, gateT).toFixed(1)}</em>`}`;
   }
   else if (state === 'celebrate'){ /* banner set by celebrate() */ }
   else if (goT > 0){ cd.className = 'cd go'; cd.textContent = 'GO'; }
