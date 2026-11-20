@@ -2614,7 +2614,6 @@ function shimizuOn(){ return !!(race && race.shimizu && race.shimizu[race.run - 
 function drawShimizu(x, y){
   const p = proj(x, y); if (!p || p.X < -40 || p.X > cw + 40) return;
   const u = p.k * 2.2, t = performance.now() / 1000;
-  const cheer = state === 'finished' || state === 'watch' || state === 'celebrate';
   ctx.fillStyle = COL.shadow; ctx.beginPath(); ctx.ellipse(p.X + 3 * u, p.Y + .8 * u, 7 * u, 2 * u, 0, 0, 7); ctx.fill();
   ctx.save(); ctx.translate(p.X, p.Y); ctx.scale(u, u); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
   // the race ski, held upright and leaning on his shoulder (black topsheet, white lettering)
@@ -2633,16 +2632,14 @@ function drawShimizu(x, y){
   ctx.fillStyle = '#1C1D22'; rrect(-3.2, -16.3, 4.2, 8.4, 1.6); ctx.fill();
   ctx.fillStyle = '#1C1D22'; ctx.fillRect(-4, -8.2, 8, 1.2);
   ctx.fillStyle = 'rgba(200,205,215,.7)'; ctx.fillRect(2.4, -12, .5, 1.6); ctx.fillRect(3.1, -11.6, .5, 1.6);   // reflective chevrons on the sleeve
-  // arms: one hand on the ski, the other waves when you come through the finish
+  // arms: both hands on the ski, checking the edge
   ctx.strokeStyle = '#F2A21C'; ctx.lineWidth = 1.9;
   ctx.beginPath(); ctx.moveTo(-3.3, -15); ctx.lineTo(-4.8, -11); ctx.lineTo(-3.8, -9.6); ctx.stroke();
-  const wave = cheer ? Math.sin(t * 9) * .6 : 0;
-  ctx.beginPath(); ctx.moveTo(3.3, -15);
-  if (cheer){ ctx.lineTo(5.6, -18.5); ctx.lineTo(6.2 + wave, -21.8); } else { ctx.lineTo(4.6, -11.5); ctx.lineTo(3.4, -10.2); }
-  ctx.stroke();
+  const rub = Math.sin(t * 2.2) * .5;                      // a slow rub along the edge
+  ctx.beginPath(); ctx.moveTo(3.3, -15); ctx.lineTo(1.6, -12.4 + rub * .4); ctx.lineTo(-2.4, -13.2 + rub); ctx.stroke();
   ctx.fillStyle = '#E3B48C';
   ctx.beginPath(); ctx.arc(-3.8, -9.6, .75, 0, 7); ctx.fill();
-  ctx.beginPath(); if (cheer) ctx.arc(6.2 + wave, -22.2, .75, 0, 7); else ctx.arc(3.4, -10.2, .75, 0, 7); ctx.fill();
+  ctx.beginPath(); ctx.arc(-2.4, -13.2 + rub, .75, 0, 7); ctx.fill();
   // burgundy neck gaiter
   ctx.fillStyle = '#7E1F2E'; rrect(-2, -18.2, 4, 2.3, 1); ctx.fill();
   // head: tanned face, shoulder-length brown hair
