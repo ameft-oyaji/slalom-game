@@ -3815,13 +3815,9 @@ function drawWand(){
   // shadow on the snow
   ctx.strokeStyle = COL.shadow; ctx.lineWidth = 2.2 * a.k; ctx.lineCap = 'round';
   ctx.beginPath(); ctx.moveTo(a.X + 2 * a.k, a.Y); ctx.lineTo(b.X + 2 * b.k, b.Y); ctx.stroke();
-  // striped bar
-  const n = 8;
-  for (let i = 0; i < n; i++){
-    const t0 = i / n, t1 = (i + 1) / n;
-    ctx.strokeStyle = i % 2 ? '#F2F4F8' : '#D42A2F'; ctx.lineWidth = Math.max(2, 3 * (a.k + (b.k - a.k) * (t0 + t1) / 2));
-    ctx.beginPath(); ctx.moveTo(ax + (ex - ax) * t0, ay + (ey - ay) * t0); ctx.lineTo(ax + (ex - ax) * t1, ay + (ey - ay) * t1); ctx.stroke();
-  }
+  // plain black bar, thin
+  ctx.strokeStyle = '#111317'; ctx.lineWidth = Math.max(1, 1.3 * (a.k + b.k) / 2);
+  ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(ex, ey); ctx.stroke();
   // the timing box with the hinge on the left post
   ctx.fillStyle = '#1A1F2B'; rrect(ax - 3 * a.k, ay - 3 * a.k, 6 * a.k, 7 * a.k, 1.2 * a.k); ctx.fill();
   ctx.fillStyle = WAND.open ? '#2FB36A' : '#FFC93C'; ctx.beginPath(); ctx.arc(ax, ay - 1.2 * a.k, 1 * a.k, 0, 7); ctx.fill();
