@@ -281,6 +281,8 @@ tr.cut td{border-bottom:2px solid var(--amber)}
 .cer-title small{display:block;font-family:var(--f-num);font-weight:500;letter-spacing:.1em;color:#56657F;font-size:12px;text-transform:uppercase}
 .cer .btns{justify-content:center}
 @media (prefers-reduced-motion:reduce){ .per,.ath.pz-up,.ath.pz-globe{animation:none} }
+.free-form{display:grid;grid-template-columns:auto 1fr;gap:8px 10px;align-items:center;margin:10px 0}
+.free-form select{width:100%;min-width:0}
 .conn{font-size:12px;color:var(--muted)}
 .conn.ok{color:var(--good)}
 
@@ -414,6 +416,7 @@ tr.cut td{border-bottom:2px solid var(--amber)}
         <button type="button" role="tab" id="tCal" aria-selected="true">キャリア</button>
         <button type="button" role="tab" id="tStand" aria-selected="false">ランキング</button>
         <button type="button" role="tab" id="tTa" aria-selected="false">タイムアタック</button>
+        <button type="button" role="tab" id="tFree" aria-selected="false">フリースキー</button>
         <button type="button" role="tab" id="tBt" aria-selected="false">オンライン対戦</button>
         <button type="button" role="tab" id="tPl" aria-selected="false">プレーヤー</button>
         <button type="button" role="tab" id="tGear" aria-selected="false">選手・用具</button>
@@ -1382,6 +1385,8 @@ function step(dt){
       sk.v = 45 + m.push + 6;                          // the start push out of the gate
       sk.pushT = PUSH_DUR; sk.pushCd = PUSH_DUR + .06;
       tone(240, .06, 'triangle', .05);
+    } else if (gateT <= 0 && race.mode === 'free'){
+      gateT = 0;
     } else if (gateT <= 0){
       dsq = true; state = 'finished'; finT = 2;
       race.playerDsq[race.run - 1] = 'DSQ';
@@ -1479,6 +1484,7 @@ function step(dt){
 function burst(x, y, dir, n){ for (let i = 0; i < n; i++) parts.push({ x, y, vx: dir*(40+Math.random()*90), vy: (Math.random()-.3)*90, life: .6, max: .6, r: 1.5 + Math.random()*2 }); }
 
 function onMiss(g){
+  if (race.mode === 'free'){ race.misses = (race.misses || 0) + 1; tone(220, .2, 'sawtooth', .05); flash(`第${g.i + 1}旗門を外しました（練習なので続行）`, true); return; }
   // FIS: every gate must be passed correctly, otherwise the racer is disqualified
   tone(180, .35, 'sawtooth', .08);
   dsq = true; state = 'finished'; finT = 1.8;
@@ -1493,6 +1499,7 @@ function onMiss(g){
 // Live timing
 // =====================================================================
 function leaderBefore(){
+  if (race.mode === 'free') return null;
   if (race.mode === 'ta'){
     const b = taBoard(race.key)[0];
     return b ? { name: b.handle, total: race.run === 1 ? b.r1 : b.t, run: race.run === 1 ? b.r1 : b.r2, r1: b.r1, label: 'コースレコード' } : null;
@@ -1524,15 +1531,16 @@ function setupCard(){
   const nm = splitName(pname);
   $('#cFirst').textContent = nm.first; $('#cFirst').hidden = !nm.first;
   $('#cLast').textContent = nm.last;
-  const ta = race.mode === 'ta';
-  $('#cBib').hidden = ta; if (!ta) $('#cBib').textContent = race.bib.get('you');
+  const ta = race.mode === 'ta', fr = race.mode === 'free';
+  $('#cBib').hidden = ta || fr; if (!ta && !fr) $('#cBib').textContent = race.bib.get('you');
   setFlag($('#cFlag'), myNat); $('#cNat').textContent = myNat;
   $('#cRank').hidden = true; $('#cDiff').hidden = true; $('#cTime').hidden = false; $('#cTime').textContent = '0:00.0';
-  $('#evName').textContent = (gender === 'men' ? "Men's " : "Women's ") + (race.battle ? 'Slalom · Online Battle' : ta ? 'Slalom · Time Attack' : 'Slalom');
+  $('#evName').textContent = (gender === 'men' ? "Men's " : "Women's ") + (race.battle ? 'Slalom · Online Battle' : ta ? 'Slalom · Time Attack' : fr ? (race.free.gates === 'none' ? 'Free Ski' : 'Free Ski · Practice Gates') : 'Slalom');
   $('#btLive').hidden = !race.battle;
   $('#evPlace').textContent = `${race.ev.venue} ${race.ev.nat}`;
   setFlag($('#evFlag'), race.ev.nat);
-  $('#evRun').textContent = 'Run ' + race.run;
+  $('#evRun').textContent = fr ? 'Free Run' : 'Run ' + race.run;
+  $('#bQuit').textContent = fr ? 'やめる' : '棄権';
   $('#evWx').textContent = race.wx ? wxLine(race.wx[race.run - 1]) + ' · ' + waxById(race.wax[race.run - 1]).name + ` · エッジ ${race.edge[race.run - 1].side}°/${race.edge[race.run - 1].base.toFixed(1)}°` : '';
   const ld = race.leader;
   $('#vs').hidden = !ld; if (ld) $('#vs').textContent = `${ld.label}：${ld.name}　${fmt(ld.total)}`;
@@ -1613,6 +1621,7 @@ function beginRun(){
   tone(880, .12, 'square', .06);
 }
 function recordPlayerTime(tt){
+  if (race.mode === 'free'){ race.freeTime = tt; return; }
   if (race.mode === 'ta'){ race.taTimes[race.run - 1] = tt; return; }
   if (race.run === 1) race.run1.you = tt; else race.run2.you = tt;
 }
@@ -1624,6 +1633,7 @@ function finishRun(){
   tone(784, .18, 'triangle', .1); setTimeout(() => tone(1047, .4, 'triangle', .1), 160);
   recordPlayerTime(tt);
   const ld = race.leader;
+  if (race.mode === 'free'){ finishCard(tt, null, null); crowdCheer(.45); return; }
   if (race.mode === 'ta'){
     const tot = race.run === 1 ? tt : trunc(race.taTimes[0] + tt);
     finishCard(tot, ld ? ld.total : null, ld ? (tot < ld.total ? 1 : 2) : 1);
@@ -1653,6 +1663,7 @@ function afterFinish(){
   if (race.watchQueue && race.watchQueue.length) return startWatch();
   leaveRunUI();
   if (race.battle) return showBattleResult();
+  if (race.mode === 'free') return showFreeResult();
   if (race.mode === 'ta') return showTaResult();
   if (race.run === 1) return showRun1Result();
   return afterRun2();
@@ -2762,7 +2773,7 @@ function sheetFinalsBlocked(ev){
 // Menu
 // =====================================================================
 let tab = 'cal';
-const TABS = [['tCal','cal'],['tStand','stand'],['tTa','ta'],['tBt','battle'],['tPl','players'],['tGear','gear'],['tRules','rules']];
+const TABS = [['tCal','cal'],['tStand','stand'],['tTa','ta'],['tFree','free'],['tBt','battle'],['tPl','players'],['tGear','gear'],['tRules','rules']];
 // ---- athlete & equipment picker ----
 const MOD_LABEL = { turn: ['ターンのキレ', 1], drag: ['空気・雪の抵抗', -1], carve: ['ターン中の減速', -1], tuck: ['クローチの抵抗', -1], pole: ['ポール接触の減速', -1], net: ['ネット接触の減速', -1], night: ['ナイターの暗さ', -1], haze: ['遠くのかすみ', -1] };
 function gearSummary(){
@@ -2811,7 +2822,7 @@ function showMenu(which){
   closeSheet(); leaveRunUI();
   $('#gMen').setAttribute('aria-pressed', gender === 'men'); $('#gWomen').setAttribute('aria-pressed', gender === 'women');
   $('#level').value = level; $('#pname').value = pname;
-  $('#level').hidden = tab === 'ta';
+  $('#level').hidden = tab === 'ta' || tab === 'free';
   for (const [id, k] of TABS) $('#' + id).setAttribute('aria-selected', tab === k);
   renderTab();
   $('#menu').hidden = false;
@@ -2824,6 +2835,7 @@ function renderTab(){
   if (tab === 'cal') body.innerHTML = calendarHTML();
   else if (tab === 'stand') body.innerHTML = standingsHTML();
   else if (tab === 'ta') body.innerHTML = taListHTML();
+  else if (tab === 'free'){ body.innerHTML = freeTabHTML(); bindFreeTab(body); }
   else if (tab === 'players'){ body.innerHTML = playersHTML(); loadPlayers(); }
   else if (tab === 'battle'){ body.innerHTML = battleTabHTML(); bindBattleTab(body); }
   else if (tab === 'gear'){ body.innerHTML = gearEditorHTML(); bindGear(body); }
@@ -2898,6 +2910,111 @@ function standingsHTML(){
     html += `<h3>シーズンの成績</h3>` + table(['日付','会場','優勝','あなた','Pt'], hr);
   }
   return html + `<p class="note">ライバルの強さ：${LEVEL_NAME[level]}。男子／女子、ライバルの強さごとに別々のキャリアとして記録されます。</p><div class="btns"><button class="btn small" type="button" id="bReset">このキャリアをリセット</button></div>`;
+}
+// =====================================================================
+// Free ski: pick a venue, the weather and the set, then just ski. No DSQ, no points
+// =====================================================================
+const FREE_KEY = 'slalomwc-free';
+let FREE = Object.assign({ venue: 'Kitzbühel', wx: 'sun', gates: 'none', len: 'short' }, load(FREE_KEY) || {});
+const FREE_WX = { sun: '晴れ', cloud: 'くもり', snow: '雪', night: 'ナイター' };
+const FREE_GATES = { none: '旗門なし（自由に滑る）', practice: '練習ポール（外しても続行）' };
+const FREE_LEN = { short: 'ショート（約400 m）', long: 'ロング（約1 km）' };
+function freeVenues(){
+  const seen = new Set(), out = [];
+  for (const r of slRaces(gender)) if (r.disc === 'SL' && !seen.has(r.venue)){ seen.add(r.venue); out.push(r); }
+  return out;
+}
+function freeBests(){ return load(FREE_KEY + '-best') || {}; }
+function freeBestKey(){ return [gender, FREE.venue, FREE.gates, FREE.len].join('|'); }
+function freeTabHTML(){
+  const vs = freeVenues();
+  if (!vs.find(v => v.venue === FREE.venue)) FREE.venue = vs[0].venue;
+  const sel = (id, obj, cur) => `<select id="${id}">${Object.entries(obj).map(([k, v]) => `<option value="${esc(k)}"${k === cur ? ' selected' : ''}>${esc(v)}</option>`).join('')}</select>`;
+  const vOpts = Object.fromEntries(vs.map(v => [v.venue, `${JP[v.venue] || v.venue}（${v.nat}）`]));
+  const best = freeBests()[freeBestKey()];
+  return `<p class="note">タイムもポイントも気にせず、好きなコースを好きなように滑るモードです。失格はありません。</p>
+    <div class="free-form">
+      <label class="note" for="fVenue">コース</label>${sel('fVenue', vOpts, FREE.venue)}
+      <label class="note" for="fWx">天気</label>${sel('fWx', FREE_WX, FREE.wx)}
+      <label class="note" for="fGates">旗門</label>${sel('fGates', FREE_GATES, FREE.gates)}
+      <label class="note" for="fLen">長さ</label>${sel('fLen', FREE_LEN, FREE.len)}
+    </div>
+    <dl class="rows"><dt>この条件のベスト</dt><dd id="fBest">${best ? `${fmt(best.t)} · 最高 ${best.v} km/h` : '—'}</dd></dl>
+    <p class="note">ワックスとエッジは天気に合わせて自動でおすすめにします。スタートは左右同時押し（合図のあと、時間制限なし）。</p>
+    <div class="btns"><button class="btn primary hot" type="button" id="fGo">滑りに行く</button></div>`;
+}
+function bindFreeTab(root){
+  const upd = () => {
+    FREE = { venue: root.querySelector('#fVenue').value, wx: root.querySelector('#fWx').value, gates: root.querySelector('#fGates').value, len: root.querySelector('#fLen').value };
+    try { localStorage.setItem(FREE_KEY, JSON.stringify(FREE)); } catch(e){}
+    const b = freeBests()[freeBestKey()];
+    root.querySelector('#fBest').textContent = b ? `${fmt(b.t)} · 最高 ${b.v} km/h` : '—';
+  };
+  root.querySelectorAll('.free-form select').forEach(x => x.onchange = upd);
+  root.querySelector('#fGo').onclick = () => { upd(); startFree(); };
+}
+function freeCourse(seed){
+  const r = rng(seed);
+  const target = FREE.len === 'long' ? 10000 : 4000;            // 10 units = 1 m
+  if (FREE.gates === 'none'){
+    const vd = Math.round(target / 10 * .32);
+    return { gates: [], finishY: target, checks: [], vd, nGates: 0 };
+  }
+  // practice set: chain slalom sets until the run is long enough
+  const gates = [];
+  let off = 0, vd = 0, k = 0;
+  while (off < target - 1500){
+    const c = buildCourse(seed ^ (0x3131 * (k + 1)), gender);
+    for (const g of c.gates) gates.push(Object.assign(g, { y: g.y + off, tag: off && g === c.gates[0] ? '' : g.tag }));
+    off += c.gates[c.gates.length - 1].y + 140; vd += c.vd; k++;
+  }
+  gates.forEach((g, i) => { g.i = i; g.col = i % 2 ? 'blue' : 'red'; });
+  const n = gates.length;
+  return { gates, finishY: gates[n - 1].y + 130, checks: [Math.floor(n * .25), Math.floor(n * .5), Math.floor(n * .75)], vd, nGates: n };
+}
+function freeWeather(ev){
+  const base = weatherFor(ev, gender)[0];
+  const cond = FREE.wx === 'night' ? (base.cond === 'snow' ? 'cloud' : base.cond) : FREE.wx;
+  let air = base.air + (FREE.wx === 'night' ? -3 : 0);
+  let snowT = Math.min(cond === 'snow' ? air - 1 : air - 2.5, -.2);
+  const surface = snowT > -1.5 ? '湿った雪' : cond === 'snow' ? '新雪まじり' : snowT < -11 ? 'アイス（とても硬い）' : '硬く締まったバーン';
+  return { cond, air: Math.round(air * 10) / 10, snowT: Math.round(snowT * 10) / 10, surface };
+}
+function startFree(){
+  ac();
+  const v = freeVenues().find(x => x.venue === FREE.venue) || freeVenues()[0];
+  const ev = Object.assign({}, v, { night: FREE.wx === 'night', finals: false });
+  const wx = freeWeather(ev), rc = recoFor(wx);
+  const c = freeCourse(hashStr('free|' + Math.random()));
+  race = { ev, mode: 'free', free: Object.assign({}, FREE), courses: [c], refs: [{ time: 0, frac: [] }], run: 1, playerDsq: [false, false], finals: false, maxV: 0,
+    wx: [wx, wx], wax: [rc.wax, rc.wax], edge: [{ side: rc.side, base: rc.base }, { side: rc.side, base: rc.base }], misses: 0, freeTime: null };
+  $('#menu').hidden = true;
+  beginRun();
+}
+function showFreeResult(){
+  const f = race.free, c = race.courses[0], tt = race.freeTime;
+  const vMax = Math.round(race.maxV * .36);
+  const dist = Math.round(c.finishY / 10);
+  let html = `<div><span class="badge">フリースキー</span>${race.ev.night ? ' <span class="badge night">ナイター</span>' : ''}</div><dl class="rows">`;
+  html += `<dt>コース</dt><dd style="font-family:var(--f-body);font-size:15px">${esc(JP[race.ev.venue] || race.ev.venue)}・${FREE_WX[f.wx]}・${f.gates === 'none' ? '旗門なし' : '練習ポール'}</dd>`;
+  let isBest = false;
+  if (tt != null){
+    html += `<dt>タイム</dt><dd>${fmt(tt)}</dd><dt>滑走距離</dt><dd>${dist} m</dd><dt>平均速度</dt><dd>${Math.round(dist / tt * 3.6)} km/h</dd>`;
+    const bests = freeBests(), key = [gender, f.venue, f.gates, f.len].join('|'), old = bests[key];
+    if (!old || tt < old.t || (f.gates === 'practice' && race.misses)){ /* misses don't count as a best */ }
+    if (!(f.gates === 'practice' && race.misses) && (!old || tt < old.t)){ bests[key] = { t: tt, v: vMax }; save(FREE_KEY + '-best', bests); isBest = true; }
+    if (old && !isBest) html += `<dt>この条件のベスト</dt><dd>${fmt(old.t)}</dd>`;
+  } else html += `<dt>結果</dt><dd>途中でやめました</dd>`;
+  html += `<dt>最高速度</dt><dd>${vMax} km/h</dd>`;
+  if (f.gates === 'practice') html += `<dt>旗門</dt><dd>${c.nGates - race.misses} / ${c.nGates} 通過</dd>`;
+  html += '</dl>';
+  if (isBest) html += `<p class="note"><b>自己ベスト更新！</b></p>`;
+  if (f.gates === 'practice' && race.misses) html += `<p class="note">旗門を外した滑りは自己ベストに残りません。</p>`;
+  html += `<div class="btns"><button class="btn primary" type="button" id="frAgain">もう一度滑る</button><button class="btn" type="button" id="frSet">条件を変える</button></div>`;
+  openSheet('Free Ski', 'フリースキー', html);
+  if (isBest) crowdCheer(.8);
+  $('#frAgain').onclick = () => { closeSheet(); FREE = Object.assign({}, f); startFree(); };
+  $('#frSet').onclick = () => { race = null; showMenu('free'); };
 }
 function taListHTML(){
   const races = slRaces(gender).filter(r => r.disc === 'SL');
@@ -3127,7 +3244,7 @@ function render(){
   const gs = course.gates;
   for (const g of gs) if (g.y > yNear - 30 && g.y < yFar + 40) sprites.push({ y: g.y, d: () => drawGate(g) });
   const label = race && race.ev ? race.ev.venue.toUpperCase() : 'SLALOM';
-  if (22 > yNear - 30 && 22 < yFar + 40) sprites.push({ y: 22, d: () => banner(22, label + ' · RUN ' + (race ? race.run : 1), COL.blue, COL.red) });
+  if (22 > yNear - 30 && 22 < yFar + 40) sprites.push({ y: 22, d: () => banner(22, label + (race && race.mode === 'free' ? ' · FREE SKI' : ' · RUN ' + (race ? race.run : 1)), COL.blue, COL.red) });
   if (fy + 2 > yNear - 30 && fy < yFar + 40) sprites.push({ y: fy + 2, d: () => banner(fy + 2, 'FINISH', COL.red, COL.blue) });
   if (-76 > yNear - 60) sprites.push({ y: -76, d: drawStartHut });
   // start officials: the starter beside the gate (arm up for READY, down at GO) and two helpers
