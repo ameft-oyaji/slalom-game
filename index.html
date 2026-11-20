@@ -2148,6 +2148,14 @@ function collectCrowd(sprites, yNear, yFar){
       }
     }
   }
+  // Mr. Shimizu stands in the front of the crowd right of the finish, ski in hand
+  if (shimizuOn()){
+    const sy = fy + SHIMIZU_SPOT.dy, sx = W / 2 + SHIMIZU_SPOT.dx;
+    // a little knot of spectators just inside the right-hand fence, with him at the front
+    const knot = [[-16, 10], [-4, 14], [9, 11], [18, 6], [-22, 3], [14, -2], [-11, -4]];
+    knot.forEach(([dx, dy], i) => { const fx = sx + dx, fyy = sy + dy, h = hash2(i * 53 + 11, 977); if (fyy > yNear - 20 && fyy < yFar + 20) sprites.push({ y: fyy, d: () => drawFan(fx, fyy, h, now, ex, natCols) }); });
+    if (sy > yNear - 20 && sy < yFar + 20) sprites.push({ y: sy - 6, d: () => drawShimizu(sx, sy - 6, 1.6) });
+  }
 }
 const FAN_COLS = ['#D42A2F', '#1F55C8', '#F59F00', '#0CA678', '#7048E8', '#13213A', '#E8590C', '#FFFFFF', '#D6336C'];
 function drawFan(x, y, h, now, ex, natCols){
@@ -2437,7 +2445,7 @@ function collectArena(sprites, yNear, yFar){
     if (ty < yNear - 20 || ty > yFar + 40) continue;
     sprites.push({ y: ty, d: () => {
       drawStandTier(ty, tier);
-      const sh = shimizuOn() && tier === 0;
+      const sh = false;
       for (const st of A.seats) if (st.tier === tier && !(sh && Math.abs(st.x - SHIMIZU_SEAT_X) < 8)) drawFanLifted(st.x, ty - 1, st.h, now, ex, (st.h % 3 === 0) ? myCols : natCols, 6 + tier * 6);
       if (sh){ const q = proj(SHIMIZU_SEAT_X, ty - 1); if (q){ ctx.save(); ctx.translate(0, -6 * q.k); drawShimizu(SHIMIZU_SEAT_X, ty - 1, 1.05); ctx.restore(); } }
     } });
@@ -2611,7 +2619,8 @@ function showCeremony(kind, top, ev){
 }
 // race officials: a person in a coloured jacket; pose 'up' (arm raised), 'point', 'clip' (clipboard) or 'down'
 // Mr. Shimizu, the service man: waits in the finish area with a race ski whenever his tune is on
-const SHIMIZU_SEAT_X = 64;          // his spot in the front row of the finish stand
+const SHIMIZU_SEAT_X = 64;
+const SHIMIZU_SPOT = { dx: -38, dy: 112 };   // right of the finish, at the front of a group of spectators inside the fence
 function shimizuOn(){ return !!(race && race.shimizu && race.shimizu[race.run - 1]); }
 function drawShimizu(x, y, sc = 2.2){
   const p = proj(x, y); if (!p || p.X < -40 || p.X > cw + 40) return;
