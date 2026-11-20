@@ -1536,7 +1536,7 @@ function setupCard(){
   $('#cBib').hidden = ta || fr; if (!ta && !fr) $('#cBib').textContent = race.bib.get('you');
   setFlag($('#cFlag'), myNat); $('#cNat').textContent = myNat;
   $('#cRank').hidden = true; $('#cDiff').hidden = true; $('#cTime').hidden = false; $('#cTime').textContent = '0:00.0';
-  $('#evName').textContent = (gender === 'men' ? "Men's " : "Women's ") + (race.battle ? 'Slalom · Online Battle' : ta ? 'Slalom · Time Attack' : fr ? (race.free.gates === 'none' ? 'Free Ski' : 'Free Ski · Practice Gates') : 'Slalom');
+  $('#evName').textContent = (gender === 'men' ? "Men's " : "Women's ") + (race.battle ? 'Slalom · Online Battle' : ta ? 'Slalom · Time Attack' : fr ? (race.free.gates === 'none' ? 'Free Ski' : race.free.gates === 'rhythm' ? 'Free Ski · Rhythm Gates' : 'Free Ski · Practice Gates') : 'Slalom');
   $('#btLive').hidden = !race.battle;
   document.body.classList.toggle('nightrace', !!race.ev.night);
   $('#evPlace').textContent = `${race.ev.venue} ${race.ev.nat}`;
@@ -2918,9 +2918,12 @@ function standingsHTML(){
 // Free ski: pick a venue, the weather and the set, then just ski. No DSQ, no points
 // =====================================================================
 const FREE_KEY = 'slalomwc-free';
-let FREE = Object.assign({ venue: 'Kitzbühel', wx: 'sun', gates: 'none', len: 'short' }, load(FREE_KEY) || {});
+let FREE = Object.assign({ venue: 'Kitzbühel', wx: 'sun', gates: 'none', len: 'short', gap: 'mid' }, load(FREE_KEY) || {});
 const FREE_WX = { sun: '晴れ', cloud: 'くもり', snow: '雪', night: 'ナイター' };
-const FREE_GATES = { none: '旗門なし（自由に滑る）', practice: '練習ポール（外しても続行）' };
+const FREE_GATES = { none: '旗門なし（自由に滑る）', rhythm: '同じリズムの旗門（外しても続行）', practice: '練習ポール・本番のようなセット（外しても続行）' };
+const FREE_GAP = { tight: '短い（約9.5 m・小回り）', mid: '標準（約11 m）', wide: '長い（約13 m・大きめ）' };
+const RHYTHM = { tight: { off: 22, dist: 95 }, mid: { off: 28, dist: 112 }, wide: { off: 34, dist: 128 } };
+function freeGateName(f){ return f.gates === 'none' ? '旗門なし' : f.gates === 'rhythm' ? `リズム旗門（${FREE_GAP[f.gap || 'mid'].split('（')[0]}）` : '練習ポール'; }
 const FREE_LEN = { short: 'ショート（約400 m）', long: 'ロング（約1 km）' };
 function freeVenues(){
   const seen = new Set(), out = [];
@@ -2928,7 +2931,8 @@ function freeVenues(){
   return out;
 }
 function freeBests(){ return load(FREE_KEY + '-best') || {}; }
-function freeBestKey(){ return [gender, FREE.venue, FREE.gates, FREE.len].join('|'); }
+function freeKeyOf(f){ return [gender, f.venue, f.gates === 'rhythm' ? 'rhythm-' + (f.gap || 'mid') : f.gates, f.len].join('|'); }
+function freeBestKey(){ return freeKeyOf(FREE); }
 function freeTabHTML(){
   const vs = freeVenues();
   if (!vs.find(v => v.venue === FREE.venue)) FREE.venue = vs[0].venue;
@@ -2940,6 +2944,7 @@ function freeTabHTML(){
       <label class="note" for="fVenue">コース</label>${sel('fVenue', vOpts, FREE.venue)}
       <label class="note" for="fWx">天気</label>${sel('fWx', FREE_WX, FREE.wx)}
       <label class="note" for="fGates">旗門</label>${sel('fGates', FREE_GATES, FREE.gates)}
+      <label class="note" for="fGap"${FREE.gates === 'rhythm' ? '' : ' hidden'}>旗門の間隔</label><span id="fGapW"${FREE.gates === 'rhythm' ? '' : ' hidden'}>${sel('fGap', FREE_GAP, FREE.gap || 'mid')}</span>
       <label class="note" for="fLen">長さ</label>${sel('fLen', FREE_LEN, FREE.len)}
     </div>
     <dl class="rows"><dt>この条件のベスト</dt><dd id="fBest">${best ? `${fmt(best.t)} · 最高 ${best.v} km/h` : '—'}</dd></dl>
@@ -2948,7 +2953,8 @@ function freeTabHTML(){
 }
 function bindFreeTab(root){
   const upd = () => {
-    FREE = { venue: root.querySelector('#fVenue').value, wx: root.querySelector('#fWx').value, gates: root.querySelector('#fGates').value, len: root.querySelector('#fLen').value };
+    FREE = { venue: root.querySelector('#fVenue').value, wx: root.querySelector('#fWx').value, gates: root.querySelector('#fGates').value, len: root.querySelector('#fLen').value, gap: root.querySelector('#fGap').value };
+    const rh = FREE.gates === 'rhythm'; root.querySelector('label[for=fGap]').hidden = !rh; root.querySelector('#fGapW').hidden = !rh;
     try { localStorage.setItem(FREE_KEY, JSON.stringify(FREE)); } catch(e){}
     const b = freeBests()[freeBestKey()];
     root.querySelector('#fBest').textContent = b ? `${fmt(b.t)} · 最高 ${b.v} km/h` : '—';
@@ -2962,6 +2968,17 @@ function freeCourse(seed){
   if (FREE.gates === 'none'){
     const vd = Math.round(target / 10 * .32);
     return { gates: [], finishY: target, checks: [], vd, nGates: 0 };
+  }
+  if (FREE.gates === 'rhythm'){
+    // the same distance and the same offset every gate, left–right–left…
+    const R = RHYTHM[FREE.gap] || RHYTHM.mid, dx = R.off * 2;
+    const dy = Math.max(92, dx * 1.15, Math.sqrt(Math.max(0, R.dist * R.dist - dx * dx)));
+    const side0 = r() < .5 ? -1 : 1, gates = [];
+    for (let y = 150, i = 0; y < target - 130; y += dy, i++){
+      gates.push({ x: (i % 2 ? -side0 : side0) * R.off, y, tag: '', col: i % 2 ? 'blue' : 'red', bend: [0,0], bv: [0,0], cool: [0,0], res: 0, i });
+    }
+    const n = gates.length;
+    return { gates, finishY: gates[n - 1].y + 130, checks: [Math.floor(n * .25), Math.floor(n * .5), Math.floor(n * .75)], vd: Math.round(target / 10 * .32), nGates: n };
   }
   // practice set: chain slalom sets until the run is long enough
   const gates = [];
@@ -2999,20 +3016,19 @@ function showFreeResult(){
   const vMax = Math.round(race.maxV * .36);
   const dist = Math.round(c.finishY / 10);
   let html = `<div><span class="badge">フリースキー</span>${race.ev.night ? ' <span class="badge night">ナイター</span>' : ''}</div><dl class="rows">`;
-  html += `<dt>コース</dt><dd style="font-family:var(--f-body);font-size:15px">${esc(JP[race.ev.venue] || race.ev.venue)}・${FREE_WX[f.wx]}・${f.gates === 'none' ? '旗門なし' : '練習ポール'}</dd>`;
+  html += `<dt>コース</dt><dd style="font-family:var(--f-body);font-size:15px">${esc(JP[race.ev.venue] || race.ev.venue)}・${FREE_WX[f.wx]}・${freeGateName(f)}</dd>`;
   let isBest = false;
   if (tt != null){
     html += `<dt>タイム</dt><dd>${fmt(tt)}</dd><dt>滑走距離</dt><dd>${dist} m</dd><dt>平均速度</dt><dd>${Math.round(dist / tt * 3.6)} km/h</dd>`;
-    const bests = freeBests(), key = [gender, f.venue, f.gates, f.len].join('|'), old = bests[key];
-    if (!old || tt < old.t || (f.gates === 'practice' && race.misses)){ /* misses don't count as a best */ }
-    if (!(f.gates === 'practice' && race.misses) && (!old || tt < old.t)){ bests[key] = { t: tt, v: vMax }; save(FREE_KEY + '-best', bests); isBest = true; }
+    const bests = freeBests(), key = freeKeyOf(f), old = bests[key];
+    if (!(f.gates !== 'none' && race.misses) && (!old || tt < old.t)){ bests[key] = { t: tt, v: vMax }; save(FREE_KEY + '-best', bests); isBest = true; }
     if (old && !isBest) html += `<dt>この条件のベスト</dt><dd>${fmt(old.t)}</dd>`;
   } else html += `<dt>結果</dt><dd>途中でやめました</dd>`;
   html += `<dt>最高速度</dt><dd>${vMax} km/h</dd>`;
-  if (f.gates === 'practice') html += `<dt>旗門</dt><dd>${c.nGates - race.misses} / ${c.nGates} 通過</dd>`;
+  if (f.gates !== 'none') html += `<dt>旗門</dt><dd>${c.nGates - race.misses} / ${c.nGates} 通過</dd>`;
   html += '</dl>';
   if (isBest) html += `<p class="note"><b>自己ベスト更新！</b></p>`;
-  if (f.gates === 'practice' && race.misses) html += `<p class="note">旗門を外した滑りは自己ベストに残りません。</p>`;
+  if (f.gates !== 'none' && race.misses) html += `<p class="note">旗門を外した滑りは自己ベストに残りません。</p>`;
   html += `<div class="btns"><button class="btn primary" type="button" id="frAgain">もう一度滑る</button><button class="btn" type="button" id="frSet">条件を変える</button></div>`;
   openSheet('Free Ski', 'フリースキー', html);
   if (isBest) crowdCheer(.8);
