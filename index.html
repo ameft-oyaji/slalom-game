@@ -2430,7 +2430,6 @@ function collectArena(sprites, yNear, yFar){
     sprites.push({ y: fy + 40, d: () => drawFinishHouse(W / 2 - 46, fy + 40) });
     sprites.push({ y: fy + 6, d: () => drawOfficial(-W / 2 + 14, fy + 6, '#F07A1A', ex > .6 ? 'up' : 'down', 'FINISH') });
     sprites.push({ y: fy + 10, d: () => drawOfficial(W / 2 - 92, fy + 10, '#F07A1A', 'clip', '') });
-    if (shimizuOn()) sprites.push({ y: fy + 70, d: () => drawShimizu(W / 2 - 150, fy + 70) });
   }
   // grandstand tiers, each with its fans
   for (let tier = 5; tier >= 0; tier--){
@@ -2438,7 +2437,9 @@ function collectArena(sprites, yNear, yFar){
     if (ty < yNear - 20 || ty > yFar + 40) continue;
     sprites.push({ y: ty, d: () => {
       drawStandTier(ty, tier);
-      for (const st of A.seats) if (st.tier === tier) drawFanLifted(st.x, ty - 1, st.h, now, ex, (st.h % 3 === 0) ? myCols : natCols, 6 + tier * 6);
+      const sh = shimizuOn() && tier === 0;
+      for (const st of A.seats) if (st.tier === tier && !(sh && Math.abs(st.x - SHIMIZU_SEAT_X) < 8)) drawFanLifted(st.x, ty - 1, st.h, now, ex, (st.h % 3 === 0) ? myCols : natCols, 6 + tier * 6);
+      if (sh){ const q = proj(SHIMIZU_SEAT_X, ty - 1); if (q){ ctx.save(); ctx.translate(0, -6 * q.k); drawShimizu(SHIMIZU_SEAT_X, ty - 1, 1.05); ctx.restore(); } }
     } });
   }
   for (const pr of A.props){
@@ -2610,10 +2611,11 @@ function showCeremony(kind, top, ev){
 }
 // race officials: a person in a coloured jacket; pose 'up' (arm raised), 'point', 'clip' (clipboard) or 'down'
 // Mr. Shimizu, the service man: waits in the finish area with a race ski whenever his tune is on
+const SHIMIZU_SEAT_X = 64;          // his spot in the front row of the finish stand
 function shimizuOn(){ return !!(race && race.shimizu && race.shimizu[race.run - 1]); }
-function drawShimizu(x, y){
+function drawShimizu(x, y, sc = 2.2){
   const p = proj(x, y); if (!p || p.X < -40 || p.X > cw + 40) return;
-  const u = p.k * 2.2, t = performance.now() / 1000;
+  const u = p.k * sc, t = performance.now() / 1000;
   ctx.fillStyle = COL.shadow; ctx.beginPath(); ctx.ellipse(p.X + 3 * u, p.Y + .8 * u, 7 * u, 2 * u, 0, 0, 7); ctx.fill();
   ctx.save(); ctx.translate(p.X, p.Y); ctx.scale(u, u); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
   // the race ski, held upright and leaning on his shoulder (black topsheet, white lettering)
