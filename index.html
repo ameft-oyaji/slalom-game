@@ -40,8 +40,8 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
 
 .speedo{background:rgba(14,26,46,.75);color:#fff;border-radius:4px;padding:5px 9px;font:700 18px var(--f-num);font-variant-numeric:tabular-nums}
 .speedo small{font-size:11px;color:var(--muted);margin-left:3px;font-weight:500}
-.slopeo{background:rgba(14,26,46,.75);color:#fff;border-radius:4px;padding:5px 9px;font:700 13px var(--f-body);display:flex;gap:6px;align-items:center;border-left:4px solid #4C8DFF}
-.slopeo b{font:700 16px var(--f-num)}.slopeo.s1{border-color:#2FB36A}.slopeo.s2{border-color:#4C8DFF}.slopeo.s3{border-color:#F59F00}.slopeo.s4{border-color:#E5484D}
+.slopeo{color:#fff;border-radius:6px;padding:6px 14px;font:800 17px var(--f-body);display:flex;gap:8px;align-items:center;box-shadow:0 2px 8px rgba(0,0,0,.25);transition:background-color .4s}
+.slopeo b{font:800 24px var(--f-num)}.slopeo.s1{background:#1E9E57}.slopeo.s2{background:#2F6FE0}.slopeo.s3{background:#E08A00}.slopeo.s4{background:#D93A3F}
 .profbox{margin:8px 0;padding:8px;background:var(--board-2);border-radius:6px}.profbox .profile{width:100%;height:auto;display:block}
 .profbox small{display:block;color:#C9D2E3;font-size:12px;margin-top:4px}
 .proflegend{display:flex;flex-wrap:wrap;gap:10px;font-size:11px;color:#C9D2E3;margin-top:4px}.proflegend i{display:inline-block;width:10px;height:4px;border-radius:2px;margin-right:4px;vertical-align:middle}
@@ -63,7 +63,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
 .c-nat{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:0 10px;font-weight:700;font-size:13px;color:#1B2E6B;letter-spacing:.04em}
 .c-time,.c-diff{display:flex;align-items:center;justify-content:center;min-width:96px;padding:0 14px;font-weight:700;font-size:28px;font-variant-numeric:tabular-nums}
 .c-time{background:#13235E;color:#fff}
-.c-diff{color:#fff;background:var(--board)}
+.c-diff{color:#fff;background:var(--board);font-size:34px;min-width:112px}
 .c-diff.good{background:#1FA855}
 .c-diff.bad{background:#D93A3F}
 .vs{position:absolute;right:max(16px,env(safe-area-inset-right,0px));font-family:var(--f-body);font-size:12px;font-weight:700;color:var(--ink);background:rgba(255,255,255,.85);padding:2px 8px;border-radius:2px;white-space:nowrap}
@@ -3628,13 +3628,16 @@ function drawProgress(){
   if (race.leader && lastDiff && !dsq){
     const near = p >= NEAR_FINISH;
     const txt = fmtDiff(trunc(Math.abs(lastDiff.d)) * Math.sign(lastDiff.d));
-    ctx.font = `700 ${near ? 22 : 17}px 'Barlow Condensed', sans-serif`;
-    const w = ctx.measureText(txt).width + (near ? 22 : 16), h = near ? 32 : 24;
+    ctx.font = `800 ${near ? 32 : 26}px 'Barlow Condensed', sans-serif`;
+    const w = ctx.measureText(txt).width + (near ? 26 : 20), h = near ? 44 : 36;
     const bx = x - 16 - w, byy = my - h/2;
     ctx.fillStyle = lastDiff.d <= 0 ? '#1FA855' : '#D93A3F';
     ctx.fillRect(bx, byy, w, h);
     ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.fillText(txt, bx + w/2, my + 1);
-    if (near){ ctx.font = "700 12px 'Noto Sans JP', sans-serif"; ctx.fillStyle = '#13235E'; ctx.textAlign = 'right'; ctx.fillText('トップとの差', bx - 6, my + 1); }
+    ctx.font = "700 13px 'Noto Sans JP', sans-serif"; ctx.textAlign = 'center';
+    const lw = ctx.measureText('トップとの差').width + 10;
+    ctx.fillStyle = 'rgba(19,35,94,.88)'; ctx.fillRect(bx + w/2 - lw/2, byy - 20, lw, 18);
+    ctx.fillStyle = '#fff'; ctx.fillText('トップとの差', bx + w/2, byy - 10);
   }
 }
 
@@ -3902,8 +3905,8 @@ function render(){
     for (let y = Math.floor((yNear - 10) / B) * B; y < yFar + B; y += B){
       if (y < -20 || y > course.finishY + 40) continue;
       const g = gradAt(course.prof, y + B / 2);
-      if (g >= 34){ ctx.fillStyle = `rgba(60,92,160,${Math.min(.22, (g - 34) / 100 * .7)})`; if (quad(-W/2, W/2, y, y + B)) ctx.fill(); }
-      else if (g < 22){ ctx.fillStyle = `rgba(255,255,255,${(22 - g) / 22 * .35})`; if (quad(-W/2, W/2, y, y + B)) ctx.fill(); }
+      if (g >= 34){ ctx.fillStyle = `rgba(60,92,160,${Math.min(.32, (g - 34) / 100 * 1)})`; if (quad(-W/2, W/2, y, y + B)) ctx.fill(); }
+      else if (g < 22){ ctx.fillStyle = `rgba(255,255,255,${(22 - g) / 22 * .5})`; if (quad(-W/2, W/2, y, y + B)) ctx.fill(); }
       const dg = gradAt(course.prof, y + B * 1.5) - gradAt(course.prof, y + B / 2);
       if (dg > 4.5){
         ctx.fillStyle = `rgba(255,255,255,${Math.min(.75, dg / 14)})`; if (quad(-W/2, W/2, y + B - 2, y + B + 1)) ctx.fill();
@@ -4009,11 +4012,18 @@ function drawNets(yNear, yFar){
   for (const s of [-1, 1]){
     const a = proj(s*W/2, bot), b = proj(s*W/2, top);
     if (!a || !b) continue;
-    // the netting: a low orange fence leaning toward the camera
-    ctx.fillStyle = 'rgba(240,122,26,.55)';
-    ctx.beginPath(); ctx.moveTo(a.X, a.Y); ctx.lineTo(b.X, b.Y); ctx.lineTo(b.X, b.Y - 9*b.k); ctx.lineTo(a.X, a.Y - 9*a.k); ctx.closePath(); ctx.fill();
-    ctx.strokeStyle = COL.net; ctx.lineWidth = Math.max(1, 1.4*a.k);
-    ctx.beginPath(); ctx.moveTo(a.X, a.Y - 9*a.k); ctx.lineTo(b.X, b.Y - 9*b.k); ctx.stroke();
+    // the netting, coloured by the slope of each stretch: green gentle · blue medium · orange steepish · red steep
+    const SEG = 30;
+    for (let y0 = bot; y0 < top; y0 += SEG){
+      const y1 = Math.min(top, y0 + SEG), pa = proj(s*W/2, y0), pb = proj(s*W/2, y1);
+      if (!pa || !pb) continue;
+      const g = course.prof && y0 > -20 && y0 < course.finishY ? gradAt(course.prof, (y0 + y1) / 2) : -1;
+      const c = g < 0 ? '240,122,26' : g >= 50 ? '217,58,63' : g >= 40 ? '224,138,0' : g >= 25 ? '47,111,224' : '30,158,87';
+      ctx.fillStyle = `rgba(${c},.62)`;
+      ctx.beginPath(); ctx.moveTo(pa.X, pa.Y); ctx.lineTo(pb.X, pb.Y); ctx.lineTo(pb.X, pb.Y - 9*pb.k); ctx.lineTo(pa.X, pa.Y - 9*pa.k); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = `rgb(${c})`; ctx.lineWidth = Math.max(1.2, 1.8*pa.k);
+      ctx.beginPath(); ctx.moveTo(pa.X, pa.Y - 9*pa.k); ctx.lineTo(pb.X, pb.Y - 9*pb.k); ctx.stroke();
+    }
     ctx.fillStyle = COL.ink;
     for (let y = Math.ceil(bot/36)*36; y < top; y += 36){ const p = proj(s*W/2, y); if (p) ctx.fillRect(p.X - .6*p.k, p.Y - 10*p.k, 1.2*p.k, 10*p.k); }
   }
