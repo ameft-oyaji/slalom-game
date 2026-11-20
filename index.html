@@ -871,6 +871,8 @@ function courseSeed(g, date){ return hashStr(`${g}-${date}`); }
 // =====================================================================
 function newBody(){ return { x:0, y:-14, th:0, v:0, lean:0, tuck:false, px:0, py:-14, ng:0, block:null, pushT:0, pushCd:0 }; }
 const PUSH_DUR = .48;
+const SKATE_DUR = 1.05, SKATE_STEP = .35;      // two or three skating steps after the push-off
+
 const START_WINDOW = 3;        // the start may be taken from the end of the long tone (first buzzer +5 s) until first buzzer +8 s
 const START_CALL = 10;         // "10 seconds" is called, the buzzers begin 5 s later
 let gateT = 0;
@@ -1472,7 +1474,7 @@ function step(dt){
       state = 'run'; goT = .5;
       const m = sk.mod || NOMOD;
       sk.v = 45 + m.push + 6;                          // the start push out of the gate
-      sk.pushT = PUSH_DUR; sk.pushCd = PUSH_DUR + .06;
+      sk.pushT = PUSH_DUR; sk.pushCd = PUSH_DUR + .06; sk.skateT = SKATE_DUR + PUSH_DUR * .6;
       tone(240, .06, 'triangle', .05);
     } else if (gateT <= 0 && race.mode === 'free'){
       gateT = 0;
@@ -1489,6 +1491,11 @@ function step(dt){
   }
   if (goT > 0) goT -= dt;
   stepWand(dt);
+  if (sk.skateT > 0 && state === 'run'){
+    const before = sk.skateT; sk.skateT -= dt;
+    const k0 = Math.floor((SKATE_DUR - before) / SKATE_STEP), k1 = Math.floor((SKATE_DUR - sk.skateT) / SKATE_STEP);
+    if (before <= SKATE_DUR && k1 > k0 && k1 <= 3){ sk.v += 7 * clamp(1 - sk.v / 160, 0, 1); tone(300, .04, 'triangle', .03); }   // each skating step
+  }
   if ((state === 'run' || state === 'demo') && sk.y > 0 && sk.y < RAMP_END) sk.v += 55 * (1 - sk.y / RAMP_END) * dt;
   if (state !== 'run' && state !== 'finished' && state !== 'demo') return;
 
@@ -3947,23 +3954,38 @@ function drawSkier(){
   const L = clamp(sk.lean, -1, 1), a = Math.abs(L), s = L >= 0 ? 1 : -1;   // s = inside of the turn (screen side)
   const tuck = sk.tuck;
   const look = { suit: NAT[myNat].suit, trim: NAT[myNat].trim, ski: gearItem('ski', myGear.ski), helm: gearItem('helm', myGear.helm), gog: gearItem('gog', myGear.gog), pole: gearItem('pole', myGear.pole) };
+  // in the start gate: poles planted out over the start bar, rocking back and forth with the buzzers, coiled at the long tone
+  const inGate = race && (state === 'countdown' || state === 'gate');
+  let rock = 0;
+  if (inGate){
+    if (state === 'gate') rock = .9 + Math.sin(performance.now() / 160) * .08;                  // coiled, ready to go
+    else if (cdT <= 5) rock = cdT <= 1 ? .6 + (1 - cdT) * .3 : .5 - .5 * Math.cos(Math.PI * 2 * (5 - cdT));   // one rock per buzzer, then load up on the long tone
+    else rock = .15 + .1 * Math.sin(performance.now() / 700);                                      // settling in
+  }
+  // skating out of the start: skis open in a V and the weight swings from one to the other
+  const skating = sk.skateT > 0 && sk.skateT <= SKATE_DUR && state === 'run';
+  const skPh = skating ? (SKATE_DUR - sk.skateT) / SKATE_STEP : 0, skSide = skating ? (Math.floor(skPh) % 2 ? 1 : -1) : 0, skLift = skating ? Math.sin(Math.PI * (skPh % 1)) : 0;
   // shadow
   ctx.fillStyle = COL.shadow; ctx.beginPath(); ctx.ellipse(p.X + (5 + s*a*3)*u, p.Y + 1*u, 10*u, 2.8*u, 0, 0, 7); ctx.fill();
   // skis on edge, pushed out from under the body (in world space so they foreshorten)
   for (const o of [-3, 3]){
     const off = o - s*a*1.6;                   // feet drift to the outside while the hips drop inside
     const lead = o * s > 0 ? 1.6*a : 0;         // inside ski a little ahead
-    const bx = sk.x + px*off, by = sk.y + py*off;
-    const t = proj(bx - dx*(7 - lead), by - dy*(7 - lead)), h = proj(bx + dx*(12 + lead), by + dy*(12 + lead));
-    if (!t || !h) continue;
+    const spread = skating ? Math.sign(o) * .38 : 0;                // V: tails together, tips apart
+    const sdx = Math.sin(sk.th + spread), sdy = Math.cos(sk.th + spread);
+    const bx = sk.x + px*(off + (skating ? Math.sign(o) * 1.5 + skSide * 2 : 0)), by = sk.y + py*off;
+    const t0 = proj(bx - sdx*(7 - lead), by - sdy*(7 - lead)), h0 = proj(bx + sdx*(12 + lead), by + sdy*(12 + lead));
+    if (!t0 || !h0) continue;
+    const lift = skating && Math.sign(o) !== skSide ? skLift * 2.2 * u : 0;   // the unweighted ski comes off the snow
+    const t = { X: t0.X, Y: t0.Y - lift }, h = { X: h0.X, Y: h0.Y - lift };
     ctx.strokeStyle = ['#F4F1E8', '#C9D2DE', '#F5F5F5'].includes(look.ski.c1) ? shade(look.ski.c1, .8) : look.ski.c1; ctx.lineCap = 'round'; ctx.lineWidth = Math.max(1.5, 1.9*u*(1 - a*.35));
     ctx.beginPath(); ctx.moveTo(t.X, t.Y); ctx.lineTo(h.X, h.Y); ctx.stroke();
     ctx.strokeStyle = look.ski.c2; ctx.lineWidth = Math.max(1, 1.2*u);
     ctx.beginPath(); ctx.moveTo(t.X, t.Y); ctx.lineTo(t.X + (h.X - t.X)*.12, t.Y + (h.Y - t.Y)*.12); ctx.stroke();
   }
   ctx.save();
-  ctx.translate(p.X, p.Y);
-  ctx.rotate(sk.th * .08);
+  ctx.translate(p.X + (skating ? skSide * skLift * 1.6 * u : 0), p.Y);
+  ctx.rotate(sk.th * .08 + (skating ? skSide * skLift * .08 : 0));
   ctx.scale(u, u);
   ctx.lineCap = 'round'; ctx.lineJoin = 'round';
 
@@ -3978,10 +4000,10 @@ function drawSkier(){
   // legs incline as one long line from the outside ski: the hips drop toward the snow on the inside of the turn
   const legL = tuck ? 6.4 : 9 - incl * .8;
   const fc = (footO.x + footI.x) / 2;
-  const hip = { x: fc + s * Math.sin(incl) * legL, y: -Math.cos(incl) * legL + (pushing ? (1 - reach) * 1.4 : 0) };
+  const hip = { x: fc + s * Math.sin(incl) * legL, y: -Math.cos(incl) * legL + (pushing ? (1 - reach) * 1.4 : 0) + rock * 2.2 + (skating ? skLift * .6 : 0) };
   const kneeO = { x: (footO.x + hip.x) / 2 + s * .5 * wI, y: (footO.y + hip.y) / 2 - .4 };                       // outside leg long and straight
   const kneeI = { x: footI.x + s * Math.sin(incl) * legL * .62 + s * 1.2 * wI, y: -Math.cos(incl) * legL * .42 + .6 * wI };  // inside leg folded under the body
-  const torsoLen = tuck ? 3.8 : 6.2 - wI * 1.4;                                           // upper body bends forward over the skis
+  const torsoLen = (tuck ? 3.8 : 6.2 - wI * 1.4) - rock * 1.3;     // bending forward over the poles when coiled                                           // upper body bends forward over the skis
   let ang = s * incl * .55;                                                              // upper body leans in, but less than the legs (angulation)
   // cross-block: the outside hand punches across the body to clear the pole
   const bl = sk.block, bp = bl ? clamp(bl.t / bl.dur, 0, 1) : 0, be = bl ? Math.sin(Math.PI * bp) : 0, bs = bl ? bl.side : 0;
@@ -3994,6 +4016,15 @@ function drawSkier(){
   const lerpP = (p0, p1, f) => ({ x: p0.x + (p1.x - p0.x) * f, y: p0.y + (p1.y - p0.y) * f });
   let handI = tuck ? { x: sh.x + s*2.4, y: sh.y + 3.2 } : lerpP({ x: shI.x + s*2.6, y: shI.y + 4.4 }, { x: hip.x + s*(3.4 + incl*2.2), y: -1.2 }, wI);
   let handO = tuck ? { x: sh.x - s*2.4, y: sh.y + 3.2 } : lerpP({ x: shO.x - s*2.6, y: shO.y + 4.6 }, { x: sh.x + s*1.4, y: sh.y + 2.2 }, wI);
+  if (inGate){
+    handI = { x: sh.x + s * 2.9, y: sh.y + 2.4 - rock * .6 };
+    handO = { x: sh.x - s * 2.9, y: sh.y + 2.4 - rock * .6 };
+  }
+  if (skating){
+    // arms swing across with each step
+    handI = { x: sh.x + s * (2.6 + skSide * s * 1.4), y: sh.y + 3.2 - skLift * 1.2 };
+    handO = { x: sh.x - s * (2.6 - skSide * s * 1.4), y: sh.y + 3.2 - skLift * 1.2 };
+  }
   if (pushing){
     const hy = hip.y + 1.8 + (sh.y + .4 - hip.y - 1.8) * reach;
     handI = { x: sh.x + s*(3.6 + (1 - reach)*1.4), y: hy };
@@ -4021,6 +4052,11 @@ function drawSkier(){
   ctx.beginPath();
   if (tuck){ ctx.moveTo(handI.x, handI.y); ctx.lineTo(handI.x + s*3, handI.y - 6); ctx.moveTo(handO.x, handO.y); ctx.lineTo(handO.x - s*3, handO.y - 6); }
   else if (actUp){ ctx.moveTo(handI.x, handI.y); ctx.lineTo(handI.x + s * 1.5, handI.y - 7); ctx.moveTo(handO.x, handO.y); ctx.lineTo(handO.x - s * 1.5, handO.y - 7); }
+  else if (inGate){
+    // pole tips planted on the far side of the start bar
+    ctx.moveTo(handI.x, handI.y); ctx.lineTo(handI.x + s * 1.2, -3.2 - rock * .8);
+    ctx.moveTo(handO.x, handO.y); ctx.lineTo(handO.x - s * 1.2, -3.2 - rock * .8);
+  }
   else if (pushing){
     // tips planted beside the boots, then pushed back behind them (toward the camera)
     const ty = reach > .5 ? -1.4 : 2.6 - reach * 3, tx = 1 + (1 - reach) * 1.2;
