@@ -3243,25 +3243,32 @@ function drawSkier(){
   ctx.lineCap = 'round'; ctx.lineJoin = 'round';
 
   // --- skeleton (y up is negative). Angulation: knees and hips into the turn, upper body stays over the outside ski
-  const footO = { x: -s*2.6 - s*a*1.6, y: 0 }, footI = { x: s*2.6 - s*a*1.6, y: 0 };
+  // How far the racer is laid over: grows with the turn and with speed (World Cup slalom: legs past 60° at full speed)
+  const incl = tuck ? a * .35 : clamp(Math.pow(a, .8) * (.45 + sk.v / 130), 0, 1.2);
+  const wI = clamp(incl / .9, 0, 1);                                                      // 0 = upright stance, 1 = fully laid over
+  const footO = { x: -s*2.8 - s*incl*2.6, y: 0 }, footI = { x: s*2.2 - s*incl*2.6, y: 0 };
   const pushing = sk.pushT > 0 && !tuck;
   const pp = pushing ? 1 - sk.pushT / PUSH_DUR : 0;
   const reach = pushing ? (pp < .35 ? pp / .35 : 1 - (pp - .35) / .65) : 0;     // 0 = arms pushed back, 1 = reaching forward
-  const hip = { x: s*a*(tuck ? 2.6 : 4.2), y: (tuck ? -6 : -8.6) + a*1.8 + (pushing ? (1 - reach) * 1.4 : 0) };
-  const kneeO = { x: (footO.x + hip.x)/2 + s*a*.6, y: (footO.y + hip.y)/2 - .2 };                 // outside leg long and almost straight
-  const kneeI = { x: (footI.x + hip.x)/2 + s*a*2.4, y: (footI.y + hip.y)/2 + a*.9 };              // inside leg folded, knee driven in
-  const torsoLen = tuck ? 3.8 : 6.2;
-  let ang = -s*a*.32;                                                                              // torso leans back toward the outside: the "<" shape
+  // legs incline as one long line from the outside ski: the hips drop toward the snow on the inside of the turn
+  const legL = tuck ? 6.4 : 9 - incl * .8;
+  const fc = (footO.x + footI.x) / 2;
+  const hip = { x: fc + s * Math.sin(incl) * legL, y: -Math.cos(incl) * legL + (pushing ? (1 - reach) * 1.4 : 0) };
+  const kneeO = { x: (footO.x + hip.x) / 2 + s * .5 * wI, y: (footO.y + hip.y) / 2 - .4 };                       // outside leg long and straight
+  const kneeI = { x: footI.x + s * Math.sin(incl) * legL * .62 + s * 1.2 * wI, y: -Math.cos(incl) * legL * .42 + .6 * wI };  // inside leg folded under the body
+  const torsoLen = tuck ? 3.8 : 6.2 - wI * 1.4;                                           // upper body bends forward over the skis
+  let ang = s * incl * .55;                                                              // upper body leans in, but less than the legs (angulation)
   // cross-block: the outside hand punches across the body to clear the pole
   const bl = sk.block, bp = bl ? clamp(bl.t / bl.dur, 0, 1) : 0, be = bl ? Math.sin(Math.PI * bp) : 0, bs = bl ? bl.side : 0;
   ang += bs * be * .12;
   const sh = { x: hip.x + Math.sin(ang)*torsoLen, y: hip.y - Math.cos(ang)*torsoLen };
-  const head = { x: sh.x + Math.sin(ang)*2.6, y: sh.y - Math.cos(ang)*2.6 - (tuck ? .2 : 0) };
+  const head = { x: sh.x + Math.sin(ang)*2.5, y: sh.y - Math.cos(ang)*2.5 - (tuck ? .2 : 0) };
   const shW = 3.1, perpX = Math.cos(ang), perpY = Math.sin(ang);
-  const shO = { x: sh.x - s*shW*perpX, y: sh.y - s*shW*perpY + a*.4 }, shI = { x: sh.x + s*shW*perpX, y: sh.y + s*shW*perpY - a*.2 };
-  // hands: in front and wide; the inside hand leads, ready to plant
-  let handI = tuck ? { x: sh.x + s*2.4, y: sh.y + 3.2 } : { x: shI.x + s*(2.6 - a*.6), y: shI.y + 4.4 - a*1.2 };
-  let handO = tuck ? { x: sh.x - s*2.4, y: sh.y + 3.2 } : { x: shO.x - s*(2.6 + a*.8), y: shO.y + 4.6 + a*.4 };
+  const shO = { x: sh.x - s*shW*perpX, y: sh.y - s*shW*perpY }, shI = { x: sh.x + s*shW*perpX, y: sh.y + s*shW*perpY };
+  // hands: upright they are wide and forward; laid over, the inside hand skims the snow and the outside hand drives forward across the body
+  const lerpP = (p0, p1, f) => ({ x: p0.x + (p1.x - p0.x) * f, y: p0.y + (p1.y - p0.y) * f });
+  let handI = tuck ? { x: sh.x + s*2.4, y: sh.y + 3.2 } : lerpP({ x: shI.x + s*2.6, y: shI.y + 4.4 }, { x: hip.x + s*(3.4 + incl*2.2), y: -1.2 }, wI);
+  let handO = tuck ? { x: sh.x - s*2.4, y: sh.y + 3.2 } : lerpP({ x: shO.x - s*2.6, y: shO.y + 4.6 }, { x: sh.x + s*1.4, y: sh.y + 2.2 }, wI);
   if (pushing){
     const hy = hip.y + 1.8 + (sh.y + .4 - hip.y - 1.8) * reach;
     handI = { x: sh.x + s*(3.6 + (1 - reach)*1.4), y: hy };
