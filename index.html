@@ -243,6 +243,8 @@ tr.cut td{border-bottom:2px solid var(--amber)}
 .cutboard .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .cutboard .tm,.cutboard .df{font-family:var(--f-num);font-weight:700}
 .cutboard .df{color:var(--amber);min-width:3.4em;text-align:right}
+.acthint{position:absolute;left:50%;top:27%;transform:translateX(-50%);width:max-content;max-width:calc(100% - 32px);text-align:center;background:rgba(14,26,46,.82);color:#fff;border-radius:4px;padding:6px 12px;font-size:12px;line-height:1.7;pointer-events:none}
+.acthint kbd{background:#fff;color:var(--board)}
 .conn{font-size:12px;color:var(--muted)}
 .conn.ok{color:var(--good)}
 
@@ -320,6 +322,7 @@ tr.cut td{border-bottom:2px solid var(--amber)}
     <div class="btns"><button class="btn small" type="button" id="watchSpd">早送り</button><button class="btn small hot" type="button" id="watchSkip">観戦をスキップ</button></div>
   </div>
   <div class="cutboard" id="cutBoard" hidden></div>
+  <div class="acthint" id="actHint" hidden></div>
   <div class="msg" id="msg"></div>
   <div class="cd" id="cd"></div>
   <div class="pad" id="pad">
@@ -1250,6 +1253,8 @@ const KEYMAP = { ArrowLeft:'left', KeyA:'left', ArrowRight:'right', KeyD:'right'
 addEventListener('keydown', e => {
   if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT')) return;
   if (KEYMAP[e.code]){ keys[KEYMAP[e.code]] = true; if (state === 'run' || state === 'countdown' || state === 'gate') e.preventDefault(); }
+  if (!e.repeat && (e.code === 'ArrowLeft' || e.code === 'KeyA')) registerTap('L');
+  if (!e.repeat && (e.code === 'ArrowRight' || e.code === 'KeyD')) registerTap('R');
   if ((e.code === 'Enter' || e.code === 'Space') && !e.repeat && !(document.activeElement && document.activeElement.tagName === 'BUTTON')){
     const b = !$('#sheet').hidden ? $('#sheet .btn.primary') : null;
     if (b){ b.click(); e.preventDefault(); }
@@ -1262,12 +1267,12 @@ addEventListener('keyup', e => { if (KEYMAP[e.code]) keys[KEYMAP[e.code]] = fals
 const padState = new Map();
 addEventListener('blur', () => { keys.left = keys.right = keys.down = false; touches.clear(); padState.clear(); document.querySelectorAll('#pad button').forEach(b => b.classList.remove('on')); });
 const cv = $('#cv'), ctx = cv.getContext('2d');
-cv.addEventListener('pointerdown', e => { if (e.pointerType === 'mouse' || state === 'inspect') return; markTouch(); touches.set(e.pointerId, e.clientX < cw/2 ? -1 : 1); try { cv.setPointerCapture(e.pointerId); } catch(_){} e.preventDefault(); });
+cv.addEventListener('pointerdown', e => { if (state === 'finished' || state === 'watch') registerTap(e.clientX < cw/2 ? 'L' : 'R'); if (e.pointerType === 'mouse' || state === 'inspect') return; markTouch(); touches.set(e.pointerId, e.clientX < cw/2 ? -1 : 1); try { cv.setPointerCapture(e.pointerId); } catch(_){} e.preventDefault(); });
 cv.addEventListener('pointermove', e => { if (touches.has(e.pointerId)) touches.set(e.pointerId, e.clientX < cw/2 ? -1 : 1); });
 ['pointerup','pointercancel','lostpointercapture'].forEach(n => cv.addEventListener(n, e => touches.delete(e.pointerId)));
 document.querySelectorAll('#pad button').forEach(b => {
   const k = b.dataset.k;
-  b.addEventListener('pointerdown', e => { e.preventDefault(); ac(); padState.set(e.pointerId + k, k); b.classList.add('on'); try { b.setPointerCapture(e.pointerId); } catch(_){} });
+  b.addEventListener('pointerdown', e => { e.preventDefault(); ac(); if (k === 'left') registerTap('L'); else if (k === 'right') registerTap('R'); padState.set(e.pointerId + k, k); b.classList.add('on'); try { b.setPointerCapture(e.pointerId); } catch(_){} });
   ['pointerup','pointercancel','lostpointercapture'].forEach(n => b.addEventListener(n, e => { padState.delete(e.pointerId + k); if (![...padState.values()].includes(k)) b.classList.remove('on'); }));
   b.addEventListener('contextmenu', e => e.preventDefault());
 });
@@ -1356,6 +1361,7 @@ function step(dt){
 
   const ctl = state === 'run' ? playerInput() : state === 'demo' ? aiCtl(sk, course) : { inp: 0, tuck: false };
   const quiet = state === 'demo';
+  if (sk.act){ sk.act.t += dt; if (sk.act.type === 'stop') sk.th = sk.act.dir * 1.4; if (sk.act.t > 1.8) sk.act = null; }
   if (sk.pushT > 0) sk.pushT -= dt;
   if (sk.pushCd > 0) sk.pushCd -= dt;
   if (state === 'run' && ctl.push && !(sk.pushCd > 0)){
@@ -1574,7 +1580,8 @@ function recordPlayerTime(tt){
   if (race.run === 1) race.run1.you = tt; else race.run2.you = tt;
 }
 function finishRun(){
-  state = 'finished'; finT = 1.6;
+  state = 'finished'; finT = 3.2; sk.act = null;
+  showActHint(true);
   const tt = trunc(t);
   race.maxV = Math.max(race.maxV, maxV);
   tone(784, .18, 'triangle', .1); setTimeout(() => tone(1047, .4, 'triangle', .1), 160);
@@ -1600,6 +1607,7 @@ function finishRun(){
   }
 }
 function leaveRunUI(){
+  showActHint(false);
   $('#keys').hidden = true;
   $('#hud').hidden = true; $('#tv').hidden = true; $('#tv').classList.remove('live'); $('#cd').textContent = '';
   $('#pad').classList.remove('live'); $('#mute').classList.remove('raised');
@@ -2082,7 +2090,7 @@ function startWatch(){
   $('#hud').hidden = true; $('#keys').hidden = true; $('#pad').classList.remove('live');
   $('#tv').hidden = false; $('#vs').hidden = true;
   sk.y = course.finishY + 34; sk.x = W / 2 - 70; sk.v = 0; sk.th = 0; sk.lean = 0;
-  $('#watch').hidden = false;
+  $('#watch').hidden = false; showActHint(true);
   $('#watchSpd').textContent = '早送り';
   WATCH.cut = !!race.watchCut;
   WATCH.board = race.run === 1;                     // run 1: always show the provisional board
@@ -2216,7 +2224,9 @@ function drawWatcher(){
   ctx.strokeStyle = look.suit; ctx.lineWidth = 1.6; ctx.beginPath();
   ctx.moveTo(2.8, -13.5); ctx.lineTo(5.6, -11);
   const wave = Math.sin(now * 8) * (ex > .5 ? 2 : .4);
-  if (state === 'celebrate' || ex > .7){ ctx.moveTo(-2.8, -13.5); ctx.lineTo(-5 + wave * .3, -19); }
+  if (sk.act && sk.act.type === 'banzai'){ ctx.moveTo(-2.8, -13.5); ctx.lineTo(-4.6, -20 - Math.abs(Math.sin(now * 7))); }
+  else if (sk.act && sk.act.type === 'guts'){ const pump = Math.abs(Math.sin(now * 9)); ctx.moveTo(-2.8, -13.5); ctx.lineTo(-3.4, -17.5 - pump * 2.5); }
+  else if (state === 'celebrate' || ex > .7){ ctx.moveTo(-2.8, -13.5); ctx.lineTo(-5 + wave * .3, -19); }
   else { ctx.moveTo(-2.8, -13.5); ctx.lineTo(-3.6, -8.5); }
   ctx.stroke();
   ctx.fillStyle = look.helm.c1; ctx.beginPath(); ctx.arc(0, -16.8, 2.5, 0, 7); ctx.fill();
@@ -2224,6 +2234,174 @@ function drawWatcher(){
 }
 $('#watchSpd').onclick = () => { WATCH.speed = WATCH.speed === 1 ? 3 : 1; $('#watchSpd').textContent = WATCH.speed === 1 ? '早送り' : '普通の速さ'; };
 $('#watchSkip').onclick = () => { if (state === 'watch') endWatch(true); };
+// =====================================================================
+// Finish actions: double-press right = hockey stop, left = fist pump, both = banzai
+// =====================================================================
+const TAPS = { last: null, lastT: 0, pend: null };
+function registerTap(side){
+  if (state !== 'finished' && state !== 'watch') return;
+  const now = performance.now();
+  if (TAPS.pend && TAPS.pend.side !== side && now - TAPS.pend.t < 130){ clearTimeout(TAPS.pend.timer); TAPS.pend = null; tapEvent('B', now); return; }
+  if (TAPS.pend){ clearTimeout(TAPS.pend.timer); const p0 = TAPS.pend; TAPS.pend = null; tapEvent(p0.side, p0.t); }
+  const pend = { side, t: now };
+  pend.timer = setTimeout(() => { if (TAPS.pend === pend){ TAPS.pend = null; tapEvent(side, pend.t); } }, 130);
+  TAPS.pend = pend;
+}
+function tapEvent(kind, t){
+  if (TAPS.last === kind && t - TAPS.lastT < 480){ TAPS.last = null; finishAction(kind); }
+  else { TAPS.last = kind; TAPS.lastT = t; }
+}
+function finishAction(kind){
+  if (state === 'finished'){
+    finT = Math.max(finT, 2.4);
+    if (kind === 'R'){
+      const dir = sk.x > 0 ? -1 : 1;
+      sk.act = { type: 'stop', t: 0, dir }; sk.v *= .25; sk.lean = dir;
+      for (let i = 0; i < 40; i++) parts.push({ x: sk.x + dir * 4, y: sk.y + 4, vx: dir * (60 + Math.random() * 160), vy: (Math.random() - .2) * 120, life: .9, max: .9, r: 1.6 + Math.random() * 2.6 });
+      thwack(.45); flash('急停止！', false);
+    } else if (kind === 'L'){ sk.act = { type: 'guts', t: 0 }; crowdCheer(.55); flash('ガッツポーズ！', false); }
+    else { sk.act = { type: 'banzai', t: 0 }; crowdCheer(.75); flash('バンザイ！', false); }
+  } else if (state === 'watch'){
+    if (kind === 'R') return;
+    sk.act = { type: kind === 'L' ? 'guts' : 'banzai', t: 0 }; crowdCheer(kind === 'L' ? .5 : .7);
+  }
+}
+function showActHint(on){
+  const el = $('#actHint'); if (!el) return;
+  if (!on){ el.hidden = true; return; }
+  const touch = document.body.classList.contains('touch');
+  el.innerHTML = touch ? '右足2回：急停止　左足2回：ガッツポーズ　両方同時に2回：バンザイ' : '<kbd>→</kbd><kbd>→</kbd> 急停止　<kbd>←</kbd><kbd>←</kbd> ガッツポーズ　<kbd>←</kbd>+<kbd>→</kbd> 2回 バンザイ';
+  el.hidden = false;
+}
+
+// =====================================================================
+// Finish arena: fenced finish corral, a grandstand with a random-sized crowd, and scenery in the host nation's style
+// =====================================================================
+const ARENA_THEME = { FIN: 'nordic', SWE: 'nordic', NOR: 'nordic', AUT: 'tyrol', GER: 'tyrol', SUI: 'swiss', ITA: 'italy', FRA: 'france', SLO: 'slovenia', SVK: 'slovenia', AND: 'pyrenees', USA: 'usa', CAN: 'usa' };
+function arenaFor(){
+  const ev = race && race.ev;
+  const nat = ev ? ev.nat : 'AUT';
+  const seed = hashStr('arena|' + (ev ? ev.venue + ev.date : 'demo'));
+  if (ARENA_CACHE.seed === seed && ARENA_CACHE.fy === course.finishY) return ARENA_CACHE;
+  const r = rng(seed), theme = ARENA_THEME[nat] || 'tyrol';
+  const fy = course.finishY;
+  const fill = .35 + r() * .6;                                   // how full the grandstand is today
+  const seats = [];
+  for (let tier = 0; tier < 6; tier++) for (let x = -W / 2 + 26; x <= W / 2 - 26; x += 9) if (r() < fill) seats.push({ x: x + (r() - .5) * 3, tier, h: (r() * 4294967295) >>> 0 });
+  const props = [];
+  // buildings behind the stand and along both sides
+  const kinds = { nordic: ['falu', 'falu', 'kota', 'falu'], tyrol: ['chalet', 'chalet', 'onion', 'chalet'], swiss: ['chaletDark', 'chaletDark', 'chaletDark', 'chapel'], italy: ['stone', 'campanile', 'stone', 'stone'], france: ['stoneChalet', 'spire', 'stoneChalet', 'stoneChalet'], slovenia: ['chalet', 'spire', 'chalet', 'chalet'], pyrenees: ['stone', 'romanesque', 'stone', 'stone'], usa: ['lodge', 'barn', 'lodge', 'lodge'] }[theme];
+  for (let i = 0; i < 7; i++) props.push({ kind: kinds[i % kinds.length], x: -W / 2 - 40 + i * ((W + 80) / 6) + (r() - .5) * 30, y: fy + 360 + r() * 90, s: .85 + r() * .4, h: (r() * 1e9) | 0 });
+  for (const side of [-1, 1]) for (let i = 0; i < 4; i++) props.push({ kind: kinds[(i + (side > 0 ? 1 : 2)) % kinds.length], x: side * (W / 2 + 120 + r() * 160), y: fy - 260 + i * 130 + r() * 50, s: .8 + r() * .4, h: (r() * 1e9) | 0 });
+  // flags of the host nation along the back fence, plus reindeer in the north
+  for (let i = 0; i < 6; i++) props.push({ kind: 'flag', x: -W / 2 + 30 + i * ((W - 60) / 5), y: fy + 236, s: 1, nat });
+  if (theme === 'nordic') for (let i = 0; i < 4; i++) props.push({ kind: 'reindeer', x: (i % 2 ? 1 : -1) * (W / 2 + 60 + r() * 120), y: fy - 120 + r() * 300, s: 1, h: (r() * 1e9) | 0 });
+  if (theme === 'swiss' || theme === 'usa') for (let i = 0; i < 3; i++) props.push({ kind: 'flag', x: (i - 1) * 140, y: fy + 470, s: 1.4, nat });
+  Object.assign(ARENA_CACHE, { seed, fy, theme, nat, fill, seats, props, venue: ev ? ev.venue : 'SLALOM' });
+  return ARENA_CACHE;
+}
+const ARENA_CACHE = {};
+function collectArena(sprites, yNear, yFar){
+  if (!course || !race || !race.ev) return;
+  const A = arenaFor(), fy = course.finishY;
+  if (fy + 500 < yNear || fy - 320 > yFar) return;
+  const now = performance.now() / 1000, ex = CROWD.excite;
+  const natCols = NAT[A.nat] ? [NAT[A.nat].suit, NAT[A.nat].trim] : ['#C8102E', '#fff'];
+  const myCols = NAT[myNat] ? [NAT[myNat].suit, NAT[myNat].trim] : natCols;
+  // back fence of the finish corral (advertising-style boards in the host colours)
+  const fenceY = fy + 230;
+  if (fenceY > yNear - 20 && fenceY < yFar + 40) sprites.push({ y: fenceY, d: () => drawBackFence(fenceY, A, natCols) });
+  // grandstand tiers, each with its fans
+  for (let tier = 5; tier >= 0; tier--){
+    const ty = fy + 252 + tier * 13;
+    if (ty < yNear - 20 || ty > yFar + 40) continue;
+    sprites.push({ y: ty, d: () => {
+      drawStandTier(ty, tier);
+      for (const st of A.seats) if (st.tier === tier) drawFanLifted(st.x, ty - 1, st.h, now, ex, (st.h % 3 === 0) ? myCols : natCols, 6 + tier * 6);
+    } });
+  }
+  for (const pr of A.props){
+    if (pr.y < yNear - 60 || pr.y > yFar + 80) continue;
+    sprites.push({ y: pr.y, d: () => drawProp(pr, natCols, now) });
+  }
+}
+function drawBackFence(y, A, cols){
+  const L = proj(-W / 2, y), R = proj(W / 2, y); if (!L || !R) return;
+  const k = L.k, h = 11 * k, n = 8, w = (R.X - L.X) / n;
+  for (let i = 0; i < n; i++){
+    ctx.fillStyle = i % 2 ? cols[0] : '#13213A';
+    ctx.fillRect(L.X + i * w, L.Y - h, w + .5, h);
+    ctx.fillStyle = i % 2 ? (cols[1] === cols[0] ? '#fff' : cols[1]) : '#fff';
+    ctx.font = `italic 800 ${Math.max(7, 7 * k)}px 'Barlow Condensed', sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(i % 2 ? A.venue.toUpperCase() : 'WORLD CUP', L.X + i * w + w / 2, L.Y - h / 2);
+  }
+  ctx.fillStyle = COL.shadow; ctx.fillRect(L.X, L.Y, R.X - L.X, 3 * k);
+}
+function drawStandTier(y, tier){
+  const L = proj(-W / 2 + 18, y), R = proj(W / 2 - 18, y); if (!L || !R) return;
+  const k = L.k, lift = (6 + tier * 6) * k;
+  ctx.fillStyle = tier % 2 ? '#3B4E78' : '#2B3B5C';
+  ctx.fillRect(L.X, L.Y - lift, R.X - L.X, lift);
+  ctx.fillStyle = '#C9D2DE'; ctx.fillRect(L.X, L.Y - lift, R.X - L.X, 1.6 * k);
+}
+function drawFanLifted(x, y, h, now, ex, cols, lift){
+  const p = proj(x, y); if (!p || p.X < -20 || p.X > cw + 20) return;
+  ctx.save(); ctx.translate(0, -lift * p.k);
+  drawFan(x, y, h, now, ex, cols);
+  ctx.restore();
+}
+// buildings and props, drawn facing the camera
+function drawProp(pr, cols, now){
+  const p = proj(pr.x, pr.y); if (!p || p.X < -160 * p.k || p.X > cw + 160 * p.k) return;
+  const k = p.k * pr.s, X = p.X, Y = p.Y;
+  const box = (w, h, col) => { ctx.fillStyle = col; ctx.fillRect(X - w / 2 * k, Y - h * k, w * k, h * k); };
+  const roof = (w, h, base, col, snow) => { ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(X - (w / 2 + 4) * k, Y - base * k); ctx.lineTo(X, Y - (base + h) * k); ctx.lineTo(X + (w / 2 + 4) * k, Y - base * k); ctx.closePath(); ctx.fill(); if (snow){ ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.moveTo(X - (w / 2 + 4) * k, Y - base * k); ctx.lineTo(X, Y - (base + h) * k); ctx.lineTo(X + (w / 2 + 4) * k, Y - base * k); ctx.lineTo(X + (w / 2) * k, Y - (base + 2) * k); ctx.lineTo(X, Y - (base + h - 3) * k); ctx.lineTo(X - (w / 2) * k, Y - (base + 2) * k); ctx.closePath(); ctx.fill(); } };
+  const windows = (w, rows, base, col) => { ctx.fillStyle = col; for (let r = 0; r < rows; r++) for (let c = -1; c <= 1; c++) ctx.fillRect(X + (c * w / 3.2 - 2.5) * k, Y - (base + 6 + r * 9) * k, 5 * k, 4.5 * k); };
+  ctx.fillStyle = COL.shadow; ctx.beginPath(); ctx.ellipse(X + 6 * k, Y + 1 * k, 30 * k, 4 * k, 0, 0, 7); ctx.fill();
+  switch (pr.kind){
+    case 'chalet': box(50, 26, '#8B5A2B'); ctx.fillStyle = '#F2EEE6'; ctx.fillRect(X - 25 * k, Y - 10 * k, 50 * k, 10 * k); windows(50, 2, 0, '#FFE8A3'); ctx.fillStyle = '#6B4423'; ctx.fillRect(X - 24 * k, Y - 17 * k, 48 * k, 1.5 * k); roof(50, 16, 26, '#5A3A1E', true); break;
+    case 'chaletDark': box(46, 28, '#4A2E1A'); windows(46, 2, 0, '#FFE8A3'); ctx.fillStyle = '#C8102E'; ctx.fillRect(X - 6 * k, Y - 26 * k, 12 * k, 3 * k); roof(46, 18, 28, '#3A2414', true); break;
+    case 'onion': box(18, 44, '#F4EEDD'); ctx.fillStyle = '#B5121B'; ctx.beginPath(); ctx.ellipse(X, Y - 50 * k, 8 * k, 7 * k, 0, 0, 7); ctx.fill(); ctx.fillRect(X - .8 * k, Y - 64 * k, 1.6 * k, 9 * k); ctx.fillStyle = '#E8C547'; ctx.fillRect(X - 3 * k, Y - 30 * k, 6 * k, 6 * k); box(40, 20, '#F4EEDD'); roof(40, 12, 20, '#7A2E1E', true); break;
+    case 'falu': box(44, 22, '#9E1B1B'); ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.2 * k; ctx.strokeRect(X - 22 * k, Y - 22 * k, 44 * k, 22 * k); windows(44, 1, 2, '#FFF7D6'); roof(44, 14, 22, '#2B2B2B', true); break;
+    case 'kota': ctx.fillStyle = '#6B5B4B'; ctx.beginPath(); ctx.moveTo(X - 16 * k, Y); ctx.lineTo(X, Y - 30 * k); ctx.lineTo(X + 16 * k, Y); ctx.closePath(); ctx.fill(); ctx.fillStyle = '#3A2E22'; ctx.fillRect(X - 3 * k, Y - 9 * k, 6 * k, 9 * k); ctx.fillStyle = 'rgba(200,200,210,.6)'; ctx.beginPath(); ctx.arc(X + Math.sin(now) * 2 * k, Y - (34 + (now * 6 % 8)) * k, 3 * k, 0, 7); ctx.fill(); break;
+    case 'stone': box(46, 26, '#B8AFA2'); windows(46, 2, 0, '#5A6E8A'); roof(46, 10, 26, '#8A5A44', true); break;
+    case 'campanile': box(16, 58, '#C9B79C'); ctx.fillStyle = '#4A3A2A'; ctx.fillRect(X - 4 * k, Y - 52 * k, 8 * k, 7 * k); roof(16, 10, 58, '#8A5A44', true); break;
+    case 'stoneChalet': box(48, 24, '#A89F92'); ctx.fillStyle = '#7A5230'; ctx.fillRect(X - 24 * k, Y - 24 * k, 48 * k, 9 * k); windows(48, 2, 0, '#FFE8A3'); roof(48, 15, 24, '#4F5559', true); break;
+    case 'spire': box(18, 40, '#EFE9DC'); ctx.fillStyle = '#4F5559'; ctx.beginPath(); ctx.moveTo(X - 10 * k, Y - 40 * k); ctx.lineTo(X, Y - 70 * k); ctx.lineTo(X + 10 * k, Y - 40 * k); ctx.closePath(); ctx.fill(); box(36, 20, '#EFE9DC'); roof(36, 12, 20, '#9A3B2B', true); break;
+    case 'chapel': box(26, 26, '#F4EEDD'); roof(26, 14, 26, '#3A2414', true); ctx.fillStyle = '#DA291C'; ctx.fillRect(X - 5 * k, Y - 20 * k, 10 * k, 10 * k); ctx.fillStyle = '#fff'; ctx.fillRect(X - 1 * k, Y - 18.5 * k, 2 * k, 7 * k); ctx.fillRect(X - 3.5 * k, Y - 16 * k, 7 * k, 2 * k); break;
+    case 'romanesque': box(20, 46, '#A89276'); for (let i = 0; i < 3; i++){ ctx.fillStyle = '#3A2E22'; ctx.fillRect(X - 6 * k, Y - (40 - i * 12) * k, 4 * k, 6 * k); ctx.fillRect(X + 2 * k, Y - (40 - i * 12) * k, 4 * k, 6 * k); } roof(20, 8, 46, '#6B4A33', true); break;
+    case 'lodge': box(70, 30, '#7A4E2D'); for (let i = 0; i < 6; i++){ ctx.fillStyle = 'rgba(0,0,0,.18)'; ctx.fillRect(X - 35 * k, Y - (4 + i * 5) * k, 70 * k, .8 * k); } windows(70, 2, 0, '#FFE1A0'); ctx.fillStyle = '#9A9A9A'; ctx.fillRect(X + 20 * k, Y - 50 * k, 7 * k, 22 * k); roof(70, 16, 30, '#3E3E3E', true); break;
+    case 'barn': box(44, 26, '#A3221B'); ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.4 * k; ctx.beginPath(); ctx.moveTo(X - 9 * k, Y); ctx.lineTo(X + 9 * k, Y - 18 * k); ctx.moveTo(X + 9 * k, Y); ctx.lineTo(X - 9 * k, Y - 18 * k); ctx.stroke(); ctx.strokeRect(X - 9 * k, Y - 18 * k, 18 * k, 18 * k); roof(44, 14, 26, '#3E3E3E', true); break;
+    case 'reindeer': { ctx.fillStyle = '#6B4F3A'; const bob = Math.sin(now * 2 + pr.h) * .6 * k; ctx.fillRect(X - 8 * k, Y - 10 * k + bob, 16 * k, 6 * k); for (const lx of [-6, -3, 3, 6]) ctx.fillRect(X + lx * k, Y - 4 * k, 1.4 * k, 4 * k); ctx.fillRect(X + 7 * k, Y - 15 * k + bob, 3 * k, 6 * k); ctx.strokeStyle = '#4A3726'; ctx.lineWidth = .9 * k; ctx.beginPath(); ctx.moveTo(X + 8 * k, Y - 15 * k); ctx.lineTo(X + 6 * k, Y - 21 * k); ctx.lineTo(X + 4 * k, Y - 22 * k); ctx.moveTo(X + 9.5 * k, Y - 15 * k); ctx.lineTo(X + 12 * k, Y - 21 * k); ctx.lineTo(X + 14 * k, Y - 22 * k); ctx.stroke(); break; }
+    case 'flag': {
+      ctx.strokeStyle = '#8A93A3'; ctx.lineWidth = Math.max(1, 1.2 * k); ctx.beginPath(); ctx.moveTo(X, Y); ctx.lineTo(X, Y - 40 * k); ctx.stroke();
+      const flap = Math.sin(now * 4 + pr.x) * 1.5 * k;
+      paintFlag(pr.nat, X, Y - 40 * k, 18 * k, 12 * k, flap);
+      break;
+    }
+  }
+}
+// a small canvas painter for the host flags (simplified, like the CSS ones)
+function paintFlag(nat, x, y, w, h, flap){
+  const band = (cols, vertical) => cols.forEach((c, i) => { ctx.fillStyle = c; if (vertical) ctx.fillRect(x + i * w / cols.length, y + flap * (i / cols.length), w / cols.length + .5, h); else ctx.fillRect(x, y + i * h / cols.length + flap * .3, w, h / cols.length + .5); });
+  const nordic = (bg, c, inner) => { ctx.fillStyle = bg; ctx.fillRect(x, y, w, h); ctx.fillStyle = c; ctx.fillRect(x + w * .28, y, w * .16, h); ctx.fillRect(x, y + h * .4, w, h * .2); if (inner){ ctx.fillStyle = inner; ctx.fillRect(x + w * .32, y, w * .08, h); ctx.fillRect(x, y + h * .45, w, h * .1); } };
+  switch (nat){
+    case 'AUT': band(['#C8102E', '#fff', '#C8102E']); break;
+    case 'GER': band(['#000', '#DD0000', '#FFCE00']); break;
+    case 'FRA': band(['#002395', '#fff', '#ED2939'], true); break;
+    case 'ITA': band(['#009246', '#fff', '#CE2B37'], true); break;
+    case 'AND': band(['#10069F', '#FEDD00', '#D50032'], true); break;
+    case 'SLO': band(['#fff', '#005DA4', '#ED1C24']); break;
+    case 'SVK': band(['#fff', '#0B4EA2', '#EE1C25']); break;
+    case 'SUI': ctx.fillStyle = '#DA291C'; ctx.fillRect(x, y, w, h); ctx.fillStyle = '#fff'; ctx.fillRect(x + w * .42, y + h * .2, w * .16, h * .6); ctx.fillRect(x + w * .28, y + h * .42, w * .44, h * .16); break;
+    case 'FIN': nordic('#fff', '#002F6C'); break;
+    case 'SWE': nordic('#006AA7', '#FECC00'); break;
+    case 'NOR': nordic('#BA0C2F', '#fff', '#00205B'); break;
+    case 'USA': for (let i = 0; i < 7; i++){ ctx.fillStyle = i % 2 ? '#fff' : '#B22234'; ctx.fillRect(x, y + i * h / 7, w, h / 7 + .5); } ctx.fillStyle = '#3C3B6E'; ctx.fillRect(x, y, w * .42, h * .54); break;
+    case 'CAN': band(['#D52B1E', '#fff', '#D52B1E'], true); ctx.fillStyle = '#D52B1E'; ctx.beginPath(); ctx.arc(x + w / 2, y + h / 2, h * .2, 0, 7); ctx.fill(); break;
+    default: band(NAT[nat] ? [NAT[nat].suit, NAT[nat].trim] : ['#13213A', '#fff']);
+  }
+}
 // =====================================================================
 // Sheets
 // =====================================================================
@@ -2567,6 +2745,7 @@ function rulesHTML(){
     <li>スマホ・タブレットは画面下の <b>左足／右足</b> ボタン（または画面の左半分／右半分）を押すと、その足に乗って反対側へ曲がります</li>`
       : `<li><kbd>←</kbd><kbd>→</kbd> または <kbd>A</kbd><kbd>D</kbd> で押した方向へ曲がります。スマホは画面下の ◀ ▶ ボタン（または画面の左右）</li>`}
     <li><b>左右を同時に押すとストックで漕ぎます</b>（スタート直後や緩斜面で加速。速くなるほど効きが弱まり、約50km/hで効かなくなります）。押し出しの強さは選んだストックで変わります</li>
+    <li><b>ゴール後のアクション</b>：右を2回＝急停止、左を2回＝ガッツポーズ、左右同時に2回＝バンザイ（ゴール前で観戦中もガッツポーズとバンザイができます）</li>
     <li><kbd>↓</kbd>/<kbd>S</kbd> またはクローチボタンでクローチング（速いが曲がりにくい）、<kbd>Esc</kbd> で棄権。縦でも横でも遊べます</li>
     <li>操作方法はメニュー上部の「操作」で「押した方向へ曲がる」にも切り替えられます。レース中も左上の「操作」ボタン（パソコンは <kbd>C</kbd> キー）でいつでも切り替えられます</li>
     <li>スキーヤーは画面の下側にいて、コースは上から近づいてきます</li>
@@ -2782,6 +2961,7 @@ function render(){
   sprites.push({ y: sk.y, d: () => { drawSkier(); drawParts(); } });
   if (race && race.battle) battleGhosts(sprites, yNear, yFar);
   collectCrowd(sprites, yNear, yFar);
+  collectArena(sprites, yNear, yFar);
   if (state === 'watch' && WATCH.cur) sprites.push({ y: WATCH.cur.y, d: () => drawGhost(WATCH.cur.x, WATCH.cur.y, WATCH.cur.th, WATCH.cur.label, '#7048E8') });
   sprites.sort((a, b) => b.y - a.y);
   for (const s of sprites) s.d();
@@ -2958,12 +3138,17 @@ function drawSkier(){
     if (blockO) handO = { x: handO.x + (target.x - handO.x)*be, y: handO.y + (target.y - handO.y)*be };
     else handI = { x: handI.x + (target.x - handI.x)*be, y: handI.y + (target.y - handI.y)*be };
   }
+  const act = sk.act && (state === 'finished') ? sk.act : null;
+  const actUp = act && (act.type === 'guts' || act.type === 'banzai');
+  if (act && act.type === 'guts'){ const pump = Math.abs(Math.sin(act.t * 9)); handO = { x: shO.x - s * .6, y: sh.y - 4.5 - pump * 2.5 }; }
+  if (act && act.type === 'banzai'){ const hop = Math.abs(Math.sin(act.t * 7)) * 1.2; handI = { x: sh.x + 4.6, y: sh.y - 8 - hop }; handO = { x: sh.x - 4.6, y: sh.y - 8 - hop }; }
   const elbow = (shp, hd, out) => ({ x: (shp.x + hd.x)/2 + out*1.2, y: (shp.y + hd.y)/2 + .9 });
 
   // poles (behind the body)
   ctx.strokeStyle = look.pole.c1 === '#F2F2F2' ? '#AEB6C4' : look.pole.c1; ctx.lineWidth = .55;
   ctx.beginPath();
   if (tuck){ ctx.moveTo(handI.x, handI.y); ctx.lineTo(handI.x + s*3, handI.y - 6); ctx.moveTo(handO.x, handO.y); ctx.lineTo(handO.x - s*3, handO.y - 6); }
+  else if (actUp){ ctx.moveTo(handI.x, handI.y); ctx.lineTo(handI.x + s * 1.5, handI.y - 7); ctx.moveTo(handO.x, handO.y); ctx.lineTo(handO.x - s * 1.5, handO.y - 7); }
   else if (pushing){
     // tips planted beside the boots, then pushed back behind them (toward the camera)
     const ty = reach > .5 ? -1.4 : 2.6 - reach * 3, tx = 1 + (1 - reach) * 1.2;
@@ -3074,7 +3259,7 @@ function frame(now){
   acc += dt;
   while (acc >= STEP){ step(STEP); acc -= STEP; }
   if (state === 'finished'){ finT -= dt; if (finT <= 0){ state = 'sheet'; afterFinish(); } }
-  crowdTick(dt); if (state === 'watch') watchStep(dt);
+  crowdTick(dt); if (state === 'watch'){ watchStep(dt); if (sk.act){ sk.act.t += dt; if (sk.act.t > 1.8) sk.act = null; } }
   hud(); render(); if (actx) updateWind();
   if (race && race.battle) battleTick();
   requestAnimationFrame(frame);
