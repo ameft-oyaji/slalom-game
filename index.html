@@ -449,7 +449,7 @@ body.nightrace .ev-label,body.nightrace .ev-label *,body.nightrace #keys,body.ni
       <div class="tabwrap">
       <button type="button" class="tabarr l" id="tabL" aria-label="左にもメニューがあります" hidden>←</button>
       <div class="tabs" role="tablist" id="tabBar">
-        <button type="button" role="tab" id="tCal" aria-selected="true">キャリア</button>
+        <button type="button" role="tab" id="tCal" aria-selected="true">シーズン</button>
         <button type="button" role="tab" id="tStand" aria-selected="false">ランキング</button>
         <button type="button" role="tab" id="tTa" aria-selected="false">タイムアタック</button>
         <button type="button" role="tab" id="tFree" aria-selected="false">フリースキー</button>
@@ -756,7 +756,7 @@ async function cloudAuth(kind, name, pin){
 }
 function accountHTML(){
   if (!CLOUD.url) return '';
-  if (CLOUD.token) return `<div class="acct"><b>ログイン中：${esc(CLOUD.name)}</b><span class="note">キャリア・用具・タイムアタックの記録は自動でクラウドに保存されます。別のスマホでも同じ名前と暗証番号で続きから遊べます。</span><div class="btns"><button class="btn small" type="button" id="acOut">ログアウト</button></div></div>`;
+  if (CLOUD.token) return `<div class="acct"><b>ログイン中：${esc(CLOUD.name)}</b><span class="note">シーズン・用具・タイムアタックの記録は自動でクラウドに保存されます。別のスマホでも同じ名前と暗証番号で続きから遊べます。</span><div class="btns"><button class="btn small" type="button" id="acOut">ログアウト</button></div></div>`;
   return `<div class="acct"><b>ユーザー登録（無料）</b><span class="note">名前と4〜8桁の暗証番号だけで登録できます。登録すると記録がクラウドに残り、タイムアタックの共有ランキングにも載ります。</span>
     <div class="g-who"><input type="text" id="acName" maxlength="14" placeholder="名前（2〜14文字）" autocomplete="username" value="${esc(pname === 'あなた' ? '' : pname)}"><input type="password" id="acPin" inputmode="numeric" maxlength="8" placeholder="暗証番号（数字4〜8桁）" autocomplete="current-password"></div>
     <p class="lock-err" id="acErr" hidden></p>
@@ -1881,9 +1881,9 @@ function playersHTML(){
   const g = gender, seasonId = `${gender}-${level}`;
   let html = `<p class="note">登録したプレーヤーどうしの順位です。上の「男子／女子」と「ライバルの強さ」を切り替えると、その組み合わせの順位になります。</p>`;
   // career
-  html += `<h3>キャリアランキング（${gender === 'men' ? '男子' : '女子'}・${LEVEL_NAME[level]}）</h3>`;
+  html += `<h3>シーズンランキング（${gender === 'men' ? '男子' : '女子'}・${LEVEL_NAME[level]}）</h3>`;
   if (!CLOUD.url){
-    html += `<p class="note">キャリアのプレーヤーランキングは、公開サイト（ユーザー登録あり）で表示されます。</p>`;
+    html += `<p class="note">シーズンのプレーヤーランキングは、公開サイト（ユーザー登録あり）で表示されます。</p>`;
   } else if (!PLAYERS.rows){
     html += `<p class="conn">${PLAYERS.status === 'error' ? 'ランキングを読み込めませんでした。時間をおいて開き直してください。' : '読み込み中…'}</p>`;
   } else {
@@ -2890,9 +2890,9 @@ function showFinal(){
   }
   if (mv) html += movementHTML(mv);
   html += `<h3>最終結果${race.finals ? '（ファイナル：15位までポイント）' : '（30位までWCポイント）'}</h3>` + table(['順位','選手','国','1本目','2本目','合計','差','Pt'], rows);
-  if (race.mode === 'career' && !saved) html += `<p class="note">このブラウザでは記録を保存できないため、キャリアの成績は残りません。</p>`;
+  if (race.mode === 'career' && !saved) html += `<p class="note">このブラウザでは記録を保存できないため、シーズンの成績は残りません。</p>`;
   const seasonOver = race.mode === 'career' && race.ev.finals;
-  html += `<div class="btns"><button class="btn primary" type="button" id="toCal">キャリアの日程に戻る</button>${res.length >= 3 ? '<button class="btn" type="button" id="toCer">表彰式を見る</button>' : ''}${seasonOver ? '<button class="btn" type="button" id="toGlobe">クリスタルグローブ授賞式</button>' : ''}<button class="btn" type="button" id="toStand">ランキングを見る</button></div>`;
+  html += `<div class="btns"><button class="btn primary" type="button" id="toCal">シーズンの日程に戻る</button>${res.length >= 3 ? '<button class="btn" type="button" id="toCer">表彰式を見る</button>' : ''}${seasonOver ? '<button class="btn" type="button" id="toGlobe">クリスタルグローブ授賞式</button>' : ''}<button class="btn" type="button" id="toStand">ランキングを見る</button></div>`;
   openSheet('Official Results', `${JP[race.ev.venue]} 回転 最終結果`, html);
   scrollMeIntoView();
   const r3 = res.slice(0, 6).map(o => ({ id: o.id, line: fmt(o.t) + (o.rank === 1 ? '' : '  ' + fmtDiff(o.t - best)) }));
@@ -3102,7 +3102,7 @@ function standingsHTML(){
     const hr = s.hist.slice().sort((a, b) => a.date < b.date ? -1 : 1).map(h => `<tr><td class="r">${+h.date.slice(5,7)}/${+h.date.slice(8)}</td><td>${JP[h.venue] || h.venue}</td><td>${h.podium[0] ? esc(nameOf(h.podium[0])) : '—'}</td><td class="n">${h.status === 'dns' ? '欠場' : h.my ? h.my + '位' : h.status === 'nq' ? '進めず' : 'DSQ/DNF'}</td><td class="n">${h.pts || ''}</td></tr>`);
     html += `<h3>シーズンの成績</h3>` + table(['日付','会場','優勝','あなた','Pt'], hr);
   }
-  return html + `<p class="note">ライバルの強さ：${LEVEL_NAME[level]}。男子／女子、ライバルの強さごとに別々のキャリアとして記録されます。</p><div class="btns"><button class="btn small" type="button" id="bReset">このキャリアをリセット</button></div>`;
+  return html + `<p class="note">ライバルの強さ：${LEVEL_NAME[level]}。男子／女子、ライバルの強さごとに別々のシーズンとして記録されます。</p><div class="btns"><button class="btn small" type="button" id="bReset">このシーズンをリセット</button></div>`;
 }
 // =====================================================================
 // Free ski: pick a venue, the weather and the set, then just ski. No DSQ, no points
@@ -3323,7 +3323,7 @@ function showFreeResult(){
 function taListHTML(){
   const races = slRaces(gender).filter(r => r.disc === 'SL');
   const conn = { connecting: '共有ランキングに接続中…', slow: '共有ランキングにまだつながりません。表示が古い可能性があります。', ok: '共有ランキングに接続しています。', off: '共有ランキングはこの表示では使えません。この端末の自己ベストだけを記録します。', error: '共有ランキングとの接続が切れました。' }[TA.status];
-  let html = `<p class="note">ワールドカップ回転の${races.length}会場のコースで、このゲームを遊ぶ人どうしが2本合計の最速タイムを競います。コースはキャリアモードの同じ大会と同じセットです。</p><p class="conn ${TA.status === 'ok' ? 'ok' : ''}">${conn}</p><div class="cal">`;
+  let html = `<p class="note">ワールドカップ回転の${races.length}会場のコースで、このゲームを遊ぶ人どうしが2本合計の最速タイムを競います。コースはシーズンモードの同じ大会と同じセットです。</p><p class="conn ${TA.status === 'ok' ? 'ok' : ''}">${conn}</p><div class="cal">`;
   for (const r of races){
     const key = taKey(gender, r.date);
     const b = taBoard(key);
@@ -3345,7 +3345,7 @@ function rulesHTML(){
   </ul>
   <h3>2つのモード</h3>
   <ul class="howto">
-    <li><b>キャリア</b>：ランキング${START_RANK}位の選手としてシーズン開幕。2026/27の実際の日程どおりに回転の全レースを転戦し、ポイントを積み上げて上位を目指します</li>
+    <li><b>シーズン</b>：ランキング${START_RANK}位の選手としてシーズン開幕。2026/27の実際の日程どおりに回転の全レースを転戦し、ポイントを積み上げて上位を目指します</li>
     <li><b>タイムアタック</b>：世界の回転コースで、このゲームを遊ぶ人どうしで2本合計タイムを競います</li>
   </ul>
   <h3>FIS ワールドカップ回転のルール（ゲームでの扱い）</h3>
