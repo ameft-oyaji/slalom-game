@@ -1241,6 +1241,7 @@ const touches = new Map();
 
 function resetBody(demo){
   Object.assign(sk, newBody());
+  WAND.a = 0; WAND.va = 0; WAND.open = false;
   timing = false; t = 0; maxV = 0; dsq = false;
   trail = []; parts = []; camX = 0;
   sk.mod = demo ? null : gearMods(myGear);
@@ -1421,6 +1422,7 @@ function step(dt){
     return;
   }
   if (goT > 0) goT -= dt;
+  stepWand(dt);
   if (state !== 'run' && state !== 'finished' && state !== 'demo') return;
 
   const ctl = state === 'run' ? playerInput() : state === 'demo' ? aiCtl(sk, course) : { inp: 0, tuck: false };
@@ -3402,6 +3404,7 @@ function render(){
   if (22 > yNear - 30 && 22 < yFar + 40) sprites.push({ y: 22, d: () => banner(22, label + (race && race.mode === 'free' ? ' · FREE SKI' : ' · RUN ' + (race ? race.run : 1)), COL.blue, COL.red) });
   if (fy + 2 > yNear - 30 && fy < yFar + 40) sprites.push({ y: fy + 2, d: () => banner(fy + 2, 'FINISH', COL.red, COL.blue) });
   if (-76 > yNear - 60) sprites.push({ y: -76, d: drawStartHut });
+  if (-2 > yNear - 60 && -2 < yFar){ sprites.push({ y: GATE_Y + 2, d: drawStartGate }); sprites.push({ y: WAND_Y + 4 + Math.sin(WAND.a) * WAND_L * .5, d: drawWand }); }
   // start officials: the starter beside the gate (arm up for READY, down at GO) and two helpers
   if (-30 > yNear - 60 && -30 < yFar){
     const armUp = state === 'countdown' || (state === 'gate' && gateT > START_WINDOW - .6);
@@ -3480,6 +3483,72 @@ function banner(y, text, colA, colB){
   ctx.fillStyle = '#fff'; ctx.font = `italic 800 ${11*k}px 'Barlow Condensed', sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.fillText(text, (L.X + R.X)/2, L.Y - h + 7.5*k);
   if (colB){ ctx.fillStyle = colB; ctx.fillRect(L.X, L.Y - h + 14*k, R.X - L.X, 2.5*k); }
+}
+// ---- start gate and start wand ----
+// the racer's shins push the wand open; the clock starts as it swings away (FIS: timing begins when the wand is opened)
+const WAND_Y = -6, WAND_X = -21, WAND_L = 42, WAND_H = 8, GATE_Y = -12, GATE_HW = 22;
+const WAND = { a: 0, va: 0, open: false };
+function stepWand(dt){
+  if (!WAND.open && sk.y > WAND_Y - 5 && sk.v > 1){
+    WAND.open = true; WAND.va = 9 + sk.v * .06;
+    if (state !== 'demo'){ tone(1900, .03, 'square', .05); setTimeout(() => thwack(.18), 60); }
+  }
+  if (!WAND.open) return;
+  // swings forward and drops toward the snow, bounces once on its stop and settles
+  WAND.va += (1.15 - WAND.a) * 70 * dt - WAND.va * 5.5 * dt;
+  WAND.a = clamp(WAND.a + WAND.va * dt, 0, 1.3);
+}
+function drawWand(){
+  const h0 = WAND_H, open = WAND.a / 1.15;
+  const hEnd = h0 * (1 - .9 * clamp(open, 0, 1));                 // the free end falls as it swings away
+  const a = proj(WAND_X, WAND_Y), bx = WAND_X + Math.cos(WAND.a) * WAND_L, by = WAND_Y + Math.sin(WAND.a) * WAND_L, b = proj(bx, by);
+  if (!a || !b) return;
+  const ax = a.X, ay = a.Y - h0 * a.k, ex = b.X, ey = b.Y - hEnd * b.k;
+  // shadow on the snow
+  ctx.strokeStyle = COL.shadow; ctx.lineWidth = 2.2 * a.k; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(a.X + 2 * a.k, a.Y); ctx.lineTo(b.X + 2 * b.k, b.Y); ctx.stroke();
+  // striped bar
+  const n = 8;
+  for (let i = 0; i < n; i++){
+    const t0 = i / n, t1 = (i + 1) / n;
+    ctx.strokeStyle = i % 2 ? '#F2F4F8' : '#D42A2F'; ctx.lineWidth = Math.max(2, 3 * (a.k + (b.k - a.k) * (t0 + t1) / 2));
+    ctx.beginPath(); ctx.moveTo(ax + (ex - ax) * t0, ay + (ey - ay) * t0); ctx.lineTo(ax + (ex - ax) * t1, ay + (ey - ay) * t1); ctx.stroke();
+  }
+  // the timing box with the hinge on the left post
+  ctx.fillStyle = '#1A1F2B'; rrect(ax - 3 * a.k, ay - 3 * a.k, 6 * a.k, 7 * a.k, 1.2 * a.k); ctx.fill();
+  ctx.fillStyle = WAND.open ? '#2FB36A' : '#FFC93C'; ctx.beginPath(); ctx.arc(ax, ay - 1.2 * a.k, 1 * a.k, 0, 7); ctx.fill();
+}
+function drawStartGate(){
+  const L = proj(-GATE_HW, GATE_Y), R = proj(GATE_HW, GATE_Y);
+  if (!L || !R) return;
+  const k = L.k, h = 50 * k;
+  // once the racer is through, the frame fades so it never hides them as the camera passes under it
+  const fade = clamp(1 - (sk.y - GATE_Y) / 22, 0, 1);
+  if (fade <= 0) return;
+  ctx.save(); ctx.globalAlpha = fade;
+  // side wind boards running back to the start hut
+  for (const sx of [-GATE_HW, GATE_HW]){
+    const f = proj(sx, GATE_Y), bk = proj(sx, GATE_Y - 34);
+    if (!f || !bk) continue;
+    ctx.fillStyle = '#26365A';
+    ctx.beginPath(); ctx.moveTo(f.X, f.Y); ctx.lineTo(f.X, f.Y - 14 * f.k); ctx.lineTo(bk.X, bk.Y - 14 * bk.k); ctx.lineTo(bk.X, bk.Y); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#D42A2F'; ctx.beginPath(); ctx.moveTo(f.X, f.Y - 11 * f.k); ctx.lineTo(f.X, f.Y - 14 * f.k); ctx.lineTo(bk.X, bk.Y - 14 * bk.k); ctx.lineTo(bk.X, bk.Y - 11 * bk.k); ctx.closePath(); ctx.fill();
+  }
+  // posts
+  ctx.fillStyle = COL.shadow; ctx.fillRect(L.X, L.Y, R.X - L.X, 3 * k);
+  ctx.fillStyle = '#1A1F2B'; ctx.fillRect(L.X - 2 * k, L.Y - h, 4 * k, h); ctx.fillRect(R.X - 2 * k, R.Y - h, 4 * k, h);
+  // top beam with the timing logo
+  ctx.fillStyle = '#13235E'; ctx.fillRect(L.X - 4 * k, L.Y - h - 2 * k, R.X - L.X + 8 * k, 10 * k);
+  ctx.fillStyle = '#D42A2F'; ctx.fillRect(L.X - 4 * k, L.Y - h + 8 * k, R.X - L.X + 8 * k, 1.6 * k);
+  ctx.fillStyle = '#fff'; ctx.font = `italic 800 ${7 * k}px 'Barlow Condensed', sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('START', (L.X + R.X) / 2, L.Y - h + 3 * k);
+  // start lights on the right post: red before the signal, green at GO
+  const lit = state === 'gate' || state === 'run' || state === 'finished' ? '#2FD36A' : state === 'countdown' ? '#FF3B3B' : '#4A5468';
+  ctx.fillStyle = '#0D111A'; ctx.fillRect(R.X + 2 * k, R.Y - 24 * k, 5 * k, 9 * k);
+  ctx.fillStyle = lit; ctx.beginPath(); ctx.arc(R.X + 4.5 * k, R.Y - 19.5 * k, 1.8 * k, 0, 7); ctx.fill();
+  // the latch on the right post where the wand rests
+  ctx.fillStyle = '#C9D2DE'; ctx.fillRect(R.X - 3.5 * k, R.Y - (WAND_H + 1.2) * k, 2 * k, 2.4 * k);
+  ctx.restore();
 }
 function drawStartHut(){
   const p = proj(0, -76); if (!p) return;
