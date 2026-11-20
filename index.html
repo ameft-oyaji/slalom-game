@@ -587,7 +587,7 @@ const GEAR = {
   ]},
   bind: { label: 'ビンディング', items: [
     { id: 'fixance', org: 'FRA', name: 'SALUT', model: 'Course 18', c1: '#2A2F38', c2: '#ED2939', c3: '#FFFFFF', mark: 'ring', font: 'serif', stats: { '伝達': 4, '安定': 3, '軽さ': 5 }, mod: { turn: 1.02 } },
-    { id: 'klamma', org: 'GER', name: 'MARKS', model: 'Plate WC', c1: '#F7F8FA', c2: '#D50F25', c3: '#D50F25', mark: 'chevron', font: 'wide', stats: { '伝達': 3, '安定': 5, '軽さ': 3 }, mod: { carve: .97, net: .8 } },
+    { id: 'klamma', org: 'GER', name: 'MARKS', model: 'Plate WC', c1: '#F7F8FA', c2: '#D50F25', c3: '#D50F25', mark: 'chevron', font: 'wide', stats: { '伝達': 5, '安定': 5, '軽さ': 3 }, mod: { carve: 0, carveGain: .1, turn: 1.02, net: .8 } },
     { id: 'tauern', org: 'AUT', name: 'TIRORU', model: 'Race 20', c1: '#1D1D1F', c2: '#FF6A13', c3: '#FF6A13', mark: 'peak', font: 'italic', stats: { '伝達': 5, '安定': 3, '軽さ': 3 }, mod: { carve: .92 } },
   ]},
   pole: { label: 'ストック', items: [
@@ -615,10 +615,10 @@ const GEAR = {
 const DEFAULT_GEAR = { ski: 'ogawa', bind: 'tauern', pole: 'kiri', boot: 'montvert', gog: 'sora', helm: 'arx' };
 function gearItem(cat, id){ const g = GEAR[cat]; return g.items.find(i => i.id === id) || g.items[0]; }
 function gearMods(eq){
-  const m = { turn: 1, drag: 1, carve: 1, push: 0, tuck: 1, pole: 1, net: 1, night: 1, haze: 1, glare: 1, fr: 1 };
+  const m = { turn: 1, drag: 1, carve: 1, carveGain: 0, push: 0, tuck: 1, pole: 1, net: 1, night: 1, haze: 1, glare: 1, fr: 1 };
   for (const cat of Object.keys(GEAR)){
     const it = gearItem(cat, eq[cat]);
-    for (const [k, v] of Object.entries(it.mod)){ if (k === 'push') m.push += v; else m[k] *= v; }
+    for (const [k, v] of Object.entries(it.mod)){ if (k === 'push' || k === 'carveGain') m[k] += v; else m[k] *= v; }
   }
   return m;
 }
@@ -871,7 +871,7 @@ function newBody(){ return { x:0, y:-14, th:0, v:0, lean:0, tuck:false, px:0, py
 const PUSH_DUR = .48;
 const START_WINDOW = 10;
 let gateT = 0;
-const NOMOD = { turn: 1, drag: 1, carve: 1, push: 0, tuck: 1, pole: 1, net: 1, night: 1, haze: 1, glare: 1, fr: 1 };
+const NOMOD = { turn: 1, drag: 1, carve: 1, carveGain: 0, push: 0, tuck: 1, pole: 1, net: 1, night: 1, haze: 1, glare: 1, fr: 1 };
 function physStep(b, ctl, dt, braking){
   b.lean += (ctl.inp - b.lean) * Math.min(1, dt*10);
   b.tuck = ctl.tuck;
@@ -880,7 +880,7 @@ function physStep(b, ctl, dt, braking){
   if (braking){ b.v = Math.max(0, b.v - 150*dt); b.th *= (1 - dt*2); }
   else {
     let a = G*Math.cos(b.th) - DRAG*m.drag*(ctl.tuck ? .55*m.tuck : 1)*b.v*b.v - FR*(m.fr || 1);
-    if (ctl.inp) a -= .3*m.carve*b.v;
+    if (ctl.inp) a += (m.carveGain || 0) * b.v - .3*m.carve*b.v;
     b.v = Math.max(0, b.v + a*dt);
   }
   b.px = b.x; b.py = b.y;
@@ -2940,6 +2940,7 @@ function gearSummary(){
   const m = gearMods(myGear), out = [];
   for (const [k, [label]] of Object.entries(MOD_LABEL)){ if (Math.abs(m[k] - 1) > .004) out.push(`${label} ${m[k] > 1 ? '+' : '−'}${Math.round(Math.abs(m[k] - 1) * 100)}%`); }
   if (m.push) out.push(`スタートの押し出し +${Math.round(m.push * .36)} km/h`);
+  if (m.carveGain) out.push(`ターン中の加速 +${Math.round(m.carveGain * 50)}%`);
   return out.join(' · ');
 }
 function gearCard(cat, it){
@@ -3108,6 +3109,7 @@ function freePerfRows(wx, waxId, ed){
   if (FREE.wx === 'night' || (race && race.ev && race.ev.night)) rows.push(['ゴーグル：夜の暗さ', pct(g.night, -1), 'ゴーグル']);
   else if (wx.cond === 'sun') rows.push(['ゴーグル：まぶしさ', pct(g.glare, -1), 'ゴーグル']);
   else rows.push(['ゴーグル：かすみ', pct(g.haze, -1), 'ゴーグル']);
+  rows.splice(3, 0, ['ターン中の加速', { v: (m.carveGain || 0) * 50, good: (m.carveGain || 0) > 0 }, 'ビンディング']);
   rows.push(['スタートの押し出し', { v: m.push * .36, good: m.push > 0, kmh: true }, 'ストック']);
   return rows;
 }
