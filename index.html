@@ -245,6 +245,31 @@ tr.cut td{border-bottom:2px solid var(--amber)}
 .cutboard .df{color:var(--amber);min-width:3.4em;text-align:right}
 .acthint{position:absolute;left:50%;top:27%;transform:translateX(-50%);width:max-content;max-width:calc(100% - 32px);text-align:center;background:rgba(14,26,46,.82);color:#fff;border-radius:4px;padding:6px 12px;font-size:12px;line-height:1.7;pointer-events:none}
 .acthint kbd{background:#fff;color:var(--board)}
+.cer{position:absolute;inset:0;z-index:6;display:flex;align-items:center;justify-content:center;background:rgba(9,17,32,.55);padding:12px max(12px,env(safe-area-inset-right,0px)) 12px max(12px,env(safe-area-inset-left,0px));overflow:auto}
+.cer-in{position:relative;width:min(640px,100%);background:linear-gradient(180deg,#13213A 0 62%,#E8EEF6 62%);border-radius:8px;padding:14px 14px 16px;box-shadow:0 14px 40px rgba(0,0,0,.4);overflow:hidden;color:#fff;display:flex;flex-direction:column;gap:10px}
+.cer-back{position:absolute;inset:0 0 auto 0;height:62%;display:flex;justify-content:space-around;align-items:center;font-family:var(--f-num);font-style:italic;font-weight:800;font-size:clamp(18px,5vw,34px);color:rgba(255,255,255,.07);pointer-events:none}
+.cer-flags{position:relative;display:flex;justify-content:center;gap:clamp(30px,10vw,80px);height:86px}
+.pole{position:relative;width:3px;background:#C9D2DE;height:84px;border-radius:2px}
+.pole.p1{height:96px;margin-top:-12px}
+.cflag{position:absolute;left:3px;bottom:0;width:42px;height:28px;box-shadow:0 0 0 1px rgba(0,0,0,.25);animation:raise 2.6s ease-out var(--d) forwards}
+@keyframes raise{to{bottom:calc(100% - 28px)}}
+.cer-title{position:relative;text-align:center;font-weight:700;font-size:clamp(16px,4.2vw,22px);text-wrap:balance}
+.cer-title small{display:block;font-family:var(--f-num);font-weight:500;letter-spacing:.12em;color:var(--muted);font-size:12px;text-transform:uppercase}
+.cer-podium{position:relative;display:grid;grid-template-columns:1fr 1.1fr 1fr;align-items:end;gap:6px}
+.pod{display:flex;flex-direction:column;align-items:center;gap:2px;animation:podin .6s ease-out var(--d) both}
+@keyframes podin{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+.ath{width:clamp(38px,11vw,62px);height:auto}
+.ath.win{animation:hop 1s ease-in-out 1.6s infinite}
+@keyframes hop{50%{transform:translateY(-6px)}}
+.pod-name{display:flex;align-items:center;gap:4px;font-size:clamp(10px,2.8vw,13px);font-weight:700;color:var(--ink);background:rgba(255,255,255,.94);border-radius:3px;padding:1px 6px;text-align:center;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pod.me .pod-name{color:var(--red)}
+.pod-time{font-family:var(--f-num);font-weight:700;font-size:clamp(11px,3vw,14px);color:#13213A;background:rgba(255,255,255,.8);border-radius:3px;padding:0 5px}
+.pod-box{width:100%;display:flex;align-items:center;justify-content:center;background:linear-gradient(#FFFFFF,#D9E1EC);border:2px solid #13213A;border-bottom:0;border-radius:4px 4px 0 0;color:#13213A;font-family:var(--f-num);font-style:italic;font-weight:800;font-size:clamp(26px,7vw,40px)}
+.p1 .pod-box{height:84px;background:linear-gradient(#FFE38A,#F2B600)}
+.p2 .pod-box{height:66px;background:linear-gradient(#F2F4F8,#B9C3D1)}
+.p3 .pod-box{height:48px;background:linear-gradient(#F3C9A1,#C47F3D)}
+.cer .btns{justify-content:center}
+@media (prefers-reduced-motion:reduce){ .cflag{animation:none;bottom:calc(100% - 28px)} .pod,.ath.win{animation:none} }
 .conn{font-size:12px;color:var(--muted)}
 .conn.ok{color:var(--good)}
 
@@ -323,6 +348,7 @@ tr.cut td{border-bottom:2px solid var(--amber)}
   </div>
   <div class="cutboard" id="cutBoard" hidden></div>
   <div class="acthint" id="actHint" hidden></div>
+  <section class="cer" id="cer" hidden></section>
   <div class="msg" id="msg"></div>
   <div class="cd" id="cd"></div>
   <div class="pad" id="pad">
@@ -2311,6 +2337,12 @@ function collectArena(sprites, yNear, yFar){
   // back fence of the finish corral (advertising-style boards in the host colours)
   const fenceY = fy + 230;
   if (fenceY > yNear - 20 && fenceY < yFar + 40) sprites.push({ y: fenceY, d: () => drawBackFence(fenceY, A, natCols) });
+  // finish house (timing booth) and finish referees at both ends of the line
+  if (fy + 40 > yNear - 30 && fy - 30 < yFar){
+    sprites.push({ y: fy + 40, d: () => drawFinishHouse(W / 2 - 46, fy + 40) });
+    sprites.push({ y: fy + 6, d: () => drawOfficial(-W / 2 + 14, fy + 6, '#F07A1A', ex > .6 ? 'up' : 'down', 'FINISH') });
+    sprites.push({ y: fy + 10, d: () => drawOfficial(W / 2 - 92, fy + 10, '#F07A1A', 'clip', '') });
+  }
   // grandstand tiers, each with its fans
   for (let tier = 5; tier >= 0; tier--){
     const ty = fy + 252 + tier * 13;
@@ -2401,6 +2433,98 @@ function paintFlag(nat, x, y, w, h, flap){
     case 'CAN': band(['#D52B1E', '#fff', '#D52B1E'], true); ctx.fillStyle = '#D52B1E'; ctx.beginPath(); ctx.arc(x + w / 2, y + h / 2, h * .2, 0, 7); ctx.fill(); break;
     default: band(NAT[nat] ? [NAT[nat].suit, NAT[nat].trim] : ['#13213A', '#fff']);
   }
+}
+// =====================================================================
+// Podium ceremony (race top 3) and crystal globe ceremony (season top 3 after the Finals)
+// =====================================================================
+function athleteSVG(nat, me, place, kind){
+  const c = NAT[nat] || { suit: '#13213A', trim: '#fff' };
+  const arms = place === 1 ? 'M14 30 L6 12 M34 30 L42 12' : 'M14 30 L9 44 M34 30 L39 44';
+  const prize = kind === 'globe' && place === 1
+    ? '<g class="prize"><circle cx="42" cy="6" r="7" fill="#DDEBFF" stroke="#9FBFEA" stroke-width="1.2"/><path d="M38 4 Q42 1 46 4 M37 8 Q42 11 47 8" stroke="#fff" stroke-width="1" fill="none"/><rect x="40.5" y="12" width="3" height="5" fill="#C9D2DE"/></g>'
+    : place === 1 ? '<g class="prize"><path d="M36 2 h12 v4 q0 7 -6 8 q-6 -1 -6 -8z" fill="#FFC93C"/><rect x="40.5" y="14" width="3" height="3" fill="#E0A800"/></g>' : '';
+  return `<svg viewBox="0 0 48 80" class="ath${place === 1 ? ' win' : ''}" aria-hidden="true">
+    <path d="${arms}" stroke="${c.suit}" stroke-width="5" stroke-linecap="round"/>
+    <rect x="13" y="24" width="22" height="28" rx="7" fill="${c.suit}"/>
+    <rect x="21" y="24" width="6" height="28" fill="${c.trim}" opacity=".9"/>
+    <rect x="16" y="50" width="7" height="24" rx="3" fill="${shade(c.suit, .75)}"/><rect x="25" y="50" width="7" height="24" rx="3" fill="${shade(c.suit, .75)}"/>
+    <circle cx="24" cy="15" r="9" fill="${me ? '#D42A2F' : '#F2C9A0'}"/>${me ? '' : `<path d="M15 13 Q24 3 33 13" fill="${shade(c.suit, .9)}"/>`}
+    ${prize}
+  </svg>`;
+}
+function playFanfare(){
+  if (muted || !actx) return;
+  // a short original brass-style fanfare (not an anthem)
+  const notes = [[523, 0, .18], [659, .2, .18], [784, .4, .18], [1047, .62, .5], [784, 1.2, .18], [1047, 1.4, .8]];
+  notes.forEach(([f, t, d]) => setTimeout(() => { tone(f, d + .1, 'sawtooth', .06); tone(f / 2, d + .1, 'triangle', .05); }, t * 1000));
+}
+function showCeremony(kind, top3, ev){
+  if (!top3 || top3.length < 3) return;
+  const order = [top3[1], top3[0], top3[2]];                  // 2nd · 1st · 3rd
+  const title = kind === 'globe' ? `回転 種目別 クリスタルグローブ 授賞式` : `${JP[ev.venue] || ev.venue} 回転 表彰式`;
+  const sub = kind === 'globe' ? `FIS Alpine Ski World Cup 2026/27 · ${gender === 'men' ? "Men's" : "Women's"} Slalom Globe` : `FIS Alpine Ski World Cup · ${ev.venue} (${ev.nat}) · ${gender === 'men' ? "Men's" : "Women's"} Slalom`;
+  const block = (x, i) => {
+    const place = [2, 1, 3][i], nat = natOf(x.id), me = x.id === 'you';
+    return `<div class="pod p${place}${me ? ' me' : ''}" style="--d:${[.5, 1.1, 0][i]}s">
+      ${athleteSVG(nat, me, place, kind)}
+      <div class="pod-name"><span class="flag" style="background:${FLAG[nat] || '#C9D2E3'}"></span>${esc(nameOf(x.id))}${me && nameOf(x.id) !== 'あなた' ? '（あなた）' : ''}</div>
+      <div class="pod-time">${x.line}</div>
+      <div class="pod-box"><b>${place}</b></div>
+    </div>`;
+  };
+  const flags = order.map((x, i) => `<div class="pole p${[2, 1, 3][i]}"><span class="cflag" style="background:${FLAG[natOf(x.id)] || '#C9D2E3'};--d:${[.5, 1.1, 0][i] + 1.2}s"></span></div>`).join('');
+  const el = $('#cer');
+  el.innerHTML = `<div class="cer-in">
+      <div class="cer-back"><span>WORLD CUP</span><span>${esc(ev.venue.toUpperCase())}</span><span>WORLD CUP</span></div>
+      <div class="cer-flags">${flags}</div>
+      <div class="cer-title"><small>${esc(sub)}</small>${esc(title)}</div>
+      <div class="cer-podium">${order.map(block).join('')}</div>
+      <div class="btns"><button class="btn primary" type="button" id="cerClose">閉じる</button></div>
+    </div>`;
+  el.hidden = false;
+  $('#cerClose').onclick = () => { el.hidden = true; confetti = []; };
+  ac(); playFanfare();
+  setTimeout(() => crowdCheer(1), 900);
+  confetti = [];
+  for (let i = 0; i < 220; i++) confetti.push({ x: Math.random() * cw, y: -Math.random() * ch, vx: (Math.random() - .5) * 60, vy: 70 + Math.random() * 110, r: Math.random() * 6.28, vr: (Math.random() - .5) * 8, c: FAN_COLS[i % FAN_COLS.length] });
+}
+// race officials: a person in a coloured jacket; pose 'up' (arm raised), 'point', 'clip' (clipboard) or 'down'
+function drawOfficial(x, y, col, pose, label){
+  const p = proj(x, y); if (!p || p.X < -30 || p.X > cw + 30) return;
+  const u = p.k * 1.6;
+  ctx.fillStyle = COL.shadow; ctx.beginPath(); ctx.ellipse(p.X + 3 * u, p.Y + .8 * u, 6 * u, 1.8 * u, 0, 0, 7); ctx.fill();
+  ctx.save(); ctx.translate(p.X, p.Y); ctx.scale(u, u); ctx.lineCap = 'round';
+  ctx.strokeStyle = '#2A2F38'; ctx.lineWidth = 2.2; ctx.beginPath(); ctx.moveTo(-1.5, 0); ctx.lineTo(-1.3, -7); ctx.moveTo(1.5, 0); ctx.lineTo(1.3, -7); ctx.stroke();
+  ctx.fillStyle = col; rrect(-3.2, -15, 6.4, 9, 2.2); ctx.fill();
+  ctx.fillStyle = '#F2F4F8'; ctx.fillRect(-3.2, -10.5, 6.4, 1.2);                // reflective band
+  if (label){ ctx.fillStyle = '#fff'; ctx.font = "800 2.2px 'Barlow Condensed', sans-serif"; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(label, 0, -12.8); }
+  ctx.strokeStyle = col; ctx.lineWidth = 1.5; ctx.beginPath();
+  ctx.moveTo(-3, -14); ctx.lineTo(-3.8, -9.5);
+  if (pose === 'up'){ ctx.moveTo(3, -14); ctx.lineTo(4.4, -20); }
+  else if (pose === 'point'){ ctx.moveTo(3, -14); ctx.lineTo(7.5, -12.5); }
+  else if (pose === 'clip'){ ctx.moveTo(3, -14); ctx.lineTo(2.2, -10.5); }
+  else { ctx.moveTo(3, -14); ctx.lineTo(3.8, -9.5); }
+  ctx.stroke();
+  if (pose === 'clip'){ ctx.fillStyle = '#E8DCC0'; ctx.fillRect(.6, -12.5, 3.4, 4.2); }
+  if (pose === 'up'){ ctx.fillStyle = '#FFC93C'; ctx.fillRect(4.1, -24, 4, 3); }  // small flag
+  ctx.fillStyle = '#F2C9A0'; ctx.beginPath(); ctx.arc(0, -17.4, 2.1, 0, 7); ctx.fill();
+  ctx.fillStyle = '#13213A'; ctx.fillRect(-2.2, -19.6, 4.4, 1.5);                   // cap
+  ctx.restore();
+}
+// the timing booth beside the finish line
+function drawFinishHouse(x, y){
+  const p = proj(x, y); if (!p) return;
+  const k = p.k, X = p.X, Y = p.Y, w = 46 * k, h = 30 * k;
+  ctx.fillStyle = COL.shadow; ctx.fillRect(X - w / 2 + 5 * k, Y - 1 * k, w, 4 * k);
+  ctx.fillStyle = '#2B3B5C'; ctx.fillRect(X - w / 2, Y - h, w, h);
+  ctx.fillStyle = '#9FC3E8'; ctx.fillRect(X - w / 2 + 4 * k, Y - h + 6 * k, w - 8 * k, 9 * k);           // window
+  ctx.fillStyle = 'rgba(19,33,58,.5)'; for (let i = 0; i < 3; i++) ctx.beginPath(), ctx.arc(X - 12 * k + i * 12 * k, Y - h + 12 * k, 2.4 * k, 0, 7), ctx.fill();  // timers inside
+  ctx.fillStyle = '#D42A2F'; ctx.fillRect(X - w / 2, Y - h - 7 * k, w, 7 * k);
+  ctx.fillStyle = '#fff'; ctx.font = `italic 800 ${6 * k}px 'Barlow Condensed', sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('FINISH · TIMING', X, Y - h - 3.4 * k);
+  ctx.fillStyle = '#13213A'; ctx.fillRect(X - w / 2 - 1 * k, Y - h - 9 * k, w + 2 * k, 2 * k);
+  // live clock on the front
+  ctx.fillStyle = '#0E1A2E'; ctx.fillRect(X - 14 * k, Y - 13 * k, 28 * k, 8 * k);
+  ctx.fillStyle = '#FFC93C'; ctx.font = `700 ${6 * k}px 'Barlow Condensed', sans-serif`; ctx.fillText(state === 'run' || state === 'finished' ? fmt(trunc(t)) : '0:00.00', X, Y - 9 * k);
 }
 // =====================================================================
 // Sheets
@@ -2522,11 +2646,18 @@ function showFinal(){
   if (mv) html += movementHTML(mv);
   html += `<h3>最終結果${race.finals ? '（ファイナル：15位までポイント）' : '（30位までWCポイント）'}</h3>` + table(['順位','選手','国','1本目','2本目','合計','差','Pt'], rows);
   if (race.mode === 'career' && !saved) html += `<p class="note">このブラウザでは記録を保存できないため、キャリアの成績は残りません。</p>`;
-  html += `<div class="btns"><button class="btn primary" type="button" id="toCal">キャリアの日程に戻る</button><button class="btn" type="button" id="toStand">ランキングを見る</button></div>`;
+  const seasonOver = race.mode === 'career' && race.ev.finals;
+  html += `<div class="btns"><button class="btn primary" type="button" id="toCal">キャリアの日程に戻る</button>${res.length >= 3 ? '<button class="btn" type="button" id="toCer">表彰式を見る</button>' : ''}${seasonOver ? '<button class="btn" type="button" id="toGlobe">クリスタルグローブ授賞式</button>' : ''}<button class="btn" type="button" id="toStand">ランキングを見る</button></div>`;
   openSheet('Official Results', `${JP[race.ev.venue]} 回転 最終結果`, html);
   scrollMeIntoView();
+  const r3 = res.slice(0, 3).map(o => ({ id: o.id, line: fmt(o.t) + (o.rank === 1 ? '' : '  ' + fmtDiff(o.t - best)) }));
+  const ev = race.ev;
+  if ($('#toCer')) $('#toCer').onclick = () => showCeremony('race', r3, ev);
+  if ($('#toGlobe')) $('#toGlobe').onclick = () => showCeremony('globe', ranking().slice(0, 3).map(e => ({ id: e.id, line: e.pts + ' pt' })), ev);
   $('#toStand').onclick = () => { race = null; showMenu('stand'); };
   $('#toCal').onclick = () => { race = null; showMenu('cal'); };
+  // on the podium yourself: the ceremony starts straight away
+  if (me && me.rank <= 3 && res.length >= 3 && !race.ceremonyShown){ race.ceremonyShown = true; setTimeout(() => showCeremony('race', r3, ev), 400); }
 }
 async function showTaResult(){
   state = 'sheet';
@@ -2957,6 +3088,13 @@ function render(){
   if (22 > yNear - 30 && 22 < yFar + 40) sprites.push({ y: 22, d: () => banner(22, label + ' · RUN ' + (race ? race.run : 1), COL.blue, COL.red) });
   if (fy + 2 > yNear - 30 && fy < yFar + 40) sprites.push({ y: fy + 2, d: () => banner(fy + 2, 'FINISH', COL.red, COL.blue) });
   if (-76 > yNear - 60) sprites.push({ y: -76, d: drawStartHut });
+  // start officials: the starter beside the gate (arm up for READY, down at GO) and two helpers
+  if (-30 > yNear - 60 && -30 < yFar){
+    const armUp = state === 'countdown' || (state === 'gate' && gateT > START_WINDOW - .6);
+    sprites.push({ y: -22, d: () => drawOfficial(-46, -22, '#D42A2F', armUp ? 'up' : state === 'gate' ? 'point' : 'down', 'START') });
+    sprites.push({ y: -44, d: () => drawOfficial(44, -44, '#1F55C8', 'down', '') });
+    sprites.push({ y: -58, d: () => drawOfficial(-52, -58, '#13213A', 'clip', '') });
+  }
   collectTrees(yNear, yFar, sprites);
   sprites.push({ y: sk.y, d: () => { drawSkier(); drawParts(); } });
   if (race && race.battle) battleGhosts(sprites, yNear, yFar);
