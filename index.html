@@ -78,6 +78,8 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
 .cd{flex-direction:column;gap:6px}
 .cd small{display:block;font-family:var(--f-body);font-style:normal;font-weight:700;font-size:clamp(14px,3.4vw,22px);color:var(--board);background:rgba(255,255,255,.85);padding:4px 12px;border-radius:4px;text-shadow:none}
 .cd em{display:block;font-family:var(--f-num);font-style:italic;font-weight:800;font-size:clamp(28px,8vw,56px);color:var(--board);text-shadow:0 3px 0 rgba(255,255,255,.7)}
+.cd em.beep{font-size:clamp(56px,16vw,120px);animation:beep 1s ease-out infinite}.cd em.beep.hi{color:var(--red)}
+@keyframes beep{0%{transform:scale(1.15)}30%{transform:scale(1)}}
 .cd.hurry em{color:var(--red)}
 .cd.dsq{color:var(--red);font-size:min(18vw,110px)}
 
@@ -869,7 +871,8 @@ function courseSeed(g, date){ return hashStr(`${g}-${date}`); }
 // =====================================================================
 function newBody(){ return { x:0, y:-14, th:0, v:0, lean:0, tuck:false, px:0, py:-14, ng:0, block:null, pushT:0, pushCd:0 }; }
 const PUSH_DUR = .48;
-const START_WINDOW = 10;
+const START_WINDOW = 3;        // the start may be taken from the end of the long tone (first buzzer +5 s) until first buzzer +8 s
+const START_CALL = 10;         // "10 seconds" is called, the buzzers begin 5 s later
 let gateT = 0;
 const NOMOD = { turn: 1, drag: 1, carve: 1, carveGain: 0, push: 0, tuck: 1, pole: 1, net: 1, night: 1, haze: 1, glare: 1, fr: 1 };
 function physStep(b, ctl, dt, braking){
@@ -1434,15 +1437,36 @@ function step(dt){
     return;
   }
   if (state === 'countdown'){
-    cdT -= dt;    // slalom start: "Ready" … then the start signal at an irregular moment
-    if (cdT <= 0){ state = 'gate'; gateT = START_WINDOW; tone(1320, .45, 'square', .1); }
+    // start procedure: "10 seconds" is called; at 5 s the buzzer sounds once a second, five times —
+    // the 4th is high, the 5th high and long. The racer must leave between the end of the long tone and 3 s after it
+    const before = cdT;
+    cdT -= dt;
+    if (before > START_CALL - .05 && !race.called10){ race.called10 = true; tone(520, .18, 'triangle', .07); setTimeout(() => tone(620, .22, 'triangle', .07), 200); }
+    for (const b of [5, 4, 3, 2, 1]){
+      if (before > b && cdT <= b){
+        if (b >= 3) tone(780, .12, 'square', .08);              // 1st–3rd: low
+        else if (b === 2) tone(1320, .12, 'square', .09);       // 4th: high
+        else tone(1320, .98, 'square', .09);                    // 5th: high and long
+      }
+    }
+    // leaving during the buzzers is a false start
+    if (cdT <= 5 && race.mode !== 'free' && playerInput().push){
+      dsq = true; state = 'finished'; finT = 2;
+      race.playerDsq[race.run - 1] = 'DSQ';
+      race.dsqWhy = race.dsqWhy || []; race.dsqWhy[race.run - 1] = 'フライング（長音が終わる前にスタートした）による失格';
+      $('#cd').className = 'cd dsq'; $('#cd').textContent = 'DSQ';
+      $('#cTime').textContent = 'DSQ'; $('#cTime').hidden = false;
+      flash('フライング — 失格', true); tone(180, .35, 'sawtooth', .08);
+      recordPlayerTime(null);
+      return;
+    }
+    if (cdT <= 0){ state = 'gate'; gateT = START_WINDOW; }
     return;
   }
   if (state === 'gate'){
     // FIS: after the start signal the racer has 10 seconds to leave the start. Push off with both poles (left + right).
     const before = Math.ceil(gateT);
     gateT -= dt;
-    if (Math.ceil(gateT) !== before && gateT > 0 && gateT <= 3) tone(700, .08, 'square', .05);
     const c = playerInput();
     if (c.push){
       state = 'run'; goT = .5;
@@ -1455,7 +1479,7 @@ function step(dt){
     } else if (gateT <= 0){
       dsq = true; state = 'finished'; finT = 2;
       race.playerDsq[race.run - 1] = 'DSQ';
-      race.dsqWhy = race.dsqWhy || []; race.dsqWhy[race.run - 1] = 'スタート遅れ（合図から10秒以内にスタートしなかった）による失格';
+      race.dsqWhy = race.dsqWhy || []; race.dsqWhy[race.run - 1] = 'スタート遅れ（最初のブザーから8秒以内にスタートしなかった）による失格';
       $('#cd').className = 'cd dsq'; $('#cd').textContent = 'DSQ';
       $('#cTime').textContent = 'DSQ'; $('#cTime').hidden = false;
       flash('スタート遅れ — 失格', true); tone(180, .35, 'sawtooth', .08);
@@ -1687,7 +1711,7 @@ function beginRun(){
   }
   sk.mod = runMods();
   { const w = courseWear(); sk.mod.drag *= 1 + .03 * w; sk.mod.turn *= 1 - .035 * w; }
-  state = 'countdown'; cdT = 1.2 + Math.random()*1.4; goT = 0;
+  state = 'countdown'; cdT = START_CALL; goT = 0;
   $('#cd').className = 'cd';
   $('#hud').hidden = false;
   $('#pad').classList.add('live'); $('#mute').classList.add('raised');
@@ -1970,7 +1994,8 @@ function startBattleRace(){
   ac();
   beginRun();
   race.leader = null; $('#vs').hidden = true;
-  cdT = Math.max(1, (BT.room.startAt - serverNow()) / 1000);      // everyone's READY ends at the same moment
+  cdT = Math.max(1, (BT.room.startAt - serverNow()) / 1000);      // everyone's long tone ends at the same moment
+  race.called10 = cdT < START_CALL - .5;
 }
 function battleTick(){
   const now = performance.now();
@@ -3756,9 +3781,13 @@ function render(){
   drawProgress();
   drawConfetti();
   const cd = $('#cd');
-  if (state === 'countdown'){ cd.className = 'cd'; if (race && race.battle){ cd.innerHTML = `READY<em>${Math.max(1, Math.ceil(cdT))}</em>`; } else cd.textContent = 'READY'; }
+  if (state === 'countdown'){
+    cd.className = 'cd';
+    if (cdT > 5) cd.innerHTML = cdT > START_CALL - 2 ? '10秒前<small>まもなくスタートです</small>' : 'READY';
+    else cd.innerHTML = `<em class="beep${cdT <= 2 ? ' hi' : ''}">${Math.max(1, Math.ceil(cdT))}</em>`;
+  }
   else if (state === 'gate'){
-    cd.className = 'cd go' + (gateT <= 3 && !(race && race.mode === 'free') ? ' hurry' : '');
+    cd.className = 'cd go' + (gateT <= 1.5 && !(race && race.mode === 'free') ? ' hurry' : '');
     const hint = document.body.classList.contains('touch') ? '左足＋右足を同時に押してスタート' : '← と → を同時に押してスタート';
     cd.innerHTML = `GO<small>${hint}</small>${race && race.mode === 'free' ? '' : `<em>${Math.max(0, gateT).toFixed(1)}</em>`}`;
   }
