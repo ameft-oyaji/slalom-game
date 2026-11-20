@@ -237,6 +237,18 @@ tr.cut td{border-bottom:2px solid var(--amber)}
 .pval{font-family:var(--f-num);font-weight:700;text-align:right}.pval.up{color:#2FB36A}.pval.dn{color:#E5484D}
 body.nightrace .ev-gear .up,body.nightrace .ev-gear .dn{color:#fff!important}
 .lock{z-index:5;width:min(420px,calc(100% - 24px))}
+.topscr{position:absolute;inset:0;z-index:5;display:flex;align-items:center;justify-content:center;padding:20px;background:radial-gradient(ellipse at 50% 40%,rgba(9,17,32,.25),rgba(9,17,32,.78));color:#fff;text-align:center}
+.top-in{display:flex;flex-direction:column;align-items:center;gap:10px;animation:topin .7s ease-out both}
+@keyframes topin{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+.top-eyebrow{font:600 clamp(11px,2.6vw,14px) var(--f-num);letter-spacing:.24em;color:#C9D2E3}
+.top-title{margin:0;font:italic 800 clamp(56px,15vw,120px)/.9 var(--f-num);letter-spacing:.02em;text-shadow:0 6px 0 rgba(212,42,47,.85),0 10px 30px rgba(0,0,0,.4)}
+.top-title span{display:block;font-size:.32em;letter-spacing:.3em;margin-top:.35em;text-shadow:none;color:#FFC93C}
+.top-sub{margin:0;font-weight:700;font-size:clamp(14px,3.6vw,18px)}
+.top-stripe{display:flex;width:min(320px,70vw);height:5px;margin:6px 0 8px}.top-stripe i{flex:1;background:var(--red)}.top-stripe i+i{background:#1F55C8}
+.top-go{font-size:20px;padding:12px 48px;min-width:220px}
+.top-who{margin:0;font-size:13px;color:#C9D2E3;min-height:1em}
+.top-ver{position:absolute;left:max(14px,env(safe-area-inset-left,0px));bottom:max(10px,env(safe-area-inset-bottom,0px));font:600 12px var(--f-num);letter-spacing:.08em;color:#C9D2E3;background:rgba(9,17,32,.5);padding:4px 10px;border-radius:999px}
+@media (prefers-reduced-motion:reduce){ .top-in{animation:none} }
 .lock input[type=password]{width:100%;font-size:18px;padding:10px 12px}
 .lock-err{margin:0;color:var(--bad);font-size:13px;font-weight:700}
 .acct{display:flex;flex-direction:column;gap:6px;background:var(--board-2);border-left:4px solid var(--good);border-radius:4px;padding:10px 12px}
@@ -435,6 +447,17 @@ body.nightrace .ev-label,body.nightrace .ev-label *,body.nightrace #keys,body.ni
       <div class="btns"><button class="btn primary" type="submit">はじめる</button></div>
       <p class="note">一度正しく入れると、この端末では次回から入力を省略します。</p>
     </form>
+  </section>
+  <section class="topscr" id="top" hidden>
+    <div class="top-in">
+      <div class="top-eyebrow">FIS ALPINE SKI WORLD CUP 2026/27</div>
+      <h1 class="top-title">SLALOM<span>WORLD CUP</span></h1>
+      <p class="top-sub">回転（スラローム）ワールドカップ</p>
+      <div class="top-stripe"><i></i><i></i></div>
+      <button class="btn primary top-go" type="button" id="topGo">スタート</button>
+      <p class="top-who" id="topWho"></p>
+    </div>
+    <div class="top-ver" id="topVer"></div>
   </section>
   <section class="panel" id="menu">
     <div class="panel-head">
@@ -3521,7 +3544,7 @@ function rulesHTML(){
     <li><b>計時</b>：1/100秒、端数は切り捨て。同タイムは同順位・同ポイント</li>
     <li><b>ポイント</b>：1位100、2位80、3位60、4位50、5位45 … 30位1。ファイナルは上位25名だけが出場し、15位までポイント</li>
   </ul>
-  <p class="note">FIS国際競技規則（ICR）の要点をゲーム向けに簡略化しています。実際は外した旗門へ登り返すこともできますが、ゲームではその場で失格になります。コースの高低差や旗門の配置はゲーム用に作ったもので、実際の各会場のコースとは異なります。</p>`;
+  <p class="note">FIS国際競技規則（ICR）の要点をゲーム向けに簡略化しています。実際は外した旗門へ登り返すこともできますが、ゲームではその場で失格になります。コースの高低差や旗門の配置はゲーム用に作ったもので、実際の各会場のコースとは異なります。</p><p class="note" style="text-align:right">Ver. ${APP_VERSION}（${APP_DATE}）</p>`;
 }
 $('#gMen').onclick = () => { gender = 'men'; savePrefs(); showMenu(); };
 $('#gWomen').onclick = () => { gender = 'women'; savePrefs(); showMenu(); };
@@ -4392,6 +4415,15 @@ function sha256hex(str){
 }
 function gateOpen(){ try { return localStorage.getItem('slalomwc-gate') === GATE_HASH; } catch(e){ return false; } }
 function bootGame(){ if (setupDone) showMenu('cal'); else showSetup(); }
+// title screen with the game's version
+const APP_VERSION = '1.0.0', APP_DATE = '2026.11.20';
+function showTop(){
+  $('#menu').hidden = true; $('#sheet').hidden = true; $('#lock').hidden = true;
+  $('#topVer').textContent = `Ver. ${APP_VERSION}（${APP_DATE}）`;
+  $('#topWho').textContent = setupDone ? `${pname}（${(NAT[myNat] || {}).jp || myNat}）でプレー` : 'はじめに国と用具を選びます';
+  $('#top').hidden = false;
+  $('#topGo').onclick = () => { $('#top').hidden = true; ac(); bootGame(); };
+}
 function showLock(){
   $('#menu').hidden = true; $('#sheet').hidden = true; $('#lock').hidden = false;
   setTimeout(() => { try { $('#lockPw').focus(); } catch(_){} }, 50);
@@ -4401,11 +4433,11 @@ function showLock(){
     if (!ok){ $('#lockErr').hidden = false; $('#lockPw').select(); return; }
     try { localStorage.setItem('slalomwc-gate', GATE_HASH); } catch(_){}
     $('#lock').hidden = true; $('#lockPw').value = '';
-    bootGame();
+    showTop();
   };
 }
 startDemo();
-if (gateOpen()) bootGame(); else showLock();
+if (gateOpen()) showTop(); else showLock();
 initTA();
 requestAnimationFrame(frame);
 })();
