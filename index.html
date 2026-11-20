@@ -40,6 +40,11 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
 
 .speedo{background:rgba(14,26,46,.75);color:#fff;border-radius:4px;padding:5px 9px;font:700 18px var(--f-num);font-variant-numeric:tabular-nums}
 .speedo small{font-size:11px;color:var(--muted);margin-left:3px;font-weight:500}
+.slopeo{background:rgba(14,26,46,.75);color:#fff;border-radius:4px;padding:5px 9px;font:700 13px var(--f-body);display:flex;gap:6px;align-items:center;border-left:4px solid #4C8DFF}
+.slopeo b{font:700 16px var(--f-num)}.slopeo.s1{border-color:#2FB36A}.slopeo.s2{border-color:#4C8DFF}.slopeo.s3{border-color:#F59F00}.slopeo.s4{border-color:#E5484D}
+.profbox{margin:8px 0;padding:8px;background:var(--board-2);border-radius:6px}.profbox .profile{width:100%;height:auto;display:block}
+.profbox small{display:block;color:#C9D2E3;font-size:12px;margin-top:4px}
+.proflegend{display:flex;flex-wrap:wrap;gap:10px;font-size:11px;color:#C9D2E3;margin-top:4px}.proflegend i{display:inline-block;width:10px;height:4px;border-radius:2px;margin-right:4px;vertical-align:middle}
 
 /* broadcast graphics */
 .tv{position:absolute;inset:0;pointer-events:none;font-family:var(--f-num)}
@@ -376,6 +381,7 @@ body.nightrace .ev-label,body.nightrace .ev-label *,body.nightrace #keys,body.ni
       <button class="quit" id="bQuit" type="button">棄権</button>
       <button class="quit" id="bCtrl" type="button" title="C キーでも切り替え">操作：外足</button>
       <div class="speedo"><span id="hSpeed">0</span><small>km/h</small></div>
+      <div class="slopeo" id="hSlope" hidden></div>
     </div>
   </div>
   <div class="tv" id="tv" hidden>
@@ -849,6 +855,67 @@ const GH = 25;              // half gate width -> 5.0 m between the two poles (F
 const POLE_R = 3, SK_R = 6;
 const G = 125, DRAG = 0.0022, FR = 14;
 
+// =====================================================================
+// Slope profiles: gentle and steep sections of each World Cup slalom hill.
+// drop = vertical drop (m); max/avg = gradient (%); pts = [fraction of the course, gradient %].
+// src 'fis' = published course data (FIS results / organiser), 'est' = estimated from the hill's character
+// =====================================================================
+const SLOPES = {
+  'Levi':                 { drop: 180, max: 52, avg: 31, src: 'fis', name: 'Levi Black',          pts: [[0,30],[.1,44],[.2,52],[.32,36],[.5,22],[.66,28],[.82,38],[.94,26],[1,14]] },
+  'Gurgl':                { drop: 170, max: 50, avg: 30, src: 'est', name: 'Kirchenkar',           pts: [[0,34],[.2,50],[.38,32],[.58,26],[.76,36],[.92,24],[1,12]] },
+  'Madonna di Campiglio': { drop: 180, max: 60, avg: 38, src: 'fis', name: 'Canalone Miramonti',   pts: [[0,34],[.14,48],[.32,60],[.52,54],[.7,40],[.86,32],[1,18]] },
+  'Alta Badia':           { drop: 175, max: 60, avg: 34, src: 'est', name: 'Gran Risa',            pts: [[0,30],[.22,44],[.42,60],[.62,40],[.82,28],[1,14]] },
+  'Adelboden':            { drop: 211, max: 60, avg: 33, src: 'fis', name: 'Chuenisbärgli',        pts: [[0,32],[.18,26],[.42,24],[.6,30],[.72,50],[.84,60],[.94,44],[1,14]] },
+  'Wengen':               { drop: 190, max: 73, avg: 31, src: 'fis', name: 'Lauberhorn Slalom',    pts: [[0,44],[.07,73],[.16,52],[.32,26],[.5,5],[.62,18],[.78,34],[.93,30],[1,10]] },
+  'Kitzbühel':            { drop: 193, max: 58, avg: 32, src: 'est', name: 'Ganslernhang',         pts: [[0,50],[.1,58],[.24,40],[.44,20],[.6,24],[.74,44],[.88,50],[1,14]] },
+  'Schladming':           { drop: 218, max: 55, avg: 30, src: 'est', name: 'Planai',               pts: [[0,24],[.2,20],[.4,26],[.56,34],[.7,46],[.85,55],[.95,36],[1,16]] },
+  'Flachau':              { drop: 170, max: 48, avg: 29, src: 'est', name: 'Hermann Maier WC-Strecke', pts: [[0,26],[.28,34],[.5,48],[.7,32],[.88,24],[1,12]] },
+  'Kranjska Gora':        { drop: 190, max: 55, avg: 30, src: 'est', name: 'Podkoren 3',           pts: [[0,48],[.12,55],[.3,38],[.52,24],[.74,26],[.9,20],[1,10]] },
+  'Åre':                  { drop: 175, max: 50, avg: 29, src: 'est', name: 'Störtloppsbacken',     pts: [[0,28],[.2,40],[.4,50],[.6,30],[.8,26],[1,12]] },
+  'Chamonix':             { drop: 185, max: 52, avg: 31, src: 'est', name: 'Verte des Houches',    pts: [[0,34],[.2,46],[.36,52],[.56,30],[.78,30],[1,14]] },
+  'Courchevel':           { drop: 190, max: 55, avg: 32, src: 'est', name: 'Éclipse',              pts: [[0,30],[.18,42],[.4,55],[.6,36],[.8,30],[1,14]] },
+  'Soldeu':               { drop: 180, max: 55, avg: 31, src: 'est', name: 'Avet',                 pts: [[0,32],[.2,48],[.36,55],[.58,30],[.78,28],[1,14]] },
+  'Killington':           { drop: 180, max: 52, avg: 28, src: 'est', name: 'Superstar',            pts: [[0,40],[.1,52],[.24,44],[.46,24],[.68,22],[.86,26],[1,12]] },
+  'Sun Valley':           { drop: 175, max: 48, avg: 29, src: 'est', name: 'Warm Springs',         pts: [[0,30],[.24,40],[.44,48],[.64,30],[.84,24],[1,12]] },
+  'Gosau':                { drop: 160, max: 45, avg: 28, src: 'est', name: 'Zwieselalm',           pts: [[0,26],[.3,36],[.52,45],[.72,28],[.9,22],[1,12]] },
+};
+const SLOPE_DEFAULT = { drop: 180, max: 45, avg: 30, src: 'est', name: '', pts: [[0,30],[.3,42],[.6,28],[.85,34],[1,14]] };
+function makeProfile(venue, fy){ const d = SLOPES[venue] || SLOPE_DEFAULT; return Object.assign({ fy }, d); }
+// gradient (%) at a point on the course, smoothed between the profile points
+function gradAt(prof, y){
+  if (!prof) return 30;
+  const f = clamp(y / prof.fy, 0, 1), pts = prof.pts;
+  let i = 0; while (i < pts.length - 2 && pts[i + 1][0] < f) i++;
+  const [f0, g0] = pts[i], [f1, g1] = pts[i + 1];
+  const t = f1 > f0 ? clamp((f - f0) / (f1 - f0), 0, 1) : 0, e = (1 - Math.cos(Math.PI * t)) / 2;
+  return g0 + (g1 - g0) * e;
+}
+// how hard gravity pulls here compared with the hill's average (steep sections run faster, flats slower)
+function slopeFactor(prof, y){
+  if (!prof) return 1;
+  const s = Math.sin(Math.atan(gradAt(prof, y) / 100)), s0 = Math.sin(Math.atan(prof.avg / 100));
+  return clamp(1 + .75 * (s / s0 - 1), .3, 2);
+}
+function slopeWord(g){ return g >= 50 ? '急斜面' : g >= 40 ? 'やや急' : g >= 25 ? '中斜面' : '緩斜面'; }
+// side profile of the hill as a small chart (start on the left, finish on the right)
+function profileSVG(prof){
+  const N = 60, pts = []; let z = 0, x = 0;
+  for (let i = 0; i <= N; i++){
+    const y = prof.fy * i / N, g = gradAt(prof, y) / 100, a = Math.atan(g), d = prof.fy / N;
+    pts.push({ x, z, g: g * 100 }); x += Math.cos(a) * d; z += Math.sin(a) * d;
+  }
+  const W = 300, H = 90, sx = W / x, sz = (H - 14) / z;
+  const P = pts.map(q => [q.x * sx, 6 + q.z * sz]);
+  const segs = P.slice(1).map((q, i) => { const g = pts[i + 1].g; const c = g >= 50 ? '#E5484D' : g >= 40 ? '#F59F00' : g >= 25 ? '#4C8DFF' : '#2FB36A'; return `<line x1="${P[i][0].toFixed(1)}" y1="${P[i][1].toFixed(1)}" x2="${q[0].toFixed(1)}" y2="${q[1].toFixed(1)}" stroke="${c}" stroke-width="3.2" stroke-linecap="round"/>`; }).join('');
+  const area = `M0,${H} L` + P.map(q => q.map(v => v.toFixed(1)).join(',')).join(' L') + ` L${W},${H} Z`;
+  return `<svg class="profile" viewBox="0 0 ${W} ${H}" role="img" aria-label="コースの断面図"><path d="${area}" fill="rgba(200,215,235,.18)"/>${segs}<text x="2" y="12" font-size="9" fill="#C9D2E3">START</text><text x="${W - 2}" y="${H - 4}" font-size="9" fill="#C9D2E3" text-anchor="end">FINISH</text></svg>`;
+}
+function profileHTML(prof){
+  return `<div class="profbox">${profileSVG(prof)}
+    <div class="proflegend"><span><i style="background:#2FB36A"></i>緩斜面</span><span><i style="background:#4C8DFF"></i>中斜面</span><span><i style="background:#F59F00"></i>やや急</span><span><i style="background:#E5484D"></i>急斜面</span></div>
+    <small>${prof.name ? esc(prof.name) + '・' : ''}高低差 ${prof.drop} m・最大斜度 ${prof.max}%・平均斜度 ${prof.avg}%（${prof.src === 'fis' ? '公式データ' : '公式データが見つからないため推定'}）</small></div>`;
+}
+
 function buildCourse(seedN, gender){
   const r = rng(seedN);
   const vd = gender === 'men' ? 180 + Math.round(r()*40) : 150 + Math.round(r()*45);   // vertical drop (m)
@@ -902,7 +969,7 @@ function physStep(b, ctl, dt, braking){
   b.th = clamp(b.th + ctl.inp * (ctl.tuck ? 1.8 : 3.4) * m.turn * dt, -1.45, 1.45);
   if (braking){ b.v = Math.max(0, b.v - 150*dt); b.th *= (1 - dt*2); }
   else {
-    let a = G*Math.cos(b.th) - DRAG*m.drag*(ctl.tuck ? .55*m.tuck : 1)*b.v*b.v - FR*(m.fr || 1);
+    let a = G*(b.prof ? slopeFactor(b.prof, b.y) : 1)*Math.cos(b.th) - DRAG*m.drag*(ctl.tuck ? .55*m.tuck : 1)*b.v*b.v - FR*(m.fr || 1);
     if (ctl.inp) a += (m.carveGain || 0) * b.v - .3*m.carve*b.v;
     b.v = Math.max(0, b.v + a*dt);
   }
@@ -933,7 +1000,7 @@ function aiCtl(b, course){
 }
 // Reference run: a clean robot run that sets the pace of the simulated field
 function refRun(course){
-  const b = newBody(); b.v = 45;
+  const b = newBody(); b.v = 45; b.prof = course.prof;
   let t = 0, timing = false; const at = [];
   for (let i = 0; i < 120*240; i++){
     physStep(b, aiCtl(b, course), STEP, false);
@@ -1220,6 +1287,7 @@ function makeRace(ev, mode){
   const g = gender;
   const sd = courseSeed(g, ev.date);
   const courses = [buildCourse(sd ^ 0x1111, g), buildCourse(sd ^ 0x2222, g)];   // two runs, two different sets
+  courses.forEach(c => { c.prof = makeProfile(ev.venue, c.finishY); c.vd = c.prof.drop; });
   const refs = courses.map(refRun);
   const base = { ev, mode, courses, refs, run: 1, playerDsq: [false, false], finals: ev.finals, maxV: 0, wx: weatherFor(ev, g), wax: [lastWax, lastWax], edge: [Object.assign({}, lastEdge), Object.assign({}, lastEdge)] };
   if (mode === 'ta') return Object.assign(base, { key: taKey(g, ev.date), taTimes: [] });
@@ -1318,10 +1386,12 @@ function resetBody(demo){
   timing = false; t = 0; maxV = 0; dsq = false;
   trail = []; parts = []; camX = 0;
   sk.mod = demo ? null : gearMods(myGear);
+  sk.prof = course && course.prof;
   if (demo) sk.v = 40;
 }
 function startDemo(){
   course = buildCourse(hashStr('demo' + gender + Math.random()), gender);
+  course.prof = makeProfile('', course.finishY);
   resetBody(true); state = 'demo';
 }
 
@@ -1700,7 +1770,7 @@ function showIntro(){
   const ta = race.mode === 'ta';
   let html = `<div><span class="badge red">回転 SL</span> ${ev.night ? '<span class="badge night">ナイター</span> ' : ''}${race.mode === 'exh' ? '<span class="badge">ポイント対象外</span>' : ''}${ta ? '<span class="badge">タイムアタック</span>' : ''}</div><dl class="rows">
     <dt>${race.run}本目のコース</dt><dd>${course.nGates} 旗門</dd>
-    <dt>高低差（ゲーム内設定）</dt><dd>${course.vd} m</dd>`;
+    <dt>高低差</dt><dd>${course.vd} m</dd>`;
   if (!ta){
     const myBib = race.run === 1 ? race.bib.get('you') : race.order2.indexOf('you') + 1;
     html += `<dt>${race.run === 1 ? 'あなたのビブ' : 'スタート順'}</dt><dd>${race.run === 1 ? 'Bib ' + myBib : myBib + '番目 / ' + race.order2.length + '名'}</dd>
@@ -1709,6 +1779,7 @@ function showIntro(){
     const rec = taBoard(race.key)[0];
     html += `<dt>コースレコード</dt><dd>${rec ? fmt(rec.t) + ' ' : '—'}</dd>`;
   }
+  if (course.prof) html += `</dl>${profileHTML(course.prof)}<dl class="rows">`;
   html += `<dt>コースの状態</dt><dd style="font-family:var(--f-body);font-size:15px">${wearLabel(courseWear())}</dd>`;
   html += '</dl>';
   if (rec2Note()) html += `<p class="note">${rec2Note()}</p>`;
@@ -3380,6 +3451,7 @@ function startFree(){
   const ev = Object.assign({}, v, { night: FREE.wx === 'night', finals: false });
   const wx = freeWeather(ev), rc = recoFor(wx);
   const c = freeCourse(hashStr('free|' + Math.random()));
+  c.prof = makeProfile(ev.venue, c.finishY);
   race = { ev, mode: 'free', free: Object.assign({}, FREE), courses: [c], refs: [{ time: 0, frac: [] }], run: 1, playerDsq: [false, false], finals: false, maxV: 0,
     wx: [wx, wx], wax: [rc.wax, rc.wax], edge: [{ side: rc.side, base: rc.base }, { side: rc.side, base: rc.base }], misses: 0, freeTime: null };
   $('#menu').hidden = true;
@@ -3672,7 +3744,7 @@ function aiLine(course, j){
   const tight = (r() - .35) * 14;            // + aims nearer the turning pole, − skis a rounder line
   const early = .16 + r() * .14;             // how early the next turn starts
   const dead = .03 + r() * .06;
-  const b = newBody(); b.v = 40 + r() * 10; b.x = (r() - .5) * 4;
+  const b = newBody(); b.v = 40 + r() * 10; b.x = (r() - .5) * 4; b.prof = course.prof;
   const pts = [];
   for (let i = 0; i < 120 * 240; i++){
     let g = course.gates[b.ng];
@@ -3801,6 +3873,21 @@ function render(){
   ctx.fillStyle = COL.snow; if (quad(-W/2, W/2, yNear - 5, yFar + 5)) ctx.fill();
   ctx.fillStyle = COL.snow2;
   for (let x = -W/2; x < W/2; x += 14){ if (quad(x, x + 6, yNear - 5, yFar + 5)) ctx.fill(); }
+  // steep pitches read darker and bluer, flats brighter; a pale lip marks each brow where the hill drops away
+  if (course && course.prof){
+    const B = 24;
+    for (let y = Math.floor((yNear - 10) / B) * B; y < yFar + B; y += B){
+      if (y < -20 || y > course.finishY + 40) continue;
+      const g = gradAt(course.prof, y + B / 2);
+      if (g >= 34){ ctx.fillStyle = `rgba(60,92,160,${Math.min(.22, (g - 34) / 100 * .7)})`; if (quad(-W/2, W/2, y, y + B)) ctx.fill(); }
+      else if (g < 22){ ctx.fillStyle = `rgba(255,255,255,${(22 - g) / 22 * .35})`; if (quad(-W/2, W/2, y, y + B)) ctx.fill(); }
+      const dg = gradAt(course.prof, y + B * 1.5) - gradAt(course.prof, y + B / 2);
+      if (dg > 4.5){
+        ctx.fillStyle = `rgba(255,255,255,${Math.min(.75, dg / 14)})`; if (quad(-W/2, W/2, y + B - 2, y + B + 1)) ctx.fill();
+        ctx.fillStyle = `rgba(70,100,160,${Math.min(.25, dg / 40)})`; if (quad(-W/2, W/2, y + B + 1, y + B + 8)) ctx.fill();
+      }
+    }
+  }
   // speckles
   const C = 44;
   ctx.fillStyle = 'rgba(150,170,205,.38)';
@@ -4236,6 +4323,9 @@ function drawTree(x, y, s, sn){
 function hud(){
   if (state === 'run' || state === 'finished' || state === 'countdown' || state === 'gate'){
     $('#hSpeed').textContent = Math.round(sk.v*.36);
+    const hs = $('#hSlope');
+    if (course && course.prof && sk.y > -20 && sk.y < course.finishY){ const gr = Math.round(gradAt(course.prof, sk.y)); hs.hidden = false; hs.className = 'slopeo ' + (gr >= 50 ? 's4' : gr >= 40 ? 's3' : gr >= 25 ? 's2' : 's1'); hs.innerHTML = `${slopeWord(gr)}<b>${gr}%</b>`; }
+    else hs.hidden = true;
     if (state !== 'finished'){
       const run1 = race && race.run === 2 ? (race.run1Me || 0) : 0;      // run 2 shows the running combined time, like TV
       const tt = Math.floor((run1 + t) * 10 + 1e-6) / 10;
