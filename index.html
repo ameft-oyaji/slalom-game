@@ -284,6 +284,7 @@ tr.cut td{border-bottom:2px solid var(--amber)}
 .free-form{display:grid;grid-template-columns:auto 1fr;gap:8px 10px;align-items:center;margin:10px 0}
 .free-form select{width:100%;min-width:0}
 .conn{font-size:12px;color:var(--muted)}
+body.nightrace .ev-label,body.nightrace .ev-label *,body.nightrace #keys,body.nightrace #keys *{color:#fff!important;text-shadow:0 1px 3px rgba(0,0,0,.85)}
 .conn.ok{color:var(--good)}
 
 @media (max-width:480px){
@@ -568,9 +569,9 @@ const GEAR = {
     { id: 'ironridge', org: 'USA', name: 'HEADGE', model: 'Race 130', c1: '#1F2A44', c2: '#FFB000', c3: '#FFB000', mark: 'chevron', font: 'italic', stats: { 'レスポンス': 3, '寛容さ': 5, '保温': 5 }, mod: { turn: .99, pole: .7, net: .8 } },
   ]},
   gog: { label: 'ゴーグル', items: [
-    { id: 'lumen', org: 'AUT', name: 'UNEX', model: 'Night Amber', c1: '#111111', c2: '#FFB000', c3: '#FFB000', lens: ['#FFD27A', '#E8892B'], mark: 'sun', font: 'italic', stats: { '夜間': 5, '曇天': 3, '視野': 4 }, mod: { night: .4 } },
-    { id: 'nebula', org: 'USA', name: 'OK', model: 'Contrast Rose', c1: '#3A0CA3', c2: '#F72585', c3: '#FFFFFF', lens: ['#FFB3C6', '#C9184A'], mark: 'ring', font: 'wide', stats: { '夜間': 3, '曇天': 5, '視野': 4 }, mod: { haze: .35, night: .8 } },
-    { id: 'sora', org: 'ITA', name: 'BURIKKO', model: 'Specchio Blu', c1: '#F2F4F8', c2: '#1F55C8', c3: '#1F55C8', lens: ['#9AD1FF', '#2B6CB0'], mark: 'diamond', font: 'serif', stats: { '夜間': 4, '曇天': 4, '視野': 5 }, mod: { night: .65, haze: .6 } },
+    { id: 'lumen', org: 'AUT', name: 'UNEX', model: 'Night Amber', c1: '#111111', c2: '#FFB000', c3: '#FFB000', lens: ['#FFD27A', '#E8892B'], mark: 'sun', font: 'italic', stats: { '夜間': 5, '曇天': 3, '晴天': 2 }, mod: { night: .35, haze: 1.1, glare: 1.1 } },
+    { id: 'nebula', org: 'USA', name: 'OK', model: 'Contrast Rose', c1: '#3A0CA3', c2: '#F72585', c3: '#FFFFFF', lens: ['#FFB3C6', '#C9184A'], mark: 'ring', font: 'wide', stats: { '夜間': 3, '曇天': 5, '晴天': 3 }, mod: { haze: .35, night: .75, glare: .7 } },
+    { id: 'sora', org: 'ITA', name: 'BURIKKO', model: 'Specchio Blu', c1: '#F2F4F8', c2: '#1F55C8', c3: '#1F55C8', lens: ['#9AD1FF', '#2B6CB0'], mark: 'diamond', font: 'serif', stats: { '夜間': 2, '曇天': 3, '晴天': 5 }, mod: { night: 1.15, haze: .8, glare: .2 } },
   ]},
   helm: { label: 'ヘルメット', items: [
     { id: 'arx', org: 'GER', name: 'UNEX', model: 'Aero SL', c1: '#E4002B', c2: '#111111', c3: '#FFFFFF', mark: 'chevron', font: 'italic', stats: { '空力': 5, 'ガード': 2, '軽さ': 4 }, mod: { drag: .985 } },
@@ -581,7 +582,7 @@ const GEAR = {
 const DEFAULT_GEAR = { ski: 'ogawa', bind: 'tauern', pole: 'kiri', boot: 'montvert', gog: 'sora', helm: 'arx' };
 function gearItem(cat, id){ const g = GEAR[cat]; return g.items.find(i => i.id === id) || g.items[0]; }
 function gearMods(eq){
-  const m = { turn: 1, drag: 1, carve: 1, push: 0, tuck: 1, pole: 1, net: 1, night: 1, haze: 1, fr: 1 };
+  const m = { turn: 1, drag: 1, carve: 1, push: 0, tuck: 1, pole: 1, net: 1, night: 1, haze: 1, glare: 1, fr: 1 };
   for (const cat of Object.keys(GEAR)){
     const it = gearItem(cat, eq[cat]);
     for (const [k, v] of Object.entries(it.mod)){ if (k === 'push') m.push += v; else m[k] *= v; }
@@ -837,7 +838,7 @@ function newBody(){ return { x:0, y:-14, th:0, v:0, lean:0, tuck:false, px:0, py
 const PUSH_DUR = .48;
 const START_WINDOW = 10;
 let gateT = 0;
-const NOMOD = { turn: 1, drag: 1, carve: 1, push: 0, tuck: 1, pole: 1, net: 1, night: 1, haze: 1, fr: 1 };
+const NOMOD = { turn: 1, drag: 1, carve: 1, push: 0, tuck: 1, pole: 1, net: 1, night: 1, haze: 1, glare: 1, fr: 1 };
 function physStep(b, ctl, dt, braking){
   b.lean += (ctl.inp - b.lean) * Math.min(1, dt*10);
   b.tuck = ctl.tuck;
@@ -1537,6 +1538,7 @@ function setupCard(){
   $('#cRank').hidden = true; $('#cDiff').hidden = true; $('#cTime').hidden = false; $('#cTime').textContent = '0:00.0';
   $('#evName').textContent = (gender === 'men' ? "Men's " : "Women's ") + (race.battle ? 'Slalom · Online Battle' : ta ? 'Slalom · Time Attack' : fr ? (race.free.gates === 'none' ? 'Free Ski' : 'Free Ski · Practice Gates') : 'Slalom');
   $('#btLive').hidden = !race.battle;
+  document.body.classList.toggle('nightrace', !!race.ev.night);
   $('#evPlace').textContent = `${race.ev.venue} ${race.ev.nat}`;
   setFlag($('#evFlag'), race.ev.nat);
   $('#evRun').textContent = fr ? 'Free Run' : 'Run ' + race.run;
@@ -1654,6 +1656,7 @@ function finishRun(){
   }
 }
 function leaveRunUI(){
+  document.body.classList.remove('nightrace');
   showActHint(false);
   $('#keys').hidden = true;
   $('#hud').hidden = true; $('#tv').hidden = true; $('#tv').classList.remove('live'); $('#cd').textContent = '';
@@ -2775,7 +2778,7 @@ function sheetFinalsBlocked(ev){
 let tab = 'cal';
 const TABS = [['tCal','cal'],['tStand','stand'],['tTa','ta'],['tFree','free'],['tBt','battle'],['tPl','players'],['tGear','gear'],['tRules','rules']];
 // ---- athlete & equipment picker ----
-const MOD_LABEL = { turn: ['ターンのキレ', 1], drag: ['空気・雪の抵抗', -1], carve: ['ターン中の減速', -1], tuck: ['クローチの抵抗', -1], pole: ['ポール接触の減速', -1], net: ['ネット接触の減速', -1], night: ['ナイターの暗さ', -1], haze: ['遠くのかすみ', -1] };
+const MOD_LABEL = { turn: ['ターンのキレ', 1], drag: ['空気・雪の抵抗', -1], carve: ['ターン中の減速', -1], tuck: ['クローチの抵抗', -1], pole: ['ポール接触の減速', -1], net: ['ネット接触の減速', -1], night: ['ナイターの暗さ', -1], haze: ['曇り・雪のかすみ', -1], glare: ['晴天のまぶしさ', -1] };
 function gearSummary(){
   const m = gearMods(myGear), out = [];
   for (const [k, [label]] of Object.entries(MOD_LABEL)){ if (Math.abs(m[k] - 1) > .004) out.push(`${label} ${m[k] > 1 ? '+' : '−'}${Math.round(Math.abs(m[k] - 1) * 100)}%`); }
@@ -3189,6 +3192,70 @@ function quad(x0, x1, ya, yb){
   return true;
 }
 
+// =====================================================================
+// Night race: the slope is dark except where the floodlights fall. The goggle lens sets how dark it looks
+// =====================================================================
+const NIGHT_GAP = 260;                 // a floodlight mast every 26 m on each side
+let nightCv = null, nctx = null;
+function lightMasts(yNear, yFar){
+  const out = [];
+  for (let y = Math.floor((yNear - 300) / NIGHT_GAP) * NIGHT_GAP; y < yFar + 400; y += NIGHT_GAP){
+    const L = (Math.floor(y / NIGHT_GAP) % 2) === 0;    // masts alternate side to side
+    out.push({ x: (L ? -1 : 1) * (W / 2 + 26), y, side: L ? -1 : 1 });
+  }
+  return out;
+}
+function drawNight(md){
+  if (!nightCv){ nightCv = document.createElement('canvas'); nctx = nightCv.getContext('2d'); }
+  if (nightCv.width !== cv.width || nightCv.height !== cv.height){ nightCv.width = cv.width; nightCv.height = cv.height; }
+  const n = nctx;
+  n.setTransform(dpr, 0, 0, dpr, 0, 0);
+  n.globalCompositeOperation = 'source-over';
+  n.clearRect(0, 0, cw, ch);
+  const dark = clamp(.9 * (.25 + .75 * md.night), .25, .93);
+  // darker still toward the far end of the slope
+  const dg = n.createLinearGradient(0, 0, 0, ch);
+  dg.addColorStop(0, `rgba(4,8,22,${Math.min(.97, dark + .08)})`); dg.addColorStop(1, `rgba(6,12,30,${dark})`);
+  n.fillStyle = dg; n.fillRect(0, 0, cw, ch);
+  // floodlight pools cut out of the dark
+  const yNear = CAM.camZ + CAM.zBot, yFar = CAM.camZ + CAM.zTop;
+  const masts = lightMasts(yNear, yFar);
+  n.globalCompositeOperation = 'destination-out';
+  for (const m of masts){
+    const c = proj(m.side * W * .12, m.y + 60);
+    if (!c) continue;
+    const rx = 300 * c.k, ry = rx * .55;
+    n.save(); n.translate(c.X, c.Y); n.scale(1, ry / rx);
+    const g = n.createRadialGradient(0, 0, 0, 0, 0, rx);
+    g.addColorStop(0, 'rgba(0,0,0,.92)'); g.addColorStop(.55, 'rgba(0,0,0,.6)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+    n.fillStyle = g; n.beginPath(); n.arc(0, 0, rx, 0, 7); n.fill(); n.restore();
+  }
+  // the racer's own surroundings never go fully black (spill light and the snow's glow)
+  const sp = proj(sk.x, sk.y);
+  if (sp){ const g = n.createRadialGradient(sp.X, sp.Y - 20, 0, sp.X, sp.Y - 20, 140 * sp.k + 40); g.addColorStop(0, 'rgba(0,0,0,.35)'); g.addColorStop(1, 'rgba(0,0,0,0)'); n.fillStyle = g; n.fillRect(0, 0, cw, ch); }
+  ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.drawImage(nightCv, 0, 0); ctx.restore();
+  // the masts and their lamps, with a warm glow
+  for (const m of masts){
+    const b = proj(m.x, m.y);
+    if (!b) continue;
+    const h = 95 * b.k, lx = b.X - m.side * 10 * b.k;
+    ctx.strokeStyle = 'rgba(30,36,52,.95)'; ctx.lineWidth = Math.max(1, 2.2 * b.k);
+    ctx.beginPath(); ctx.moveTo(b.X, b.Y); ctx.lineTo(b.X, b.Y - h); ctx.lineTo(lx, b.Y - h); ctx.stroke();
+    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    const r = Math.max(6, 34 * b.k);
+    const g = ctx.createRadialGradient(lx, b.Y - h, 0, lx, b.Y - h, r);
+    g.addColorStop(0, 'rgba(255,246,220,.95)'); g.addColorStop(.25, 'rgba(255,226,160,.45)'); g.addColorStop(1, 'rgba(255,210,140,0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(lx, b.Y - h, r, 0, 7); ctx.fill();
+    // a soft beam down onto the piste
+    const t = proj(m.side * W * .12, m.y + 60);
+    if (t){
+      const bg = ctx.createLinearGradient(lx, b.Y - h, t.X, t.Y);
+      bg.addColorStop(0, `rgba(255,236,190,${.06 / Math.max(.6, md.night)})`); bg.addColorStop(1, 'rgba(255,236,190,0)');
+      ctx.fillStyle = bg; ctx.beginPath(); ctx.moveTo(lx - 3, b.Y - h); ctx.lineTo(lx + 3, b.Y - h); ctx.lineTo(t.X + 120 * t.k, t.Y + 20 * t.k); ctx.lineTo(t.X - 120 * t.k, t.Y - 20 * t.k); ctx.closePath(); ctx.fill();
+    }
+    ctx.restore();
+  }
+}
 function render(){
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   const live = state === 'run' || state === 'countdown' || state === 'gate' || state === 'finished';
@@ -3264,18 +3331,27 @@ function render(){
   for (const s of sprites) s.d();
 
   const wxNow = race && race.wx && state !== 'demo' && !$('#tv').hidden ? race.wx[race.run - 1] : null;
+  const isNight = !!(race && race.ev && race.ev.night && state !== 'demo');
+  const md = sk.mod || NOMOD;
   if (wxNow && wxNow.cond !== 'sun'){ ctx.fillStyle = wxNow.cond === 'snow' ? 'rgba(232,238,246,.16)' : 'rgba(196,205,220,.10)'; ctx.fillRect(0, 0, cw, ch); }
-  // depth haze toward the top of the screen
-  const hz = ctx.createLinearGradient(0, 0, 0, ch * (wxNow && wxNow.cond === 'snow' ? .6 : .45));
-  hz.addColorStop(0, `rgba(226,236,248,${Math.min(.92, .55*(sk.mod ? sk.mod.haze : 1))})`); hz.addColorStop(1, 'rgba(226,236,248,0)');
-  ctx.fillStyle = hz; ctx.fillRect(0, 0, cw, ch * .6);
-
-  if (race && race.ev && race.ev.night && state !== 'demo'){
-    const sp = proj(sk.x, sk.y);
-    const cx = sp ? sp.X : cw/2, cy = sp ? sp.Y - 140 : ch/2;
-    const g = ctx.createRadialGradient(cx, cy, 80, cx, cy, Math.max(cw, ch) * .85);
-    g.addColorStop(0, 'rgba(10,20,50,0)'); g.addColorStop(1, `rgba(10,20,50,${.5*(sk.mod ? sk.mod.night : 1)})`);
-    ctx.fillStyle = g; ctx.fillRect(0, 0, cw, ch);
+  // depth haze toward the top of the screen: the goggle lens decides how far it reaches in flat light
+  const hzA = Math.min(.95, .55 * Math.pow(md.haze, 1.25)), hzH = ch * clamp((wxNow && wxNow.cond === 'snow' ? .5 : .38) + .22 * (md.haze - 1), .25, .85);
+  const hz = ctx.createLinearGradient(0, 0, 0, hzH);
+  const hzC = isNight ? '6,12,30' : '226,236,248';
+  hz.addColorStop(0, `rgba(${hzC},${hzA})`); hz.addColorStop(1, `rgba(${hzC},0)`);
+  ctx.fillStyle = hz; ctx.fillRect(0, 0, cw, hzH);
+  // bright sun on snow: glare that the lens may or may not cut
+  if (wxNow && wxNow.cond === 'sun' && !isNight && md.glare > .25){
+    const ga = .22 * (md.glare - .2), gx = cw * .78, gy = -ch * .05;
+    const gg = ctx.createRadialGradient(gx, gy, 10, gx, gy, Math.max(cw, ch) * .9);
+    gg.addColorStop(0, `rgba(255,255,250,${Math.min(.7, ga * 2.2)})`); gg.addColorStop(.35, `rgba(255,252,238,${ga})`); gg.addColorStop(1, 'rgba(255,252,238,0)');
+    ctx.fillStyle = gg; ctx.fillRect(0, 0, cw, ch);
+  }
+  if (isNight) drawNight(md);
+  // a faint tint of your own goggle lens while you race
+  if (live && race && state !== 'demo'){
+    const ln = gearItem('gog', myGear.gog).lens;
+    if (ln){ ctx.globalAlpha = isNight ? .05 : .07; ctx.fillStyle = ln[0]; ctx.fillRect(0, 0, cw, ch); ctx.globalAlpha = 1; }
   }
   if (wxNow && wxNow.cond === 'snow') drawSnowfall();
   drawProgress();
