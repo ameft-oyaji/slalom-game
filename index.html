@@ -88,6 +88,14 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
 .cd.hurry em{color:var(--red)}
 .cd.dsq{color:var(--red);font-size:min(18vw,110px)}
 
+.sp-pad{position:absolute;left:max(12px,env(safe-area-inset-left,0px));bottom:max(12px,env(safe-area-inset-bottom,0px));z-index:3;display:flex;flex-direction:column;align-items:center;gap:4px;pointer-events:none}
+.sp-cap{font:700 11px var(--f-body);color:#fff;background:rgba(14,26,46,.75);padding:2px 10px;border-radius:999px;letter-spacing:.06em}
+.sp-keys{display:flex;gap:6px}
+.sp-keys span{display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:64px;padding:6px 8px;border-radius:8px;background:rgba(14,26,46,.62);color:rgba(255,255,255,.55);border:2px solid rgba(255,255,255,.18);transition:background-color .08s,transform .08s}
+.sp-keys b{font:800 20px var(--f-num);line-height:1}.sp-keys small{font:700 10px var(--f-body);margin-top:2px;white-space:nowrap}
+.sp-keys span.on{background:#FFC93C;color:#1A1300;border-color:#fff;transform:translateY(2px) scale(.96)}
+.sp-keys span[data-b=push].on{background:#4C8DFF;color:#fff}.sp-keys span[data-b=d].on{background:#2FB36A;color:#fff}
+.top-watch{min-width:220px;font-size:16px;background:rgba(255,255,255,.12);color:#fff;border:1px solid rgba(255,255,255,.4)}
 .pad{position:absolute;left:0;right:0;bottom:0;display:none;gap:8px;padding:0 max(10px,env(safe-area-inset-right,0px)) 12px max(10px,env(safe-area-inset-left,0px));pointer-events:none}
 .pad button{pointer-events:auto;flex:1;height:84px;border:0;border-radius:10px;background:rgba(14,26,46,.55);color:#fff;font:800 30px var(--f-num);touch-action:none;-webkit-tap-highlight-color:transparent}
 .pad button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
@@ -428,6 +436,10 @@ body.nightrace .ev-label,body.nightrace .ev-label *,body.nightrace #keys,body.ni
   <section class="cer" id="cer" hidden></section>
   <div class="msg" id="msg"></div>
   <div class="cd" id="cd"></div>
+  <div class="sp-pad" id="spPad" hidden aria-hidden="true">
+    <div class="sp-cap">観戦モード・選手の操作</div>
+    <div class="sp-keys"><span data-b="l"><b>◀</b><small id="spL">左足</small></span><span data-b="push"><b>◀▶</b><small>左右同時（漕ぐ）</small></span><span data-b="d"><b>▼</b><small>クローチ</small></span><span data-b="r"><b>▶</b><small id="spR">右足</small></span></div>
+  </div>
   <div class="pad" id="pad">
     <button type="button" data-k="left" id="padL" aria-label="左足に乗る（右へ曲がる）"><b>左足</b><small>右へ曲がる</small></button>
     <button type="button" data-k="down" class="mid" aria-label="クローチング">クローチ</button>
@@ -455,6 +467,7 @@ body.nightrace .ev-label,body.nightrace .ev-label *,body.nightrace #keys,body.ni
       <p class="top-sub">回転（スラローム）ワールドカップ</p>
       <div class="top-stripe"><i></i><i></i></div>
       <button class="btn primary top-go" type="button" id="topGo">スタート</button>
+      <button class="btn top-watch" type="button" id="topWatch">観戦モード</button>
       <p class="top-who" id="topWho"></p>
     </div>
     <div class="top-ver" id="topVer"></div>
@@ -1510,6 +1523,13 @@ if (window.matchMedia && matchMedia('(pointer:coarse)').matches) markTouch();
 addEventListener('touchstart', markTouch, { passive: true, once: true });
 
 function playerInput(){
+  if (race && race.spectate){
+    if (state === 'gate') return { inp: 0, tuck: false, push: gateT < START_WINDOW - .55 };   // leaves just after the long tone
+    if (state !== 'run') return { inp: 0, tuck: false };
+    const c = aiCtl(sk, course);
+    if (sk.y < 0 && sk.v < 60 && !(sk.pushCd > 0)) c.push = true;                         // poles out of the start
+    return c;
+  }
   let l = keys.left, r = keys.right, d = keys.down;
   for (const v of touches.values()){ if (v < 0) l = true; else r = true; }
   for (const k of padState.values()){ if (k === 'left') l = true; else if (k === 'right') r = true; else if (k === 'down') d = true; }
@@ -1609,6 +1629,7 @@ function step(dt){
     return;
   }
   if (goT > 0) goT -= dt;
+  spectatePad(dt);
   stepWand(dt);
   if (sk.skateT > 0 && state === 'run'){
     const before = sk.skateT; sk.skateT -= dt;
@@ -1752,13 +1773,13 @@ function setupCard(){
   $('#cBib').hidden = ta || fr; if (!ta && !fr) $('#cBib').textContent = race.bib.get('you');
   setFlag($('#cFlag'), myNat); $('#cNat').textContent = myNat;
   $('#cRank').hidden = true; $('#cDiff').hidden = true; $('#cTime').hidden = false; $('#cTime').textContent = '0:00.0';
-  $('#evName').textContent = (gender === 'men' ? "Men's " : "Women's ") + (race.battle ? 'Slalom · Online Battle' : ta ? 'Slalom · Time Attack' : fr ? (race.free.gates === 'none' ? 'Free Ski' : race.free.gates === 'rhythm' ? 'Free Ski · Rhythm Gates' : 'Free Ski · Practice Gates') : 'Slalom');
+  $('#evName').textContent = (gender === 'men' ? "Men's " : "Women's ") + (race.battle ? 'Slalom · Online Battle' : ta ? 'Slalom · Time Attack' : race.spectate ? 'Slalom · 観戦モード' : fr ? (race.free.gates === 'none' ? 'Free Ski' : race.free.gates === 'rhythm' ? 'Free Ski · Rhythm Gates' : 'Free Ski · Practice Gates') : 'Slalom');
   $('#btLive').hidden = !race.battle;
   document.body.classList.toggle('nightrace', !!race.ev.night);
   $('#evPlace').textContent = `${race.ev.venue} ${race.ev.nat}`;
   setFlag($('#evFlag'), race.ev.nat);
-  $('#evRun').textContent = fr ? 'Free Run' : 'Run ' + race.run;
-  const eg = $('#evGear'); eg.hidden = !fr; if (fr) eg.innerHTML = freeGearLine(race.wx[0], race.wax[0], race.edge[0]);
+  $('#evRun').textContent = race.spectate ? 'Spectator' : fr ? 'Free Run' : 'Run ' + race.run;
+  const eg = $('#evGear'); eg.hidden = !fr || !!race.spectate; if (fr && !race.spectate) eg.innerHTML = freeGearLine(race.wx[0], race.wax[0], race.edge[0]);
   $('#bQuit').textContent = fr ? 'やめる' : '棄権';
   $('#evWx').textContent = race.wx ? wxLine(race.wx[race.run - 1]) + ' · ' + waxById(race.wax[race.run - 1]).name + ` · エッジ ${race.edge[race.run - 1].side}°/${race.edge[race.run - 1].base.toFixed(1)}°` : '';
   if (race.shimizu && race.shimizu[race.run - 1]) $('#evWx').textContent = '★清水さん仕様 · ' + $('#evWx').textContent;
@@ -1891,6 +1912,7 @@ function afterFinish(){
   if (race.watchQueue && race.watchQueue.length) return startWatch();
   leaveRunUI();
   if (race.battle) return showBattleResult();
+  if (race.spectate) return showSpectateEnd();
   if (race.mode === 'free') return showFreeResult();
   if (race.mode === 'ta') return showTaResult();
   if (race.run === 1) return showRun1Result();
@@ -1902,6 +1924,58 @@ function afterRun2(){
   if (me && me.rank === 1 && !race.celebrated){ race.celebrated = true; return celebrate('優勝！', 1, showFinal); }
   if (me && me.rank <= 3 && !race.celebrated){ race.celebrated = true; return celebrate('表彰台！', .8, showFinal); }
   showFinal();
+}
+// =====================================================================
+// Spectator mode: a robot racer skis a World Cup slalom; the buttons it presses light up on screen
+// =====================================================================
+const SPECT = { saved: null, lit: { l: 0, r: 0, push: 0, d: 0 } };
+function startSpectate(){
+  const vs = seasonSL(), v = vs[Math.floor(Math.random() * vs.length)];
+  const ev = Object.assign({}, v);
+  const top = FIELDS[gender].slice(0, 20), who = top[Math.floor(Math.random() * top.length)];
+  const wx = weatherFor(ev, gender)[0], rc = recoFor(wx);
+  const c = buildCourse(courseSeed(gender, ev.date) ^ 0x1111, gender);
+  c.prof = makeProfile(ev.venue, c.finishY); c.vd = c.prof.drop;
+  // the racer on show takes over the card and the race suit while you watch
+  if (!SPECT.saved) SPECT.saved = { pname, myNat };
+  pname = who.name; myNat = NAT[who.nat] ? who.nat : myNat;
+  race = { ev, mode: 'free', spectate: true, who, free: { gates: 'practice', wx: 'sun', venue: ev.venue, len: 'short' }, courses: [c], refs: [{ time: 0, frac: [] }], run: 1, playerDsq: [false, false], finals: false, maxV: 0,
+    wx: [wx, wx], wax: [rc.wax, rc.wax], edge: [{ side: rc.side, base: rc.base }, { side: rc.side, base: rc.base }], misses: 0, freeTime: null };
+  $('#menu').hidden = true; $('#sheet').hidden = true;
+  beginRun();
+  $('#pad').classList.remove('live');
+  $('#keys').hidden = true;
+  const outer = ctrl === 'outer';
+  $('#spL').textContent = outer ? '左足' : '左'; $('#spR').textContent = outer ? '右足' : '右';
+  $('#spPad').hidden = false;
+}
+function endSpectate(){
+  $('#spPad').hidden = true;
+  if (SPECT.saved){ pname = SPECT.saved.pname; myNat = SPECT.saved.myNat; SPECT.saved = null; }
+}
+// light the buttons the robot is pressing (held a moment so quick taps stay visible)
+function spectatePad(dt){
+  if (!race || !race.spectate || $('#spPad').hidden) return;
+  const c = state === 'run' || state === 'gate' ? playerInput() : { inp: 0 };
+  const dir = ctrl === 'outer' ? -c.inp : c.inp;          // which foot/arrow gives this turn
+  const L = SPECT.lit;
+  for (const k in L) L[k] = Math.max(0, L[k] - dt);
+  if (c.push || sk.pushT > 0){ L.push = .15; }
+  else { if (dir < 0) L.l = .14; if (dir > 0) L.r = .14; }
+  if (c.tuck || sk.tuck) L.d = .14;
+  for (const el of document.querySelectorAll('#spPad [data-b]')){ const on = L[el.dataset.b] > 0; if (el.classList.contains('on') !== on) el.classList.toggle('on', on); }
+}
+function showSpectateEnd(){
+  const tt = race.freeTime, w = race.who;
+  let html = `<div><span class="badge">観戦モード</span></div><dl class="rows">
+    <dt>会場</dt><dd style="font-family:var(--f-body);font-size:15px">${esc(JP[race.ev.venue] || race.ev.venue)}（${race.ev.nat}）</dd>
+    <dt>選手</dt><dd style="font-family:var(--f-body);font-size:15px">${esc(w.name)}（${esc((NAT[w.nat] || {}).jp || w.nat)}）</dd>
+    <dt>タイム</dt><dd>${tt != null ? fmt(tt) : '—'}</dd><dt>最高速度</dt><dd>${Math.round(race.maxV * .36)} km/h</dd></dl>
+    <div class="btns"><button class="btn primary" type="button" id="spAgain">別のレースを観戦</button><button class="btn" type="button" id="spTop">トップに戻る</button></div>`;
+  endSpectate();
+  openSheet('Spectator', '観戦モード', html);
+  $('#spAgain').onclick = () => { closeSheet(); startSpectate(); };
+  $('#spTop').onclick = () => { race = null; closeSheet(); startDemo(); showTop(); };
 }
 function abandon(){
   if (!race || !(state === 'run' || state === 'countdown' || state === 'gate')) return;
@@ -4433,6 +4507,7 @@ function showTop(){
   $('#topWho').textContent = setupDone ? `${pname}（${(NAT[myNat] || {}).jp || myNat}）でプレー` : 'はじめに国と用具を選びます';
   $('#top').hidden = false;
   $('#topGo').onclick = () => { $('#top').hidden = true; ac(); bootGame(); };
+  $('#topWatch').onclick = () => { $('#top').hidden = true; ac(); startSpectate(); };
 }
 function showLock(){
   $('#menu').hidden = true; $('#sheet').hidden = true; $('#lock').hidden = false;
