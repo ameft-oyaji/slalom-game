@@ -244,6 +244,11 @@ body.nightrace .ev-gear .up,body.nightrace .ev-gear .dn{color:#fff!important}
 .reco-box span{font-size:14px}
 .reco-box em{font-style:normal;font-weight:700;color:var(--amber)}
 .reco-box small{font-size:12px;color:#C9D2E3;line-height:1.5}
+.reco-btns{display:flex;flex-wrap:wrap;gap:6px}
+.btn.shimizu{display:flex;flex-direction:column;align-items:center;line-height:1.2;background:linear-gradient(135deg,#7A5A00,#C99A1E);color:#fff;border-color:#E8C35A}
+.btn.shimizu small{font-size:10px;color:#FFF3C4;font-weight:600}
+.btn.shimizu.on{background:linear-gradient(135deg,#C99A1E,#FFD45A);color:#2A1E00}.btn.shimizu.on small{color:#4A3600}
+.btn.shimizu:disabled{opacity:.45;cursor:default}
 .reco-tag{display:inline-block;font-size:10px;font-weight:700;background:var(--good);color:var(--board);border-radius:2px;padding:0 4px;vertical-align:2px}
 .seg button.reco{box-shadow:inset 0 -3px 0 var(--good)}
 .edgerow{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px}
@@ -927,6 +932,10 @@ function toggleCtrl(){
   flash(ctrl === 'outer' ? '操作：外足に乗って曲がる' : '操作：押した方向へ曲がる', false);
 }
 function seasonKey(){ return `slalomwc-2627-${gender}-${level}`; }
+const SHIMIZU_MAX = 3;
+function shimizuKey(){ return seasonKey() + '-shimizu'; }
+function shimizuUsed(){ return (load(shimizuKey()) || {}).n || 0; }
+function shimizuLeft(){ return Math.max(0, SHIMIZU_MAX - shimizuUsed()); }
 function season(){ const s = load(seasonKey()) || {}; return { pts: s.pts || {}, done: s.done || {}, fis: s.fis || (START_RANK - .5), places: s.places || {}, form: s.form || {}, prev: s.prev || null, hist: s.hist || [] }; }
 // FIS tie-break for the standings: more wins, then more 2nd places, and so on
 function cmpPlaces(a, b){ for (let i = 0; i < 30; i++){ const d = (b[i] || 0) - (a[i] || 0); if (d) return d; } return 0; }
@@ -1052,7 +1061,11 @@ function waxMatch(w, wx){
 function waxGrade(m){ return m > .9 ? '◎ ぴったり' : m > .7 ? '○ 良い' : m > .4 ? '△ いまひとつ' : '× 合っていない'; }
 // gear + wax for the player's run
 function runMods(){
-  if (race && race.wx) return modsFor(race.wx[race.run - 1], race.wax[race.run - 1], race.edge[race.run - 1]);
+  if (race && race.wx){
+    const m = modsFor(race.wx[race.run - 1], race.wax[race.run - 1], race.edge[race.run - 1]);
+    if (race.shimizu && race.shimizu[race.run - 1]){ m.carve = 0; m.shimizu = true; }   // no speed lost in the turns
+    return m;
+  }
   return gearMods(myGear);
 }
 function modsFor(wx, waxId, ed){
@@ -1107,6 +1120,7 @@ function bindWaxPicker(){
   };
   document.querySelectorAll('#sheet [data-eside]').forEach(b => b.onclick = () => setEdge('side', +b.dataset.eside, 'data-eside'));
   document.querySelectorAll('#sheet [data-ebase]').forEach(b => b.onclick = () => setEdge('base', +b.dataset.ebase, 'data-ebase'));
+  bindShimizu();
   const ap = $('#recoApply');
   if (ap) ap.onclick = () => {
     const r = recoFor(race.wx[race.run - 1]);
@@ -1130,7 +1144,24 @@ function recoHTML(wx){
     : h >= 1 ? 'カチカチのアイスなので、低温用ワックスと、いちばん鋭いエッジでしっかり噛ませます。'
     : h <= .2 ? '雪が湿って柔らかいので、湿雪用ワックスと、引っかかりにくい穏やかなエッジに。'
     : `雪温 ${wx.snowT.toFixed(1)}℃ の硬く締まったバーンなので、その温度に合うワックスと、鋭めのエッジに。`;
-  return `<div class="reco-box"><div><b>サービスマンのおすすめ</b><span>ワックス <em>${w.name}</em>（${w.sub}）・エッジ <em>${r.side}°</em> / <em>${r.base.toFixed(1)}°</em></span><small>${why}</small></div><button class="btn small hot" type="button" id="recoApply">おすすめにする</button></div>`;
+  return `<div class="reco-box"><div><b>サービスマンのおすすめ</b><span>ワックス <em>${w.name}</em>（${w.sub}）・エッジ <em>${r.side}°</em> / <em>${r.base.toFixed(1)}°</em></span><small>${why}</small></div><div class="reco-btns"><button class="btn small hot" type="button" id="recoApply">おすすめにする</button>${shimizuHTML()}</div></div>`;
+}
+// "Shimizu spec": the service man's secret tune. Career only, three runs per season
+function shimizuHTML(){
+  if (!race || race.mode !== 'career') return '';
+  const on = race.shimizu && race.shimizu[race.run - 1], left = shimizuLeft();
+  if (on) return `<button class="btn small shimizu on" type="button" id="shimizuBtn" aria-pressed="true">✓ 清水さん仕様（${race.run}本目）<small>スタートで1回使用（残り ${shimizuLeft()} 回）・押すと取り消し</small></button>`;
+  return `<button class="btn small shimizu" type="button" id="shimizuBtn" aria-pressed="false"${left ? '' : ' disabled'}>清水さん仕様<small>${left ? `今シーズン残り ${left} 回` : '今シーズンは使い切りました'}</small></button>`;
+}
+function bindShimizu(){
+  const b = $('#shimizuBtn'); if (!b) return;
+  b.onclick = () => {
+    race.shimizu = race.shimizu || [false, false];
+    const i = race.run - 1;
+    if (race.shimizu[i]) race.shimizu[i] = false;
+    else { if (!shimizuLeft()) return; race.shimizu[i] = true; tone(880, .08, 'triangle', .06); }
+    b.outerHTML = shimizuHTML(); bindShimizu();
+  };
 }
 let lastWax = 'violet';
 // falling snow, drawn in screen space
@@ -1477,7 +1508,7 @@ function step(dt){
         g.cool[k] = .5;
         const blocked = mine && Math.abs(ddx) > 2.5;
         g.bv[k] += (Math.sign(ddx) || 1) * (blocked ? 10 + sk.v*.05 : 6 + sk.v*.04);
-        if (state !== 'finished') sk.v *= 1 - (blocked ? .012 : .05) * (sk.mod ? sk.mod.pole : 1);
+        if (state !== 'finished') sk.v *= sk.mod && sk.mod.shimizu ? 1.03 : 1 - (blocked ? .012 : .05) * (sk.mod ? sk.mod.pole : 1);   // Shimizu spec: knocking a pole gives +3%
         if (!quiet) thwack(blocked ? .32 : .22);
       }
     }
@@ -1569,6 +1600,7 @@ function setupCard(){
   const eg = $('#evGear'); eg.hidden = !fr; if (fr) eg.innerHTML = freeGearLine(race.wx[0], race.wax[0], race.edge[0]);
   $('#bQuit').textContent = fr ? 'やめる' : '棄権';
   $('#evWx').textContent = race.wx ? wxLine(race.wx[race.run - 1]) + ' · ' + waxById(race.wax[race.run - 1]).name + ` · エッジ ${race.edge[race.run - 1].side}°/${race.edge[race.run - 1].base.toFixed(1)}°` : '';
+  if (race.shimizu && race.shimizu[race.run - 1]) $('#evWx').textContent = '★清水さん仕様 · ' + $('#evWx').textContent;
   const ld = race.leader;
   $('#vs').hidden = !ld; if (ld) $('#vs').textContent = `${ld.label}：${ld.name}　${fmt(ld.total)}`;
   gateDiff = []; lastDiff = null;
@@ -1638,6 +1670,10 @@ function beginRun(){
   race.leader = leaderBefore();
   race.run1Me = race.mode === 'ta' ? (race.taTimes[0] || 0) : (race.run1 && race.run1.you) || 0;
   course = race.courses[race.run - 1]; resetCourseState(course); resetBody(false);
+  if (race.shimizu && race.shimizu[race.run - 1]){
+    race.shimizuPaid = race.shimizuPaid || [false, false];
+    if (!race.shimizuPaid[race.run - 1]){ race.shimizuPaid[race.run - 1] = true; save(shimizuKey(), { n: shimizuUsed() + 1 }); }
+  }
   sk.mod = runMods();
   { const w = courseWear(); sk.mod.drag *= 1 + .03 * w; sk.mod.turn *= 1 - .035 * w; }
   state = 'countdown'; cdT = 1.2 + Math.random()*1.4; goT = 0;
@@ -2872,7 +2908,7 @@ function renderTab(){
   else body.innerHTML = rulesHTML();
   body.querySelectorAll('[data-race]').forEach(b => b.onclick = () => enterRace(slRaces(gender)[+b.dataset.race], b.dataset.mode || 'career'));
   body.querySelectorAll('[data-skip]').forEach(b => b.onclick = () => { if (b.dataset.armed){ showSkipped(slRaces(gender)[+b.dataset.skip]); } else { b.dataset.armed = '1'; b.textContent = '欠場を確定'; } });
-  if ($('#bReset')) $('#bReset').onclick = () => { const b = $('#bReset'); if (b.dataset.armed){ save(seasonKey(), {}); renderTab(); } else { b.dataset.armed = '1'; b.textContent = 'もう一度押すとリセット'; } };
+  if ($('#bReset')) $('#bReset').onclick = () => { const b = $('#bReset'); if (b.dataset.armed){ save(seasonKey(), {}); save(shimizuKey(), { n: 0 }); renderTab(); } else { b.dataset.armed = '1'; b.textContent = 'もう一度押すとリセット'; } };
 }
 function calendarHTML(){
   const races = slRaces(gender);
