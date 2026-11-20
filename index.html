@@ -2657,11 +2657,6 @@ function drawShimizu(x, y){
   // goatee
   ctx.fillStyle = 'rgba(70,50,35,.75)'; ctx.beginPath(); ctx.ellipse(0, -17.9, .7, .45, 0, 0, 7); ctx.fill();
   ctx.restore();
-  // name tag above him
-  ctx.font = `700 ${Math.max(9, 4.2 * u)}px 'Noto Sans JP', sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
-  const tag = '清水さん', tw = ctx.measureText(tag).width + 8, ty = p.Y - 25 * u;
-  ctx.fillStyle = 'rgba(19,33,58,.85)'; rrect(p.X - tw / 2, ty - Math.max(12, 5.4 * u), tw, Math.max(12, 5.4 * u), 3); ctx.fill();
-  ctx.fillStyle = '#FFD45A'; ctx.fillText(tag, p.X, ty - 1);
 }
 function drawOfficial(x, y, col, pose, label){
   const p = proj(x, y); if (!p || p.X < -30 || p.X > cw + 30) return;
