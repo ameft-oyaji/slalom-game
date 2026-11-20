@@ -563,6 +563,7 @@ const FLAG = {
   BEL: tri('#000','#FDDA24','#EF3340','90deg'), NED: tri('#AE1C28','#fff','#21468B'),
   BRA: 'radial-gradient(circle,#002776 0 3px,transparent 3.3px),linear-gradient(135deg,transparent 30%,#FEDF00 30% 70%,transparent 70%) center/16px 11px no-repeat,#009C3B',
   ARG: tri('#74ACDF','#fff','#74ACDF'),
+  LUX: tri('#EF3340','#fff','#00A3E0'), BUL: tri('#fff','#00966E','#D62612'),
 };
 // Nations the player can race for: [code, name, team-suit colour, trim colour]
 const NATIONS = [
@@ -573,6 +574,7 @@ const NATIONS = [
   ['AND','アンドラ','#10069F','#FEDD00'], ['ESP','スペイン','#AA151B','#F1BF00'], ['POL','ポーランド','#FFFFFF','#DC143C'], ['BEL','ベルギー','#111111','#FDDA24'],
   ['NED','オランダ','#F36C21','#FFFFFF'], ['KOR','韓国','#FFFFFF','#0047A0'], ['CHN','中国','#DE2910','#FFDE00'], ['AUS','オーストラリア','#00843D','#FFCD00'],
   ['NZL','ニュージーランド','#111111','#FFFFFF'], ['BRA','ブラジル','#009C3B','#FEDF00'], ['ARG','アルゼンチン','#74ACDF','#FFFFFF'],
+  ['LUX','ルクセンブルク','#00A3E0','#EF3340'], ['BUL','ブルガリア','#00966E','#FFFFFF'],
 ];
 const NAT = Object.fromEntries(NATIONS.map(n => [n[0], { jp: n[1], suit: n[2], trim: n[3] }]));
 
@@ -801,8 +803,14 @@ const NAMES = {
   SVK:{ w:1, m:['Adam','Matej'], f:['Zuzana','Petra'], s:['Hlavatý','Kučera'], sf:['Hlavatá','Kučerová'] },
   JPN:{ w:1, m:['Haruto','Sota','Yuto'], f:['Yui','Hana','Sakura'], s:['Takeda','Ishikawa','Kubota','Morioka'] },
 };
+// men's rivals: [name, nation, FIS points]. 0.00 is the strongest; skill falls away as the points rise
+const MEN_FIELD = [["MCGRATH Atle Lie", "NOR", 0.0], ["STENMARK Ingemar", "SWE", 0.0], ["KRISTOFFERSEN Henrik", "NOR", 0.46], ["TOMBA Alberto", "ITA", 0.48], ["HAUGAN Timon", "NOR", 0.67], ["RAICH Benjamin", "AUT", 0.69], ["RASSAT Paco", "FRA", 0.87], ["GIRARDELLI Marc", "LUX", 0.87], ["MATT Mario", "AUT", 0.87], ["KOSTELIĆ Ivica", "CRO", 0.88], ["PINHEIRO BRAATHEN Lucas", "BRA", 0.89], ["NOEL Clement", "FRA", 0.98], ["SYKORA Thomas", "AUT", 1.0], ["NIERLICH Rudolf", "AUT", 1.34], ["MEILLARD Loic", "SUI", 1.54], ["OKABE Tetsuya", "JPN", 1.66], ["MARCHANT Armand", "BEL", 2.84], ["ZURBRIGGEN Pirmin", "SUI", 2.9], ["HALLBERG Eduard", "FIN", 2.94], ["FELLER Manuel", "AUT", 3.25], ["KIMURA Kiminobu", "JPN", 3.26], ["STRASSER Linus", "GER", 3.27], ["NEF Tanguy", "SUI", 4.14], ["MATT Michael", "AUT", 4.85], ["SOLBERG Eirik Hystad", "NOR", 5.19], ["MINAGAWA Kentaro", "JPN", 5.22], ["GSTREIN Fabio", "AUT", 5.28], ["AMIEZ Steven", "FRA", 5.32], ["RASCHNER Dominik", "AUT", 5.73], ["MUFFAT-JEANDET Victor", "FRA", 6.9], ["VINATZER Alex", "ITA", 7.81], ["SANDVIK Oscar Andreas", "NOR", 8.02], ["POPOV Albert", "BUL", 8.38], ["YULE Daniel", "SUI", 8.67], ["SCHWARZ Marco", "AUT", 8.93], ["TAYLOR Laurie", "GBR", 9.17], ["KOLEGA Samuel", "CRO", 9.37], ["SALA Tommaso", "ITA", 9.65], ["RUELAND Simon", "AUT", 9.95], ["STURM Joshua", "AUT", 10.5], ["AZZOLIN Antoine", "FRA", 10.64], ["GRAHL-MADSEN Hans", "NOR", 10.87], ["STEEN OLSEN Alexander", "NOR", 10.99], ["AULNETTE Auguste", "FRA", 11.39], ["AX SWARTZ Fabian", "SWE", 11.45], ["ZUBCIC Filip", "CRO", 11.88], ["STROLZ Johannes", "AUT", 12.06], ["ZENHAEUSERN Ramon", "SUI", 12.18], ["RITCHIE Benjamin", "USA", 12.34], ["SEYMOUR Jett", "USA", 12.58], ["PINTURAULT Alexis", "FRA", 12.74], ["ITEN Matthias", "SUI", 13.35], ["MAJOR Billy", "GBR", 13.49], ["POHJOLAINEN Jesper", "FIN", 13.8], ["MAES Sam", "BEL", 13.88], ["SACCARDI Tommaso", "ITA", 13.91], ["SALARICH BAUCELLS Joaquim", "ESP", 14.05], ["JAKOBSEN Kristoffer", "SWE", 14.95], ["SARACCO Edoardo", "ITA", 15.32], ["DESGRIPPES Hugo", "FRA", 15.41], ["JUNG Donghyun", "KOR", 15.58], ["PUCKETT Cooper", "USA", 15.84], ["AIHARA Shiro", "JPN", 17.26], ["KOYAMA Yohei", "JPN", 17.37], ["HERLAND Johs Braathen", "NOR", 17.39], ["HANSSON William", "SWE", 17.41], ["PALMQUIST Jevin", "USA", 17.48], ["MEISSL Christoph", "AUT", 17.88], ["SIMONET Sandro", "SUI", 18.08], ["GREBER Jakob", "AUT", 18.1], ["CANINS Matteo", "ITA", 18.17], ["AERNI Luca", "SUI", 18.54], ["KASTLUNGER Tobias", "ITA", 18.61], ["GARAY FERNANDEZ Aingeru", "ESP", 18.95], ["MUHLEN-SCHULTE Louis", "AUS", 19.22], ["HIMMELSBACH Fabian", "GER", 19.34], ["MCADAM Hugh", "AUS", 19.56], ["FOURNIER Simon", "CAN", 19.88], ["HODER Maximilien", "USA", 19.91], ["KVAEL Elias Hartford", "NOR", 20.35], ["UNDERHILL Bradshaw", "USA", 20.41], ["WALLACE Liam", "CAN", 20.61], ["HAGAN Sebastian", "NOR", 20.62], ["BRAEKKEN Theodor", "NOR", 20.65], ["KOYAMA Takayuki", "JPN", 20.74], ["BUZEK Stanley", "USA", 20.77], ["PERTL Adrian", "AUT", 20.81], ["WAHLQVIST Filip", "NOR", 20.9], ["WINTERS Luke", "USA", 20.9], ["RODES Istok", "CRO", 20.91], ["KATO Seigo", "JPN", 20.92], ["DEL CAMPO HERNANDEZ Juan", "ESP", 20.99]];
 const FIELD_N = 88;
 function buildField(gender){
+  if (gender === 'men'){
+    const r = rng(4401), maxP = Math.max(...MEN_FIELD.map(x => x[2]));
+    return MEN_FIELD.map(([name, nat, pts], i) => ({ id: 'm' + i, name, nat, pts0: pts, skill: 1 - Math.pow(pts / maxP, .8), fis: i + 1 + (i + 1 >= START_RANK ? 1 : 0), aggr: r() }));
+  }
   const r = rng(gender === 'men' ? 4401 : 8803);
   const bag = []; for (const [nat, d] of Object.entries(NAMES)) for (let i = 0; i < d.w*2; i++) bag.push(nat);
   const used = new Set(), out = [];
