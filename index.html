@@ -894,7 +894,7 @@ function gradAt(prof, y){
 function slopeFactor(prof, y){
   if (!prof) return 1;
   const s = Math.sin(Math.atan(gradAt(prof, y) / 100)), s0 = Math.sin(Math.atan(prof.avg / 100));
-  return clamp(1 + .75 * (s / s0 - 1), .3, 2);
+  return clamp(1 + .3 * (s / s0 - 1), .75, 1.25) * .94;     // gentle effect, and a touch slower overall
 }
 function slopeWord(g){ return g >= 50 ? '急斜面' : g >= 40 ? 'やや急' : g >= 25 ? '中斜面' : '緩斜面'; }
 // side profile of the hill as a small chart (start on the left, finish on the right)
