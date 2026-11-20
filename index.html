@@ -1459,7 +1459,7 @@ function step(dt){
 
   const ctl = state === 'run' ? playerInput() : state === 'demo' ? aiCtl(sk, course) : { inp: 0, tuck: false };
   const quiet = state === 'demo';
-  if (sk.act){ sk.act.t += dt; if (sk.act.type === 'stop') sk.th = sk.act.dir * 1.4; if (sk.act.t > 1.8) sk.act = null; }
+  if (sk.act){ sk.act.t += dt; if (sk.act.type === 'stop') sk.th = sk.act.dir * 1.4; if (sk.act.type === 'skisup') sk.v = 0; if (sk.act.t > (sk.act.type === 'skisup' ? 99 : 1.8)) sk.act = null; }
   if (sk.pushT > 0) sk.pushT -= dt;
   if (sk.pushCd > 0) sk.pushCd -= dt;
   if (state === 'run' && ctl.push && !(sk.pushCd > 0)){
@@ -2333,10 +2333,20 @@ function drawWatcher(){
   const cheer = state === 'celebrate' ? Math.abs(Math.sin(now * 6)) * 2.5 : 0;
   ctx.fillStyle = COL.shadow; ctx.beginPath(); ctx.ellipse(p.X + 3 * u, p.Y + 1 * u, 7 * u, 2.2 * u, 0, 0, 7); ctx.fill();
   ctx.save(); ctx.translate(p.X, p.Y - cheer * u); ctx.scale(u, u); ctx.lineCap = 'round';
-  // skis held upright beside the body
-  ctx.strokeStyle = ['#F4F1E8', '#C9D2DE', '#F5F5F5'].includes(look.ski.c1) ? shade(look.ski.c1, .8) : look.ski.c1; ctx.lineWidth = 1.6;
-  ctx.beginPath(); ctx.moveTo(5.2, 1); ctx.lineTo(5.6, -21); ctx.moveTo(6.6, 1); ctx.lineTo(7, -21); ctx.stroke();
-  ctx.strokeStyle = look.ski.c2; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.moveTo(5.6, -21); ctx.lineTo(5.65, -18.5); ctx.moveTo(7, -21); ctx.lineTo(7.05, -18.5); ctx.stroke();
+  const wact = sk.act && (sk.act.type === 'skisup' || sk.act.type === 'chest') ? sk.act.type : null;
+  const pumpW = wact ? Math.abs(Math.sin(sk.act.t * 7)) : 0;
+  const skiCol = ['#F4F1E8', '#C9D2DE', '#F5F5F5'].includes(look.ski.c1) ? shade(look.ski.c1, .8) : look.ski.c1;
+  if (wact === 'skisup'){
+    // both skis lifted overhead in both hands, pumped up and down
+    const yS = -23.5 - pumpW * 2.2;
+    ctx.strokeStyle = skiCol; ctx.lineWidth = 1.6;
+    ctx.beginPath(); ctx.moveTo(-11, yS + .4); ctx.lineTo(11, yS - .4); ctx.moveTo(-11, yS + 1.9); ctx.lineTo(11, yS + 1.1); ctx.stroke();
+    ctx.strokeStyle = look.ski.c2; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.moveTo(8.5, yS - .3); ctx.lineTo(11, yS - .4); ctx.moveTo(8.5, yS + 1.2); ctx.lineTo(11, yS + 1.1); ctx.stroke();
+  } else {
+    ctx.strokeStyle = ['#F4F1E8', '#C9D2DE', '#F5F5F5'].includes(look.ski.c1) ? shade(look.ski.c1, .8) : look.ski.c1; ctx.lineWidth = 1.6;
+    ctx.beginPath(); ctx.moveTo(5.2, 1); ctx.lineTo(5.6, -21); ctx.moveTo(6.6, 1); ctx.lineTo(7, -21); ctx.stroke();
+    ctx.strokeStyle = look.ski.c2; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.moveTo(5.6, -21); ctx.lineTo(5.65, -18.5); ctx.moveTo(7, -21); ctx.lineTo(7.05, -18.5); ctx.stroke();
+  }
   // legs, body
   ctx.strokeStyle = shade(look.suit, .8); ctx.lineWidth = 2.4; ctx.beginPath(); ctx.moveTo(-1.6, 0); ctx.lineTo(-1.4, -8); ctx.moveTo(1.6, 0); ctx.lineTo(1.4, -8); ctx.stroke();
   ctx.fillStyle = '#E8ECF2'; ctx.fillRect(-2.9, -2, 2.6, 2); ctx.fillRect(.3, -2, 2.6, 2);
@@ -2344,20 +2354,25 @@ function drawWatcher(){
   ctx.fillStyle = '#fff'; rrect(-2.2, -13.4, 4.4, 4.2, .5); ctx.fill();
   // arms: one holds the skis, the other waves (both up when celebrating)
   ctx.strokeStyle = look.suit; ctx.lineWidth = 1.6; ctx.beginPath();
-  ctx.moveTo(2.8, -13.5); ctx.lineTo(5.6, -11);
   const wave = Math.sin(now * 8) * (ex > .5 ? 2 : .4);
-  if (sk.act && sk.act.type === 'banzai'){ ctx.moveTo(-2.8, -13.5); ctx.lineTo(-4.6, -20 - Math.abs(Math.sin(now * 7))); }
+  if (wact === 'skisup'){ const yh = -23 - pumpW * 2.2; ctx.moveTo(2.8, -13.5); ctx.lineTo(4.6, yh); ctx.moveTo(-2.8, -13.5); ctx.lineTo(-4.6, yh); }
+  else if (wact === 'chest'){ const yh = -11.6 - pumpW * .9; ctx.moveTo(2.8, -13.5); ctx.lineTo(3.4, -10.4); ctx.lineTo(1.2, yh); ctx.moveTo(-2.8, -13.5); ctx.lineTo(-3.4, -10.4); ctx.lineTo(-1.2, yh); }
+  else ctx.moveTo(2.8, -13.5), ctx.lineTo(5.6, -11);
+  if (wact){}
+  else if (sk.act && sk.act.type === 'banzai'){ ctx.moveTo(-2.8, -13.5); ctx.lineTo(-4.6, -20 - Math.abs(Math.sin(now * 7))); }
   else if (sk.act && sk.act.type === 'guts'){ const pump = Math.abs(Math.sin(now * 9)); ctx.moveTo(-2.8, -13.5); ctx.lineTo(-3.4, -17.5 - pump * 2.5); }
   else if (state === 'celebrate' || ex > .7){ ctx.moveTo(-2.8, -13.5); ctx.lineTo(-5 + wave * .3, -19); }
   else { ctx.moveTo(-2.8, -13.5); ctx.lineTo(-3.6, -8.5); }
   ctx.stroke();
+  if (wact === 'chest'){ ctx.fillStyle = '#E3B48C'; const yh = -11.6 - pumpW * .9; ctx.beginPath(); ctx.arc(1.2, yh, .8, 0, 7); ctx.arc(-1.2, yh, .8, 0, 7); ctx.fill(); }
   ctx.fillStyle = look.helm.c1; ctx.beginPath(); ctx.arc(0, -16.8, 2.5, 0, 7); ctx.fill();
   ctx.restore();
 }
 $('#watchSpd').onclick = () => { WATCH.speed = WATCH.speed === 1 ? 3 : 1; $('#watchSpd').textContent = WATCH.speed === 1 ? '早送り' : '普通の速さ'; };
 $('#watchSkip').onclick = () => { if (state === 'watch') endWatch(true); };
 // =====================================================================
-// Finish actions: double-press right = hockey stop, left = fist pump, both = banzai
+// Finish actions (hidden commands): right×2 = hockey stop, left×2 = fist pump, both×2 = banzai,
+// right→left = skis off and held overhead, left→right = fists clenched at the chest
 // =====================================================================
 const TAPS = { last: null, lastT: 0, pend: null };
 function registerTap(side){
@@ -2370,8 +2385,11 @@ function registerTap(side){
   TAPS.pend = pend;
 }
 function tapEvent(kind, t){
-  if (TAPS.last === kind && t - TAPS.lastT < 480){ TAPS.last = null; finishAction(kind); }
-  else { TAPS.last = kind; TAPS.lastT = t; }
+  if (TAPS.last && t - TAPS.lastT < 480){
+    const seq = TAPS.last === kind ? kind : TAPS.last + kind;     // RR→R, LL→L, BB→B, RL, LR
+    if (seq === 'R' || seq === 'L' || seq === 'B' || seq === 'RL' || seq === 'LR'){ TAPS.last = null; finishAction(seq); return; }
+  }
+  TAPS.last = kind; TAPS.lastT = t;
 }
 function finishAction(kind){
   if (state === 'finished'){
@@ -2382,14 +2400,18 @@ function finishAction(kind){
       for (let i = 0; i < 40; i++) parts.push({ x: sk.x + dir * 4, y: sk.y + 4, vx: dir * (60 + Math.random() * 160), vy: (Math.random() - .2) * 120, life: .9, max: .9, r: 1.6 + Math.random() * 2.6 });
       thwack(.45); flash('急停止！', false);
     } else if (kind === 'L'){ sk.act = { type: 'guts', t: 0 }; crowdCheer(.55); flash('ガッツポーズ！', false); }
+    else if (kind === 'RL'){ finT = Math.max(finT, 3.4); sk.v = 0; sk.act = { type: 'skisup', t: 0 }; tone(330, .06, 'triangle', .05); crowdCheer(.85); flash('スキーを掲げてガッツポーズ！', false); }
+    else if (kind === 'LR'){ sk.act = { type: 'chest', t: 0 }; crowdCheer(.6); flash('ガッツポーズ！', false); }
     else { sk.act = { type: 'banzai', t: 0 }; crowdCheer(.75); flash('バンザイ！', false); }
   } else if (state === 'watch'){
     if (kind === 'R') return;
-    sk.act = { type: kind === 'L' ? 'guts' : 'banzai', t: 0 }; crowdCheer(kind === 'L' ? .5 : .7);
+    const type = { L: 'guts', B: 'banzai', RL: 'skisup', LR: 'chest' }[kind];
+    sk.act = { type, t: 0 }; crowdCheer(kind === 'L' ? .5 : kind === 'LR' ? .55 : .7);
   }
 }
 function showActHint(on){
   const el = $('#actHint'); if (!el) return;
+  el.hidden = true; return;   // hidden commands: never shown on screen
   if (!on){ el.hidden = true; return; }
   const touch = document.body.classList.contains('touch');
   el.innerHTML = touch ? '右足2回：急停止　左足2回：ガッツポーズ　両方同時に2回：バンザイ' : '<kbd>→</kbd><kbd>→</kbd> 急停止　<kbd>←</kbd><kbd>←</kbd> ガッツポーズ　<kbd>←</kbd>+<kbd>→</kbd> 2回 バンザイ';
@@ -3225,7 +3247,6 @@ function rulesHTML(){
     <li>スマホ・タブレットは画面下の <b>左足／右足</b> ボタン（または画面の左半分／右半分）を押すと、その足に乗って反対側へ曲がります</li>`
       : `<li><kbd>←</kbd><kbd>→</kbd> または <kbd>A</kbd><kbd>D</kbd> で押した方向へ曲がります。スマホは画面下の ◀ ▶ ボタン（または画面の左右）</li>`}
     <li><b>左右を同時に押すとストックで漕ぎます</b>（スタート直後や緩斜面で加速。速くなるほど効きが弱まり、約50km/hで効かなくなります）。押し出しの強さは選んだストックで変わります</li>
-    <li><b>ゴール後のアクション</b>：右を2回＝急停止、左を2回＝ガッツポーズ、左右同時に2回＝バンザイ（ゴール前で観戦中もガッツポーズとバンザイができます）</li>
     <li><kbd>↓</kbd>/<kbd>S</kbd> またはクローチボタンでクローチング（速いが曲がりにくい）、<kbd>Esc</kbd> で棄権。縦でも横でも遊べます</li>
     <li>操作方法はメニュー上部の「操作」で「押した方向へ曲がる」にも切り替えられます。レース中も左上の「操作」ボタン（パソコンは <kbd>C</kbd> キー）でいつでも切り替えられます</li>
     <li>スキーヤーは画面の下側にいて、コースは上から近づいてきます</li>
@@ -3834,7 +3855,7 @@ function drawParts(){
 }
 // The racer seen from behind: skis on the snow in perspective, body angulated into the turn
 function drawSkier(){
-  if (state === 'watch' || state === 'celebrate') return drawWatcher();
+  if (state === 'watch' || state === 'celebrate' || (sk.act && sk.act.type === 'skisup')) return drawWatcher();
   const p = proj(sk.x, sk.y); if (!p) return;
   const u = p.k * 1.75;                        // drawn larger than life so the racer reads clearly
   const dx = Math.sin(sk.th), dy = Math.cos(sk.th), px = Math.cos(sk.th), py = -Math.sin(sk.th);
@@ -3907,6 +3928,7 @@ function drawSkier(){
   const actUp = act && (act.type === 'guts' || act.type === 'banzai');
   if (act && act.type === 'guts'){ const pump = Math.abs(Math.sin(act.t * 9)); handO = { x: shO.x - s * .6, y: sh.y - 4.5 - pump * 2.5 }; }
   if (act && act.type === 'banzai'){ const hop = Math.abs(Math.sin(act.t * 7)) * 1.2; handI = { x: sh.x + 4.6, y: sh.y - 8 - hop }; handO = { x: sh.x - 4.6, y: sh.y - 8 - hop }; }
+  if (act && act.type === 'chest'){ const pump = Math.abs(Math.sin(act.t * 7)) * .8; handI = { x: sh.x + 1.3, y: sh.y + 1.8 - pump }; handO = { x: sh.x - 1.3, y: sh.y + 1.8 - pump }; }
   const elbow = (shp, hd, out) => ({ x: (shp.x + hd.x)/2 + out*1.2, y: (shp.y + hd.y)/2 + .9 });
 
   // poles (behind the body)
@@ -4024,7 +4046,7 @@ function frame(now){
   acc += dt;
   while (acc >= STEP){ step(STEP); acc -= STEP; }
   if (state === 'finished'){ finT -= dt; if (finT <= 0){ state = 'sheet'; afterFinish(); } }
-  crowdTick(dt); if (state === 'watch'){ watchStep(dt); if (sk.act){ sk.act.t += dt; if (sk.act.t > 1.8) sk.act = null; } }
+  crowdTick(dt); if (state === 'watch'){ watchStep(dt); if (sk.act){ sk.act.t += dt; if (sk.act.t > (sk.act.type === 'skisup' ? 2.6 : 1.8)) sk.act = null; } }
   hud(); render(); if (actx) updateWind();
   if (race && race.battle) battleTick();
   requestAnimationFrame(frame);
