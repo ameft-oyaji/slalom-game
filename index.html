@@ -2337,11 +2337,14 @@ function drawWatcher(){
   const pumpW = wact ? Math.abs(Math.sin(sk.act.t * 7)) : 0;
   const skiCol = ['#F4F1E8', '#C9D2DE', '#F5F5F5'].includes(look.ski.c1) ? shade(look.ski.c1, .8) : look.ski.c1;
   if (wact === 'skisup'){
-    // both skis lifted overhead in both hands, pumped up and down
-    const yS = -23.5 - pumpW * 2.2;
-    ctx.strokeStyle = skiCol; ctx.lineWidth = 1.6;
-    ctx.beginPath(); ctx.moveTo(-11, yS + .4); ctx.lineTo(11, yS - .4); ctx.moveTo(-11, yS + 1.9); ctx.lineTo(11, yS + 1.1); ctx.stroke();
-    ctx.strokeStyle = look.ski.c2; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.moveTo(8.5, yS - .3); ctx.lineTo(11, yS - .4); ctx.moveTo(8.5, yS + 1.2); ctx.lineTo(11, yS + 1.1); ctx.stroke();
+    // one ski in each hand, arms flung wide and high in a V
+    for (const sd of [-1, 1]){
+      const hx = sd * (8.2 + pumpW * .8), hy = -21 - pumpW * 1.6;
+      const dx = sd * .42, dy = -.91;                     // the ski carries on along the arm, outward and up
+      const ax = hx - dx * 9, ay = hy - dy * 9, bx = hx + dx * 13, by = hy + dy * 13;
+      ctx.strokeStyle = skiCol; ctx.lineWidth = 1.7; ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.stroke();
+      ctx.strokeStyle = look.ski.c2; ctx.beginPath(); ctx.moveTo(hx + dx * 10, hy + dy * 10); ctx.lineTo(bx, by); ctx.stroke();
+    }
   } else {
     ctx.strokeStyle = ['#F4F1E8', '#C9D2DE', '#F5F5F5'].includes(look.ski.c1) ? shade(look.ski.c1, .8) : look.ski.c1; ctx.lineWidth = 1.6;
     ctx.beginPath(); ctx.moveTo(5.2, 1); ctx.lineTo(5.6, -21); ctx.moveTo(6.6, 1); ctx.lineTo(7, -21); ctx.stroke();
@@ -2355,7 +2358,7 @@ function drawWatcher(){
   // arms: one holds the skis, the other waves (both up when celebrating)
   ctx.strokeStyle = look.suit; ctx.lineWidth = 1.6; ctx.beginPath();
   const wave = Math.sin(now * 8) * (ex > .5 ? 2 : .4);
-  if (wact === 'skisup'){ const yh = -23 - pumpW * 2.2; ctx.moveTo(2.8, -13.5); ctx.lineTo(4.6, yh); ctx.moveTo(-2.8, -13.5); ctx.lineTo(-4.6, yh); }
+  if (wact === 'skisup'){ const yh = -21 - pumpW * 1.6, hx = 8.2 + pumpW * .8; ctx.moveTo(2.8, -13.5); ctx.lineTo(hx, yh); ctx.moveTo(-2.8, -13.5); ctx.lineTo(-hx, yh); }
   else if (wact === 'chest'){ const yh = -11.6 - pumpW * .9; ctx.moveTo(2.8, -13.5); ctx.lineTo(3.4, -10.4); ctx.lineTo(1.2, yh); ctx.moveTo(-2.8, -13.5); ctx.lineTo(-3.4, -10.4); ctx.lineTo(-1.2, yh); }
   else ctx.moveTo(2.8, -13.5), ctx.lineTo(5.6, -11);
   if (wact){}
