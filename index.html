@@ -913,6 +913,8 @@ const SLOPES = {
   'Soldeu':               { drop: 180, max: 55, avg: 31, src: 'est', name: 'Avet',                 pts: [[0,32],[.2,48],[.36,55],[.58,30],[.78,28],[1,14]] },
   'Killington':           { drop: 180, max: 52, avg: 28, src: 'est', name: 'Superstar',            pts: [[0,40],[.1,52],[.24,44],[.46,24],[.68,22],[.86,26],[1,12]] },
   'Sun Valley':           { drop: 175, max: 48, avg: 29, src: 'est', name: 'Warm Springs',         pts: [[0,30],[.24,40],[.44,48],[.64,30],[.84,24],[1,12]] },
+  "Val d'Isère":          { drop: 200, max: 56, avg: 33, src: 'est', name: 'La Face de Bellevarde', pts: [[0,36],[.16,50],[.3,56],[.46,40],[.62,30],[.78,44],[.92,34],[1,14]] },
+  'Jasná':                { drop: 200, max: 45, avg: 28, src: 'drop', name: 'Jasná', pts: [[0,26],[.2,36],[.4,45],[.58,30],[.76,24],[.9,30],[1,12]] },
   'Gosau':                { drop: 160, max: 45, avg: 28, src: 'est', name: 'Zwieselalm',           pts: [[0,26],[.3,36],[.52,45],[.72,28],[.9,22],[1,12]] },
 };
 const SLOPE_DEFAULT = { drop: 180, max: 45, avg: 30, src: 'est', name: '', pts: [[0,30],[.3,42],[.6,28],[.85,34],[1,14]] };
@@ -949,7 +951,7 @@ function profileSVG(prof){
 function profileHTML(prof){
   return `<div class="profbox">${profileSVG(prof)}
     <div class="proflegend"><span><i style="background:#2FB36A"></i>緩斜面</span><span><i style="background:#4C8DFF"></i>中斜面</span><span><i style="background:#F59F00"></i>やや急</span><span><i style="background:#E5484D"></i>急斜面</span></div>
-    <small>${prof.name ? esc(prof.name) + '・' : ''}高低差 ${prof.drop} m・最大斜度 ${prof.max}%・平均斜度 ${prof.avg}%（${prof.src === 'fis' ? '公式データ' : '公式データが見つからないため推定'}）</small></div>`;
+    <small>${prof.name ? esc(prof.name) + '・' : ''}高低差 ${prof.drop} m・最大斜度 ${prof.max}%・平均斜度 ${prof.avg}%（${prof.src === 'fis' ? '公式データ' : prof.src === 'drop' ? '高低差は公式データ・斜度は推定' : '公式データが見つからないため推定'}）</small></div>`;
 }
 
 function buildCourse(seedN, gender){
