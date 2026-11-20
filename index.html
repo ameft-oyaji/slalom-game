@@ -2430,6 +2430,7 @@ function collectArena(sprites, yNear, yFar){
     sprites.push({ y: fy + 40, d: () => drawFinishHouse(W / 2 - 46, fy + 40) });
     sprites.push({ y: fy + 6, d: () => drawOfficial(-W / 2 + 14, fy + 6, '#F07A1A', ex > .6 ? 'up' : 'down', 'FINISH') });
     sprites.push({ y: fy + 10, d: () => drawOfficial(W / 2 - 92, fy + 10, '#F07A1A', 'clip', '') });
+    if (shimizuOn()) sprites.push({ y: fy + 70, d: () => drawShimizu(W / 2 - 150, fy + 70) });
   }
   // grandstand tiers, each with its fans
   for (let tier = 5; tier >= 0; tier--){
@@ -2608,6 +2609,60 @@ function showCeremony(kind, top, ev){
   for (let i = 0; i < 220; i++) confetti.push({ x: Math.random() * cw, y: -Math.random() * ch, vx: (Math.random() - .5) * 60, vy: 70 + Math.random() * 110, r: Math.random() * 6.28, vr: (Math.random() - .5) * 8, c: FAN_COLS[i % FAN_COLS.length] });
 }
 // race officials: a person in a coloured jacket; pose 'up' (arm raised), 'point', 'clip' (clipboard) or 'down'
+// Mr. Shimizu, the service man: waits in the finish area with a race ski whenever his tune is on
+function shimizuOn(){ return !!(race && race.shimizu && race.shimizu[race.run - 1]); }
+function drawShimizu(x, y){
+  const p = proj(x, y); if (!p || p.X < -40 || p.X > cw + 40) return;
+  const u = p.k * 2.2, t = performance.now() / 1000;
+  const cheer = state === 'finished' || state === 'watch' || state === 'celebrate';
+  ctx.fillStyle = COL.shadow; ctx.beginPath(); ctx.ellipse(p.X + 3 * u, p.Y + .8 * u, 7 * u, 2 * u, 0, 0, 7); ctx.fill();
+  ctx.save(); ctx.translate(p.X, p.Y); ctx.scale(u, u); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  // the race ski, held upright and leaning on his shoulder (black topsheet, white lettering)
+  ctx.save(); ctx.translate(-4.6, 0); ctx.rotate(.16);
+  ctx.fillStyle = '#26282E'; rrect(-1.25, -31, 2.5, 31, 1.1); ctx.fill();
+  ctx.fillStyle = '#3A3D45'; ctx.fillRect(-.35, -30, .7, 29);
+  ctx.fillStyle = '#fff'; ctx.font = "800 1.6px 'Barlow Condensed', sans-serif"; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('L', 0, -28.2);
+  ctx.restore();
+  // legs: dark pants with orange panels
+  ctx.strokeStyle = '#1C1D22'; ctx.lineWidth = 2.6;
+  ctx.beginPath(); ctx.moveTo(-1.6, 0); ctx.lineTo(-1.4, -7.5); ctx.moveTo(1.6, 0); ctx.lineTo(1.4, -7.5); ctx.stroke();
+  ctx.strokeStyle = '#F2A21C'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(2.3, -.8); ctx.lineTo(2.1, -6.5); ctx.stroke();
+  // jacket: yellow-orange with a black chest and black vest panel
+  ctx.fillStyle = '#F2A21C'; rrect(-4, -16.5, 8, 10, 2.6); ctx.fill();
+  ctx.fillStyle = '#1C1D22'; rrect(-3.2, -16.3, 4.2, 8.4, 1.6); ctx.fill();
+  ctx.fillStyle = '#1C1D22'; ctx.fillRect(-4, -8.2, 8, 1.2);
+  ctx.fillStyle = 'rgba(200,205,215,.7)'; ctx.fillRect(2.4, -12, .5, 1.6); ctx.fillRect(3.1, -11.6, .5, 1.6);   // reflective chevrons on the sleeve
+  // arms: one hand on the ski, the other waves when you come through the finish
+  ctx.strokeStyle = '#F2A21C'; ctx.lineWidth = 1.9;
+  ctx.beginPath(); ctx.moveTo(-3.3, -15); ctx.lineTo(-4.8, -11); ctx.lineTo(-3.8, -9.6); ctx.stroke();
+  const wave = cheer ? Math.sin(t * 9) * .6 : 0;
+  ctx.beginPath(); ctx.moveTo(3.3, -15);
+  if (cheer){ ctx.lineTo(5.6, -18.5); ctx.lineTo(6.2 + wave, -21.8); } else { ctx.lineTo(4.6, -11.5); ctx.lineTo(3.4, -10.2); }
+  ctx.stroke();
+  ctx.fillStyle = '#E3B48C';
+  ctx.beginPath(); ctx.arc(-3.8, -9.6, .75, 0, 7); ctx.fill();
+  ctx.beginPath(); if (cheer) ctx.arc(6.2 + wave, -22.2, .75, 0, 7); else ctx.arc(3.4, -10.2, .75, 0, 7); ctx.fill();
+  // burgundy neck gaiter
+  ctx.fillStyle = '#7E1F2E'; rrect(-2, -18.2, 4, 2.3, 1); ctx.fill();
+  // head: tanned face, shoulder-length brown hair
+  ctx.fillStyle = '#6B4424';
+  ctx.beginPath(); ctx.ellipse(0, -20.4, 3, 3.3, 0, Math.PI * .95, Math.PI * 2.05); ctx.fill();
+  ctx.fillRect(-3, -21, 1.4, 3.6); ctx.fillRect(1.6, -21, 1.4, 3.6);                  // hair falling to the collar
+  ctx.fillStyle = '#C99470'; ctx.beginPath(); ctx.ellipse(0, -19.8, 2.1, 2.5, 0, 0, 7); ctx.fill();
+  ctx.fillStyle = '#7A5230'; ctx.beginPath(); ctx.ellipse(0, -21.9, 2.4, 1.1, 0, Math.PI, Math.PI * 2); ctx.fill();   // fringe
+  // tinted wrap sunglasses
+  ctx.fillStyle = '#4A2E3C'; rrect(-2.2, -20.7, 1.9, 1.1, .45); ctx.fill(); rrect(.3, -20.7, 1.9, 1.1, .45); ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,.35)'; ctx.fillRect(-1.9, -20.6, .5, .3); ctx.fillRect(.6, -20.6, .5, .3);
+  // goatee
+  ctx.fillStyle = 'rgba(70,50,35,.75)'; ctx.beginPath(); ctx.ellipse(0, -17.9, .7, .45, 0, 0, 7); ctx.fill();
+  ctx.restore();
+  // name tag above him
+  ctx.font = `700 ${Math.max(9, 4.2 * u)}px 'Noto Sans JP', sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+  const tag = '清水さん', tw = ctx.measureText(tag).width + 8, ty = p.Y - 25 * u;
+  ctx.fillStyle = 'rgba(19,33,58,.85)'; rrect(p.X - tw / 2, ty - Math.max(12, 5.4 * u), tw, Math.max(12, 5.4 * u), 3); ctx.fill();
+  ctx.fillStyle = '#FFD45A'; ctx.fillText(tag, p.X, ty - 1);
+}
 function drawOfficial(x, y, col, pose, label){
   const p = proj(x, y); if (!p || p.X < -30 || p.X > cw + 30) return;
   const u = p.k * 1.6;
