@@ -1423,6 +1423,7 @@ function step(dt){
   }
   if (goT > 0) goT -= dt;
   stepWand(dt);
+  if ((state === 'run' || state === 'demo') && sk.y > 0 && sk.y < RAMP_END) sk.v += 55 * (1 - sk.y / RAMP_END) * dt;
   if (state !== 'run' && state !== 'finished' && state !== 'demo') return;
 
   const ctl = state === 'run' ? playerInput() : state === 'demo' ? aiCtl(sk, course) : { inp: 0, tuck: false };
@@ -1608,6 +1609,7 @@ function showIntro(){
     const rec = taBoard(race.key)[0];
     html += `<dt>コースレコード</dt><dd>${rec ? fmt(rec.t) + ' ' : '—'}</dd>`;
   }
+  html += `<dt>コースの状態</dt><dd style="font-family:var(--f-body);font-size:15px">${wearLabel(courseWear())}</dd>`;
   html += '</dl>';
   if (rec2Note()) html += `<p class="note">${rec2Note()}</p>`;
   if (!ta && race.run === 1 && race.bib.get('you') > 30) html += `<p class="note">ビブが後ろのほど荒れたコースを滑ることになります。上位に入ってランキングを上げれば、早いスタート順がもらえます。</p>`;
@@ -1637,6 +1639,7 @@ function beginRun(){
   race.run1Me = race.mode === 'ta' ? (race.taTimes[0] || 0) : (race.run1 && race.run1.you) || 0;
   course = race.courses[race.run - 1]; resetCourseState(course); resetBody(false);
   sk.mod = runMods();
+  { const w = courseWear(); sk.mod.drag *= 1 + .03 * w; sk.mod.turn *= 1 - .035 * w; }
   state = 'countdown'; cdT = 1.2 + Math.random()*1.4; goT = 0;
   $('#cd').className = 'cd';
   $('#hud').hidden = false;
@@ -3346,6 +3349,117 @@ function drawNight(md){
     ctx.restore();
   }
 }
+// ---- course wear: the racing line digs in with every racer before you, and more as the day warms up ----
+let WEAR = 0;
+function courseWear(){
+  if (!race || state === 'demo') return .15;
+  if (race.mode === 'free') return .08;
+  if (race.battle) return .2;
+  const wx = race.wx ? race.wx[race.run - 1] : null;
+  let n;
+  if (race.mode === 'ta') n = 18;
+  else if (race.run === 1) n = (race.bib && race.bib.get('you') || 1) - 1;
+  else n = Math.max(0, (race.order2 || []).indexOf('you'));
+  let w = 1 - Math.exp(-n / 32);
+  if (wx){
+    w *= .55 + .9 * (1 - snowHardness(wx));                        // soft or wet snow ruts far more than ice
+    if (race.run === 2 && wx.cond === 'sun' && !race.ev.night) w += .08;   // afternoon sun softens the second run
+  }
+  return clamp(w, 0, 1);
+}
+function wearLabel(w){ return w < .12 ? 'ほぼ荒れていない' : w < .35 ? '少し掘れている' : w < .6 ? 'かなり掘れている' : '深くえぐれている'; }
+function rutLine(gs){
+  // where racers actually go: just inside the turning pole of every gate
+  const pts = [{ x: 0, y: -10 }];
+  for (const g of gs){ const sd = Math.sign(g.x) || 1; pts.push({ x: g.x - sd * (GH - 8), y: g.y, g }); }
+  pts.push({ x: pts[pts.length - 1].x * .4, y: course.finishY + 60 });
+  return pts;
+}
+function drawRuts(yNear, yFar){
+  const w = WEAR;
+  if (w < .02 || !course.gates.length) return;
+  const pts = rutLine(course.gates);
+  const cr = (a, b, c, d, t) => { const t2 = t * t, t3 = t2 * t; return .5 * (2 * b + (-a + c) * t + (2 * a - 5 * b + 4 * c - d) * t2 + (-a + 3 * b - 3 * c + d) * t3); };
+  const N = 10;
+  // sampled centre line of the worn track
+  const line = [];
+  for (let i = 0; i < pts.length - 1; i++){
+    if (pts[i + 1].y < yNear - 60 || pts[i].y > yFar + 60) continue;
+    const a = pts[Math.max(0, i - 1)], b = pts[i], c = pts[i + 1], d = pts[Math.min(pts.length - 1, i + 2)];
+    for (let k = 0; k < N; k++){ const t = k / N; line.push({ x: cr(a.x, b.x, c.x, d.x, t), y: cr(a.y, b.y, c.y, d.y, t), seg: i }); }
+  }
+  if (line.length < 2) return;
+  const stroke = (off, col, wid) => {
+    ctx.strokeStyle = col; ctx.lineCap = 'round';
+    for (let i = 1; i < line.length; i++){
+      const A = line[i - 1], B = line[i];
+      if (B.seg !== A.seg && B.seg !== A.seg + 1) continue;
+      const pa = proj(A.x + off, A.y), pb = proj(B.x + off, B.y);
+      if (!pa || !pb) continue;
+      ctx.lineWidth = Math.max(.8, wid * (pa.k + pb.k) / 2);
+      ctx.beginPath(); ctx.moveTo(pa.X, pa.Y); ctx.lineTo(pb.X, pb.Y); ctx.stroke();
+    }
+  };
+  // a broad, scraped groove …
+  stroke(0, `rgba(150,170,205,${.08 + .22 * w})`, 10 + 16 * w);
+  stroke(0, `rgba(120,145,190,${.05 + .18 * w})`, 4 + 8 * w);
+  // … made of many racers' edge tracks
+  const nT = 2 + Math.round(w * 7);
+  for (let j = 0; j < nT; j++){ const o = ((hash2(j, 77) & 255) / 255 - .5) * (5 + 12 * w); stroke(o, `rgba(100,125,175,${.08 + .16 * w})`, 1.1); }
+  // ruts just below each gate where everyone loads the outside ski hardest: a hollow with snow piled on the far side
+  for (const P of pts){
+    if (!P.g || P.y < yNear - 40 || P.y > yFar + 20) continue;
+    const sd = Math.sign(P.g.x) || 1;
+    for (let r = 0; r < 2; r++){
+      const y = P.y + 14 + r * 18, x = P.x + sd * (2 + r * 5);
+      const c = proj(x, y); if (!c) continue;
+      const rx = (5 + 9 * w) * c.k * (r ? .8 : 1), ry = (2.4 + 4 * w) * c.k * (r ? .8 : 1);
+      ctx.fillStyle = `rgba(90,115,165,${.10 + .38 * w})`;
+      ctx.beginPath(); ctx.ellipse(c.X, c.Y, rx, ry, 0, 0, 7); ctx.fill();
+      ctx.fillStyle = `rgba(70,95,150,${.06 + .3 * w})`;
+      ctx.beginPath(); ctx.ellipse(c.X + sd * rx * .2, c.Y + ry * .25, rx * .6, ry * .55, 0, 0, 7); ctx.fill();
+      // the snow pushed up on the outside of the rut
+      ctx.strokeStyle = `rgba(255,255,255,${.25 + .6 * w})`; ctx.lineWidth = Math.max(1, (1 + 1.8 * w) * c.k);
+      ctx.beginPath(); ctx.ellipse(c.X, c.Y, rx * 1.08, ry * 1.15, 0, sd > 0 ? -1.2 : Math.PI - .6, sd > 0 ? .6 : Math.PI + 1.2); ctx.stroke();
+    }
+  }
+}
+// ---- raised start platform: a built-up deck behind the gate and a steep ramp down onto the course ----
+const DECK_HW = 34, DECK_BACK = -96, DECK_H = 18, RAMP_END = 34;
+function deckH(y){ return y <= 0 ? DECK_H : y >= RAMP_END ? 0 : DECK_H * (1 - y / RAMP_END) * (1 - y / RAMP_END * .35); }
+function drawStartDeck(yNear, yFar){
+  if (DECK_BACK > yFar || RAMP_END < yNear - 40) return;
+  const y0 = Math.max(DECK_BACK, yNear - 40), steps = 18;
+  // side walls: the deck edge sits above the surrounding snow, so a shaded wall shows beneath it
+  for (const sd of [-1, 1]){
+    const x = sd * DECK_HW;
+    for (let i = 0; i < steps; i++){
+      const ya = y0 + (RAMP_END - y0) * i / steps, yb = y0 + (RAMP_END - y0) * (i + 1) / steps;
+      const a = proj(x, ya), b = proj(x, yb); if (!a || !b) continue;
+      const ha = deckH(ya), hb = deckH(yb);
+      ctx.fillStyle = 'rgba(40,60,100,.16)';   // shadow cast on the lower snow
+      ctx.beginPath(); ctx.moveTo(a.X + sd * 1.5 * a.k, a.Y + ha * a.k); ctx.lineTo(b.X + sd * 1.5 * b.k, b.Y + hb * b.k); ctx.lineTo(b.X + sd * (1.5 + hb * .7) * b.k, b.Y + hb * b.k); ctx.lineTo(a.X + sd * (1.5 + ha * .7) * a.k, a.Y + ha * a.k); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#A9BBD4';
+      ctx.beginPath(); ctx.moveTo(a.X, a.Y); ctx.lineTo(b.X, b.Y); ctx.lineTo(b.X + sd * 1.5 * b.k, b.Y + hb * b.k); ctx.lineTo(a.X + sd * 1.5 * a.k, a.Y + ha * a.k); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = 'rgba(70,90,130,.18)';
+      ctx.beginPath(); ctx.moveTo(a.X + sd * .8 * a.k, a.Y + ha * a.k * .55); ctx.lineTo(b.X + sd * .8 * b.k, b.Y + hb * b.k * .55); ctx.lineTo(b.X + sd * 1.5 * b.k, b.Y + hb * b.k); ctx.lineTo(a.X + sd * 1.5 * a.k, a.Y + ha * a.k); ctx.closePath(); ctx.fill();
+    }
+  }
+  // the deck top: freshly prepared snow, a little brighter than the course
+  ctx.fillStyle = '#F7FAFD'; if (quad(-DECK_HW, DECK_HW, y0, 0)) ctx.fill();
+  // the ramp: shaded more the steeper it gets, so the drop reads clearly
+  for (let i = 0; i < 8; i++){
+    const ya = RAMP_END * i / 8, yb = RAMP_END * (i + 1) / 8;
+    const slope = 1 - (i + .5) / 8;
+    ctx.fillStyle = `rgba(130,155,195,${.18 + .4 * slope})`;
+    if (quad(-DECK_HW, DECK_HW, ya, yb)) ctx.fill();
+  }
+  // crisp edges: white lip along the deck sides and a blue line at the brow of the ramp
+  ctx.strokeStyle = 'rgba(255,255,255,.95)'; ctx.lineWidth = 1.5;
+  for (const sd of [-1, 1]){ const a = proj(sd * DECK_HW, y0), b = proj(sd * DECK_HW, 0); if (a && b){ ctx.beginPath(); ctx.moveTo(a.X, a.Y); ctx.lineTo(b.X, b.Y); ctx.stroke(); } }
+  const L = proj(-DECK_HW, 0), R = proj(DECK_HW, 0);
+  if (L && R){ ctx.strokeStyle = 'rgba(31,85,200,.55)'; ctx.lineWidth = Math.max(1, 1.4 * L.k); ctx.beginPath(); ctx.moveTo(L.X, L.Y); ctx.lineTo(R.X, R.Y); ctx.stroke(); }
+}
 function render(){
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   const live = state === 'run' || state === 'countdown' || state === 'gate' || state === 'finished';
@@ -3372,6 +3486,9 @@ function render(){
       if (p && p.Y > -4 && p.Y < ch + 4 && p.X > -4 && p.X < cw + 4) ctx.fillRect(p.X, p.Y, 1.4*p.k, .9*p.k);
     }
   }
+  WEAR = courseWear();
+  drawStartDeck(yNear, yFar);
+  if (state !== 'inspect' || race) drawRuts(yNear, yFar);
   // ski tracks
   ctx.strokeStyle = COL.track; ctx.lineCap = 'round';
   for (const off of [-3.4, 3.4]){
