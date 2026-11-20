@@ -245,31 +245,42 @@ tr.cut td{border-bottom:2px solid var(--amber)}
 .cutboard .df{color:var(--amber);min-width:3.4em;text-align:right}
 .acthint{position:absolute;left:50%;top:27%;transform:translateX(-50%);width:max-content;max-width:calc(100% - 32px);text-align:center;background:rgba(14,26,46,.82);color:#fff;border-radius:4px;padding:6px 12px;font-size:12px;line-height:1.7;pointer-events:none}
 .acthint kbd{background:#fff;color:var(--board)}
-.cer{position:absolute;inset:0;z-index:6;display:flex;align-items:center;justify-content:center;background:rgba(9,17,32,.55);padding:12px max(12px,env(safe-area-inset-right,0px)) 12px max(12px,env(safe-area-inset-left,0px));overflow:auto}
-.cer-in{position:relative;width:min(640px,100%);background:linear-gradient(180deg,#13213A 0 62%,#E8EEF6 62%);border-radius:8px;padding:14px 14px 16px;box-shadow:0 14px 40px rgba(0,0,0,.4);overflow:hidden;color:#fff;display:flex;flex-direction:column;gap:10px}
-.cer-back{position:absolute;inset:0 0 auto 0;height:62%;display:flex;justify-content:space-around;align-items:center;font-family:var(--f-num);font-style:italic;font-weight:800;font-size:clamp(18px,5vw,34px);color:rgba(255,255,255,.07);pointer-events:none}
-.cer-flags{position:relative;display:flex;justify-content:center;gap:clamp(30px,10vw,80px);height:86px}
-.pole{position:relative;width:3px;background:#C9D2DE;height:84px;border-radius:2px}
-.pole.p1{height:96px;margin-top:-12px}
-.cflag{position:absolute;left:3px;bottom:0;width:42px;height:28px;box-shadow:0 0 0 1px rgba(0,0,0,.25);animation:raise 2.6s ease-out var(--d) forwards}
-@keyframes raise{to{bottom:calc(100% - 28px)}}
-.cer-title{position:relative;text-align:center;font-weight:700;font-size:clamp(16px,4.2vw,22px);text-wrap:balance}
-.cer-title small{display:block;font-family:var(--f-num);font-weight:500;letter-spacing:.12em;color:var(--muted);font-size:12px;text-transform:uppercase}
-.cer-podium{position:relative;display:grid;grid-template-columns:1fr 1.1fr 1fr;align-items:end;gap:6px}
-.pod{display:flex;flex-direction:column;align-items:center;gap:2px;animation:podin .6s ease-out var(--d) both}
-@keyframes podin{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
-.ath{width:clamp(38px,11vw,62px);height:auto}
-.ath.win{animation:hop 1s ease-in-out 1.6s infinite}
-@keyframes hop{50%{transform:translateY(-6px)}}
-.pod-name{display:flex;align-items:center;gap:4px;font-size:clamp(10px,2.8vw,13px);font-weight:700;color:var(--ink);background:rgba(255,255,255,.94);border-radius:3px;padding:1px 6px;text-align:center;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.pod.me .pod-name{color:var(--red)}
-.pod-time{font-family:var(--f-num);font-weight:700;font-size:clamp(11px,3vw,14px);color:#13213A;background:rgba(255,255,255,.8);border-radius:3px;padding:0 5px}
-.pod-box{width:100%;display:flex;align-items:center;justify-content:center;background:linear-gradient(#FFFFFF,#D9E1EC);border:2px solid #13213A;border-bottom:0;border-radius:4px 4px 0 0;color:#13213A;font-family:var(--f-num);font-style:italic;font-weight:800;font-size:clamp(26px,7vw,40px)}
-.p1 .pod-box{height:84px;background:linear-gradient(#FFE38A,#F2B600)}
-.p2 .pod-box{height:66px;background:linear-gradient(#F2F4F8,#B9C3D1)}
-.p3 .pod-box{height:48px;background:linear-gradient(#F3C9A1,#C47F3D)}
+.cer{position:absolute;inset:0;z-index:6;display:flex;align-items:flex-start;justify-content:center;background:rgba(9,17,32,.55);padding:10px max(10px,env(safe-area-inset-right,0px)) 10px max(10px,env(safe-area-inset-left,0px));overflow:auto}
+.cer-in{position:relative;margin:auto 0;width:min(720px,100%);border-radius:8px;overflow:hidden;box-shadow:0 14px 40px rgba(0,0,0,.4);background:linear-gradient(#DCE6F2,#F4F7FB 60%,#FFFFFF);display:flex;flex-direction:column;padding:10px 10px 14px;gap:8px;color:var(--ink)}
+.wall{position:relative;margin:0 auto;width:92%;background:var(--wall);border-radius:14px 14px 0 0;padding:34px 30px 0;color:#fff;box-shadow:inset 0 -40px 40px rgba(0,0,0,.12)}
+.wall-top{position:absolute;left:0;right:0;top:0;height:30px;display:flex;justify-content:space-between;align-items:center;padding:0 12px;background:linear-gradient(90deg,var(--wall) 0 55%,#F2F4F8 55%);border-radius:14px 14px 0 0}
+.wt-l{font-family:var(--f-num);font-style:italic;font-weight:800;font-size:clamp(12px,3.2vw,18px);letter-spacing:.04em}
+.wt-r{font-family:var(--f-num);font-weight:800;font-size:clamp(16px,4.6vw,28px);color:#13213A}
+.wall-side{position:absolute;top:34px;bottom:0;width:28px;display:flex;align-items:center;justify-content:center;writing-mode:vertical-rl;font-family:var(--f-num);font-weight:800;font-size:clamp(12px,3.4vw,20px);letter-spacing:.06em}
+.wall-side.l{left:0;transform:rotate(180deg)} .wall-side.r{right:0}
+.wall-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:5px;padding-bottom:70px}
+.wb{background:#fff;color:var(--wall);border:2px solid rgba(255,255,255,.6);font-family:var(--f-num);font-weight:800;font-size:clamp(9px,2.4vw,13px);text-align:center;padding:4px 2px;line-height:1.05}
+.wb small{display:block;font-weight:500;font-size:.7em;color:#56657F}
+.stage{position:relative;display:grid;grid-template-columns:1fr 3fr 1fr;align-items:end;margin-top:-118px;padding:0 4px}
+.podium{display:grid;grid-template-columns:1fr 1.05fr 1fr;align-items:end;gap:4px}
+.col{display:flex;flex-direction:column;align-items:center}
+.blk{width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;background:linear-gradient(#FFFFFF,#E3E9F1);border:1px solid #C9D2DE;color:#D42A2F;font-family:var(--f-num);font-weight:800;box-shadow:0 6px 12px rgba(19,33,58,.12)}
+.blk b{font-style:italic;font-size:clamp(20px,5.5vw,32px);line-height:1;color:#13213A}
+.blk span{font-size:clamp(8px,2vw,11px);letter-spacing:.04em}
+.c1 .blk{height:clamp(64px,15vw,96px)} .c2 .blk{height:clamp(46px,10vw,64px)} .c3 .blk{height:clamp(38px,8vw,52px)}
+.per{display:flex;flex-direction:column;align-items:center;animation:podin .6s ease-out var(--d) both}
+@keyframes podin{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+.ath{width:clamp(44px,12vw,74px);height:auto;display:block}
+.p1 .ath{width:clamp(50px,14vw,84px)}
+.ath.pz-up,.ath.pz-globe{animation:cheerhop 1s ease-in-out 1.8s infinite}
+@keyframes cheerhop{50%{transform:translateY(-6px)}}
+.ground-l,.ground-r{display:flex;align-items:flex-end;justify-content:center;gap:2px}
+.ground-l .ath,.ground-r .ath{width:clamp(34px,9vw,56px)}
+.plate{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:3px;background:rgba(255,255,255,.95);border-radius:3px;padding:1px 5px;margin:2px 0 3px;font-size:clamp(9px,2.4vw,12px);font-weight:700;max-width:100%;text-align:center;box-shadow:0 1px 4px rgba(19,33,58,.15)}
+.plate b{font-family:var(--f-num);color:#D42A2F}
+.plate small{flex-basis:100%;font-family:var(--f-num);font-weight:700;color:#56657F;font-size:.95em}
+.plate.me{background:#FFF3C4;color:var(--red)}
+.gp{display:flex;flex-direction:column;align-items:center}
+.col .plate{width:100%;margin-top:4px}
+.cer-title{text-align:center;font-weight:700;font-size:clamp(15px,4vw,20px);text-wrap:balance}
+.cer-title small{display:block;font-family:var(--f-num);font-weight:500;letter-spacing:.1em;color:#56657F;font-size:12px;text-transform:uppercase}
 .cer .btns{justify-content:center}
-@media (prefers-reduced-motion:reduce){ .cflag{animation:none;bottom:calc(100% - 28px)} .pod,.ath.win{animation:none} }
+@media (prefers-reduced-motion:reduce){ .per,.ath.pz-up,.ath.pz-globe{animation:none} }
 .conn{font-size:12px;color:var(--muted)}
 .conn.ok{color:var(--good)}
 
@@ -2437,19 +2448,37 @@ function paintFlag(nat, x, y, w, h, flap){
 // =====================================================================
 // Podium ceremony (race top 3) and crystal globe ceremony (season top 3 after the Finals)
 // =====================================================================
-function athleteSVG(nat, me, place, kind){
+// a racer in race suit seen from the front; pose: 'up' (skis held overhead), 'side' (skis upright beside), 'globe', 'ground'
+function athleteSVG(nat, me, pose, place){
   const c = NAT[nat] || { suit: '#13213A', trim: '#fff' };
-  const arms = place === 1 ? 'M14 30 L6 12 M34 30 L42 12' : 'M14 30 L9 44 M34 30 L39 44';
-  const prize = kind === 'globe' && place === 1
-    ? '<g class="prize"><circle cx="42" cy="6" r="7" fill="#DDEBFF" stroke="#9FBFEA" stroke-width="1.2"/><path d="M38 4 Q42 1 46 4 M37 8 Q42 11 47 8" stroke="#fff" stroke-width="1" fill="none"/><rect x="40.5" y="12" width="3" height="5" fill="#C9D2DE"/></g>'
-    : place === 1 ? '<g class="prize"><path d="M36 2 h12 v4 q0 7 -6 8 q-6 -1 -6 -8z" fill="#FFC93C"/><rect x="40.5" y="14" width="3" height="3" fill="#E0A800"/></g>' : '';
-  return `<svg viewBox="0 0 48 80" class="ath${place === 1 ? ' win' : ''}" aria-hidden="true">
-    <path d="${arms}" stroke="${c.suit}" stroke-width="5" stroke-linecap="round"/>
-    <rect x="13" y="24" width="22" height="28" rx="7" fill="${c.suit}"/>
-    <rect x="21" y="24" width="6" height="28" fill="${c.trim}" opacity=".9"/>
-    <rect x="16" y="50" width="7" height="24" rx="3" fill="${shade(c.suit, .75)}"/><rect x="25" y="50" width="7" height="24" rx="3" fill="${shade(c.suit, .75)}"/>
-    <circle cx="24" cy="15" r="9" fill="${me ? '#D42A2F' : '#F2C9A0'}"/>${me ? '' : `<path d="M15 13 Q24 3 33 13" fill="${shade(c.suit, .9)}"/>`}
-    ${prize}
+  const suit = c.suit, trim = c.trim === c.suit ? '#fff' : c.trim, legs = shade(suit, .8);
+  const skiA = me ? gearItem('ski', myGear.ski) : GEAR.ski.items[(hashStr(nat + place) >>> 3) % GEAR.ski.items.length];
+  const skiCol = ['#F4F1E8', '#C9D2DE'].includes(skiA.c1) ? '#8A97AA' : skiA.c1;
+  const face = me ? '#F2C9A0' : ['#F2C9A0', '#E6B98F', '#D9A77A'][hashStr(nat) % 3];
+  let arms, skis = '', extra = '';
+  if (pose === 'up'){
+    arms = `<path d="M15 34 L7 12 M41 34 L49 12" stroke="${suit}" stroke-width="6" stroke-linecap="round"/>`;
+    skis = `<g class="skisup"><rect x="-2" y="4" width="60" height="4" rx="2" fill="${skiCol}" transform="rotate(-8 28 6)"/><rect x="-2" y="9" width="60" height="4" rx="2" fill="${skiA.c2}" transform="rotate(-8 28 11)"/></g>`;
+  } else if (pose === 'globe'){
+    arms = `<path d="M15 34 L9 16 M41 34 L47 16" stroke="${suit}" stroke-width="6" stroke-linecap="round"/>`;
+    extra = `<circle cx="28" cy="6" r="9" fill="#DDEBFF" stroke="#9FBFEA" stroke-width="1.4"/><path d="M22 4 Q28 0 34 4 M21 9 Q28 13 35 9" stroke="#fff" stroke-width="1.2" fill="none"/><rect x="25" y="14" width="6" height="5" fill="#C9D2DE"/>`;
+  } else {
+    arms = `<path d="M15 34 L10 54 M41 34 L47 46" stroke="${suit}" stroke-width="6" stroke-linecap="round"/>`;
+    skis = `<rect x="49" y="6" width="4" height="96" rx="2" fill="${skiCol}"/><rect x="54" y="6" width="4" height="96" rx="2" fill="${skiA.c2}"/>`;
+  }
+  return `<svg viewBox="-4 0 64 112" class="ath pz-${pose}" aria-hidden="true">
+    ${skis}
+    ${arms}
+    <rect x="15" y="30" width="26" height="34" rx="8" fill="${suit}"/>
+    <path d="M15 40 L41 40" stroke="${trim}" stroke-width="3"/>
+    <rect x="18" y="36" width="20" height="18" rx="2" fill="#fff"/><rect x="18" y="36" width="20" height="4" fill="#D42A2F"/>
+    <text x="28" y="51" text-anchor="middle" font-family="Barlow Condensed,sans-serif" font-weight="800" font-size="10" fill="#13213A">${place}</text>
+    <rect x="18" y="62" width="9" height="34" rx="3" fill="${legs}"/><rect x="29" y="62" width="9" height="34" rx="3" fill="${legs}"/>
+    <path d="M20 66 L20 94 M36 66 L36 94" stroke="${trim}" stroke-width="2" opacity=".8"/>
+    <rect x="16" y="94" width="12" height="9" rx="2" fill="#E8ECF2"/><rect x="29" y="94" width="12" height="9" rx="2" fill="#E8ECF2"/>
+    <circle cx="28" cy="20" r="10" fill="${face}"/>
+    <path d="M17 18 Q28 4 39 18 L39 14 Q28 0 17 14 Z" fill="${me ? '#D42A2F' : shade(suit, .9)}"/>
+    ${extra}
   </svg>`;
 }
 function playFanfare(){
@@ -2458,33 +2487,46 @@ function playFanfare(){
   const notes = [[523, 0, .18], [659, .2, .18], [784, .4, .18], [1047, .62, .5], [784, 1.2, .18], [1047, 1.4, .8]];
   notes.forEach(([f, t, d]) => setTimeout(() => { tone(f, d + .1, 'sawtooth', .06); tone(f / 2, d + .1, 'triangle', .05); }, t * 1000));
 }
-function showCeremony(kind, top3, ev){
-  if (!top3 || top3.length < 3) return;
-  const order = [top3[1], top3[0], top3[2]];                  // 2nd · 1st · 3rd
-  const title = kind === 'globe' ? `回転 種目別 クリスタルグローブ 授賞式` : `${JP[ev.venue] || ev.venue} 回転 表彰式`;
-  const sub = kind === 'globe' ? `FIS Alpine Ski World Cup 2026/27 · ${gender === 'men' ? "Men's" : "Women's"} Slalom Globe` : `FIS Alpine Ski World Cup · ${ev.venue} (${ev.nat}) · ${gender === 'men' ? "Men's" : "Women's"} Slalom`;
-  const block = (x, i) => {
-    const place = [2, 1, 3][i], nat = natOf(x.id), me = x.id === 'you';
-    return `<div class="pod p${place}${me ? ' me' : ''}" style="--d:${[.5, 1.1, 0][i]}s">
-      ${athleteSVG(nat, me, place, kind)}
-      <div class="pod-name"><span class="flag" style="background:${FLAG[nat] || '#C9D2E3'}"></span>${esc(nameOf(x.id))}${me && nameOf(x.id) !== 'あなた' ? '（あなた）' : ''}</div>
-      <div class="pod-time">${x.line}</div>
-      <div class="pod-box"><b>${place}</b></div>
-    </div>`;
+function showCeremony(kind, top, ev){
+  if (!top || top.length < 3) return;
+  const venue = ev.venue;
+  const host = NAT[ev.nat] || { suit: '#C8102E', trim: '#fff' };
+  const wallCol = kind === 'globe' ? '#13235E' : host.suit === '#FFFFFF' ? '#C8102E' : host.suit;
+  const title = kind === 'globe' ? '回転 クリスタルグローブ 授賞式' : `${JP[venue] || venue} 回転 表彰式`;
+  const boards = Array.from({ length: 15 }, (_, i) => `<div class="wb">${i % 2 ? esc(venue) : kind === 'globe' ? 'CRYSTAL GLOBE' : 'WORLD CUP'}<small>${i % 2 ? 'FIS ALPINE' : 'SLALOM 2026/27'}</small></div>`).join('');
+  const person = (x, place, pose) => {
+    const me = x.id === 'you', nat = natOf(x.id);
+    const plate = `<div class="plate${me ? ' me' : ''}"><span class="flag" style="background:${FLAG[nat] || '#C9D2E3'}"></span><b>${place}</b> ${esc(nameOf(x.id))}${me && nameOf(x.id) !== 'あなた' ? '（あなた）' : ''}<small>${x.line}</small></div>`;
+    const fig = `<div class="per p${place}${me ? ' me' : ''}" style="--d:${({ 1: 1.2, 2: .6, 3: .3, 4: .1, 5: .1, 6: 0 })[place]}s">${athleteSVG(nat, me, pose, place)}</div>`;
+    return place <= 3 ? { fig, plate } : `<div class="gp">${fig}${plate}</div>`;
   };
-  const flags = order.map((x, i) => `<div class="pole p${[2, 1, 3][i]}"><span class="cflag" style="background:${FLAG[natOf(x.id)] || '#C9D2E3'};--d:${[.5, 1.1, 0][i] + 1.2}s"></span></div>`).join('');
+  const p1 = person(top[0], 1, kind === 'globe' ? 'globe' : 'up'), p2 = person(top[1], 2, 'side'), p3 = person(top[2], 3, 'side');
+  const side = top.slice(3, 6).map((x, i) => person(x, i + 4, 'ground'));
   const el = $('#cer');
-  el.innerHTML = `<div class="cer-in">
-      <div class="cer-back"><span>WORLD CUP</span><span>${esc(ev.venue.toUpperCase())}</span><span>WORLD CUP</span></div>
-      <div class="cer-flags">${flags}</div>
-      <div class="cer-title"><small>${esc(sub)}</small>${esc(title)}</div>
-      <div class="cer-podium">${order.map(block).join('')}</div>
+  el.innerHTML = `<div class="cer-in" style="--wall:${wallCol}">
+      <div class="cer-sky"></div>
+      <div class="wall">
+        <div class="wall-top"><span class="wt-l">${kind === 'globe' ? 'CRYSTAL GLOBE' : 'WORLD CUP'}</span><span class="wt-r">${esc(venue)}</span></div>
+        <div class="wall-side l">${kind === 'globe' ? 'WORLD CUP' : 'WORLD CUP'}</div>
+        <div class="wall-grid">${boards}</div>
+        <div class="wall-side r">${esc(venue)}</div>
+      </div>
+      <div class="stage">
+        <div class="ground-l">${side[0] || ''}${side[2] || ''}</div>
+        <div class="podium">
+          <div class="col c2">${p2.fig}<div class="blk"><b>2</b><span>${esc(venue)}</span></div>${p2.plate}</div>
+          <div class="col c1">${p1.fig}<div class="blk"><b>1</b><span>${esc(venue)}</span></div>${p1.plate}</div>
+          <div class="col c3">${p3.fig}<div class="blk"><b>3</b><span>${esc(venue)}</span></div>${p3.plate}</div>
+        </div>
+        <div class="ground-r">${side[1] || ''}</div>
+      </div>
+      <div class="cer-title">${esc(title)}<small>FIS Alpine Ski World Cup · ${esc(venue)} (${ev.nat}) · ${gender === 'men' ? "Men's" : "Women's"} Slalom</small></div>
       <div class="btns"><button class="btn primary" type="button" id="cerClose">閉じる</button></div>
     </div>`;
   el.hidden = false;
   $('#cerClose').onclick = () => { el.hidden = true; confetti = []; };
   ac(); playFanfare();
-  setTimeout(() => crowdCheer(1), 900);
+  setTimeout(() => crowdCheer(1), 1300);
   confetti = [];
   for (let i = 0; i < 220; i++) confetti.push({ x: Math.random() * cw, y: -Math.random() * ch, vx: (Math.random() - .5) * 60, vy: 70 + Math.random() * 110, r: Math.random() * 6.28, vr: (Math.random() - .5) * 8, c: FAN_COLS[i % FAN_COLS.length] });
 }
@@ -2650,7 +2692,7 @@ function showFinal(){
   html += `<div class="btns"><button class="btn primary" type="button" id="toCal">キャリアの日程に戻る</button>${res.length >= 3 ? '<button class="btn" type="button" id="toCer">表彰式を見る</button>' : ''}${seasonOver ? '<button class="btn" type="button" id="toGlobe">クリスタルグローブ授賞式</button>' : ''}<button class="btn" type="button" id="toStand">ランキングを見る</button></div>`;
   openSheet('Official Results', `${JP[race.ev.venue]} 回転 最終結果`, html);
   scrollMeIntoView();
-  const r3 = res.slice(0, 3).map(o => ({ id: o.id, line: fmt(o.t) + (o.rank === 1 ? '' : '  ' + fmtDiff(o.t - best)) }));
+  const r3 = res.slice(0, 6).map(o => ({ id: o.id, line: fmt(o.t) + (o.rank === 1 ? '' : '  ' + fmtDiff(o.t - best)) }));
   const ev = race.ev;
   if ($('#toCer')) $('#toCer').onclick = () => showCeremony('race', r3, ev);
   if ($('#toGlobe')) $('#toGlobe').onclick = () => showCeremony('globe', ranking().slice(0, 3).map(e => ({ id: e.id, line: e.pts + ' pt' })), ev);
