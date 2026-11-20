@@ -149,20 +149,30 @@ function board_() {
 
 // Player ranking: each player's career summary for every season they have played (no personal data beyond the name)
 function players_() {
-  const v = data_().getDataRange().getValues(), rows = [];
+  const v = data_().getDataRange().getValues(), rows = [], who = {};
   for (let i = 1; i < v.length; i++) {
     const key = String(v[i][1]);
+    if (key === 'slalomwc-prefs') {
+      try { const pf = JSON.parse(v[i][2] || '{}'); who[String(v[i][0])] = { nat: String(pf.nat || ''), gear: pf.gear || {} }; } catch (e) {}
+      continue;
+    }
     if (!/^slalomwc-2627-(men|women)-[a-z]+$/.test(key)) continue;
     try {
       const d = JSON.parse(v[i][2] || '{}');
       const done = d.done || {}, places = (d.places && d.places.you) || [];
-      let races = 0, best = 0;
-      Object.keys(done).forEach(function (k) { const r = done[k]; if (r && r.status !== 'dns') races++; if (r && r.rank && (!best || r.rank < best)) best = r.rank; });
+      let races = 0, best = 0, vmax = 0, top10 = 0, rankSum = 0, ranked = 0;
+      Object.keys(done).forEach(function (k) {
+        const r = done[k]; if (!r) return;
+        if (r.status !== 'dns') races++;
+        if (r.rank){ if (!best || r.rank < best) best = r.rank; if (r.rank <= 10) top10++; rankSum += r.rank; ranked++; }
+        if (r.v && r.v > vmax) vmax = r.v;
+      });
       rows.push({ name: String(v[i][0]), key: key.replace('slalomwc-2627-', ''), pts: Number((d.pts && d.pts.you) || 0), races: races,
-                  wins: Number(places[0] || 0), podiums: Number(places[0] || 0) + Number(places[1] || 0) + Number(places[2] || 0), best: best });
+                  wins: Number(places[0] || 0), podiums: Number(places[0] || 0) + Number(places[1] || 0) + Number(places[2] || 0), best: best,
+                  vmax: vmax, top10: top10, avg: ranked ? Math.round(rankSum / ranked * 10) / 10 : 0 });
     } catch (e) {}
   }
-  return { ok: true, rows: rows };
+  return { ok: true, rows: rows, who: who };
 }
 
 // ---------------------------------------------------------------------

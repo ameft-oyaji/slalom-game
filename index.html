@@ -318,6 +318,16 @@ body.nightrace .ev-gear .up,body.nightrace .ev-gear .dn{color:#fff!important}
 .free-form{display:grid;grid-template-columns:auto 1fr;gap:8px 10px;align-items:center;margin:10px 0}
 .free-form select{width:100%;min-width:0}
 .conn{font-size:12px;color:var(--muted)}
+.rk-tabs{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 4px}
+.rk-tab{border:1px solid rgba(255,255,255,.18);background:var(--board-2);color:inherit;font:inherit;font-size:13px;font-weight:700;border-radius:999px;padding:5px 12px;cursor:pointer}
+.rk-tab.on{background:var(--amber);color:#1A1300;border-color:var(--amber)}
+.rkgear{margin:10px 0}.rkgear h4{margin:6px 0;font-size:14px}
+.rkb{display:grid;grid-template-columns:minmax(150px,1.2fr) 2fr minmax(76px,auto);gap:8px;align-items:center;font-size:13px;padding:3px 6px;border-radius:4px}
+.rkb.me{background:rgba(255,201,60,.14)}
+.rkl{display:flex;align-items:center;gap:5px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.rkl b{font-family:var(--f-num);color:var(--amber);min-width:1.2em}.rkl small{color:var(--muted);font-size:11px}
+.rkt{height:10px;background:rgba(127,140,160,.22);border-radius:5px;overflow:hidden}.rkt i{display:block;height:100%;background:linear-gradient(90deg,#1F55C8,#4C8DFF);border-radius:5px}
+.rkb.me .rkt i{background:linear-gradient(90deg,#E8A400,#FFC93C)}
+.rkn{font-family:var(--f-num);font-weight:700;text-align:right;white-space:nowrap}
 body.nightrace .ev-label,body.nightrace .ev-label *,body.nightrace #keys,body.nightrace #keys *{color:#fff!important;text-shadow:0 1px 3px rgba(0,0,0,.85)}
 .conn.ok{color:var(--good)}
 
@@ -454,7 +464,7 @@ body.nightrace .ev-label,body.nightrace .ev-label *,body.nightrace #keys,body.ni
         <button type="button" role="tab" id="tTa" aria-selected="false">タイムアタック</button>
         <button type="button" role="tab" id="tFree" aria-selected="false">フリースキー</button>
         <button type="button" role="tab" id="tBt" aria-selected="false">オンライン対戦</button>
-        <button type="button" role="tab" id="tPl" aria-selected="false">プレーヤー</button>
+        <button type="button" role="tab" id="tPl" aria-selected="false">いろいろランキング</button>
         <button type="button" role="tab" id="tGear" aria-selected="false">選手・用具</button>
         <button type="button" role="tab" id="tRules" aria-selected="false">ルールと操作</button>
       </div>
@@ -1867,10 +1877,10 @@ async function loadPlayers(force){
   PLAYERS.status = 'loading';
   try {
     const r = await (await fetch(CLOUD.url + '?action=players')).json();
-    PLAYERS.rows = r.ok ? r.rows : []; PLAYERS.status = r.ok ? 'ok' : 'error'; PLAYERS.at = performance.now();
+    PLAYERS.rows = r.ok ? r.rows : []; PLAYERS.who = (r.ok && r.who) || {}; PLAYERS.status = r.ok ? 'ok' : 'error'; PLAYERS.at = performance.now();
   } catch(e){ PLAYERS.status = 'error'; }
   if (TA.cloud) await cloudBoard();
-  if (tab === 'players' && !$('#menu').hidden) $('#tabBody').innerHTML = playersHTML();
+  if (tab === 'players' && !$('#menu').hidden){ $('#tabBody').innerHTML = playersHTML(); bindRkTabs($('#tabBody')); }
 }
 function taOverall(g){
   const per = {};                // handle -> { pts, courses, wins }
@@ -1893,29 +1903,94 @@ function taOverall(g){
   out.forEach((o, i) => { o.rank = 1 + out.filter(x => x.pts > o.pts).length; });
   return out;
 }
+// Rankings hub: many leaderboards between registered players (season results, speed, time attack, gear, nations)
+let RK = 'pts';
+const RK_TABS = [['pts','シーズン総合'], ['wins','優勝回数'], ['podiums','表彰台'], ['top10','トップ10'], ['best','最高順位'], ['avg','平均順位'], ['vmax','最高速度'], ['races','出場レース'], ['ta','タイムアタック'], ['gear','使用マテリアル'], ['wingear','上位選手の用具'], ['nat','国別']];
+function rkBar(label, n, max, extra, me){
+  const w = max ? Math.max(3, n / max * 100) : 0;
+  return `<div class="rkb${me ? ' me' : ''}"><span class="rkl">${label}</span><span class="rkt"><i style="width:${w}%"></i></span><span class="rkn">${extra}</span></div>`;
+}
 function playersHTML(){
   const g = gender, seasonId = `${gender}-${level}`;
-  let html = `<p class="note">登録したプレーヤーどうしの順位です。上の「男子／女子」と「ライバルの強さ」を切り替えると、その組み合わせの順位になります。</p>`;
-  // career
-  html += `<h3>シーズンランキング（${gender === 'men' ? '男子' : '女子'}・${LEVEL_NAME[level]}）</h3>`;
-  if (!CLOUD.url){
-    html += `<p class="note">シーズンのプレーヤーランキングは、公開サイト（ユーザー登録あり）で表示されます。</p>`;
-  } else if (!PLAYERS.rows){
-    html += `<p class="conn">${PLAYERS.status === 'error' ? 'ランキングを読み込めませんでした。時間をおいて開き直してください。' : '読み込み中…'}</p>`;
-  } else {
-    const list = PLAYERS.rows.filter(r => r.key === seasonId).sort((a, b) => b.pts - a.pts || b.wins - a.wins || b.podiums - a.podiums);
-    list.forEach(r => { r.rank = 1 + list.filter(x => x.pts > r.pts || (x.pts === r.pts && (x.wins > r.wins || (x.wins === r.wins && x.podiums > r.podiums)))).length; });
-    if (!list.length) html += `<p class="note">この組み合わせで遊んでいる登録プレーヤーはまだいません。</p>`;
-    else html += table(['順位','プレーヤー','Pt','レース','優勝','表彰台','最高'], list.slice(0, 100).map(r => `<tr class="${CLOUD.name && r.name === CLOUD.name ? 'me' : ''}"><td class="n">${r.rank}</td><td>${esc(r.name)}${CLOUD.name && r.name === CLOUD.name ? '（あなた）' : ''}</td><td class="n">${r.pts}</td><td class="r">${r.races}</td><td class="r">${r.wins || ''}</td><td class="r">${r.podiums || ''}</td><td class="r">${r.best ? r.best + '位' : '—'}</td></tr>`));
-    if (CLOUD.url && !CLOUD.token) html += `<p class="note">あなたの成績を載せるには、「選手・用具」タブでユーザー登録してください。</p>`;
+  let html = `<p class="note">登録したプレーヤーどうしのランキングです。シーズンの項目は、上の「男子／女子」と「ライバルの強さ」の組み合わせごとです。</p>`;
+  html += `<div class="rk-tabs" role="tablist">${RK_TABS.map(([k, l]) => `<button type="button" role="tab" class="rk-tab${RK === k ? ' on' : ''}" data-rk="${k}" aria-selected="${RK === k}">${l}</button>`).join('')}</div>`;
+  const youName = CLOUD.name || '';
+  const rowCls = n => youName && n === youName ? 'me' : '';
+  const you = n => youName && n === youName ? '（あなた）' : '';
+  const needCloud = () => !CLOUD.url ? `<p class="note">プレーヤーランキングは、公開サイト（ユーザー登録あり）で表示されます。</p>` : !PLAYERS.rows ? `<p class="conn">${PLAYERS.status === 'error' ? 'ランキングを読み込めませんでした。時間をおいて開き直してください。' : '読み込み中…'}</p>` : '';
+  const seasonRows = () => (PLAYERS.rows || []).filter(r => r.key === seasonId);
+  const ranked = (list, val, desc = true, fmtV = v => v) => {
+    const xs = list.filter(r => val(r) > 0).sort((a, b) => desc ? val(b) - val(a) : val(a) - val(b));
+    xs.forEach(r => { r._rk = 1 + xs.filter(x => desc ? val(x) > val(r) : val(x) < val(r)).length; });
+    return xs;
+  };
+  const statTable = (title, unit, val, desc = true, fmtV = v => v, note = '') => {
+    html += `<h3>${title}（${gender === 'men' ? '男子' : '女子'}・${LEVEL_NAME[level]}）</h3>${note ? `<p class="note">${note}</p>` : ''}`;
+    const w = needCloud(); if (w){ html += w; return; }
+    const xs = ranked(seasonRows(), val, desc);
+    if (!xs.length){ html += `<p class="note">まだ記録がありません。</p>`; return; }
+    html += table(['順位', 'プレーヤー', unit, 'レース', 'Pt'], xs.slice(0, 100).map(r => `<tr class="${rowCls(r.name)}"><td class="n">${r._rk}</td><td>${esc(r.name)}${you(r.name)}</td><td class="n">${fmtV(val(r))}</td><td class="r">${r.races}</td><td class="r">${r.pts}</td></tr>`));
+  };
+  if (RK === 'pts'){
+    html += `<h3>シーズン総合（${gender === 'men' ? '男子' : '女子'}・${LEVEL_NAME[level]}）</h3>`;
+    const w = needCloud();
+    if (w) html += w;
+    else {
+      const list = seasonRows().sort((a, b) => b.pts - a.pts || b.wins - a.wins || b.podiums - a.podiums);
+      list.forEach(r => { r.rank = 1 + list.filter(x => x.pts > r.pts || (x.pts === r.pts && (x.wins > r.wins || (x.wins === r.wins && x.podiums > r.podiums)))).length; });
+      if (!list.length) html += `<p class="note">この組み合わせで遊んでいる登録プレーヤーはまだいません。</p>`;
+      else html += table(['順位','プレーヤー','Pt','レース','優勝','表彰台','最高'], list.slice(0, 100).map(r => `<tr class="${rowCls(r.name)}"><td class="n">${r.rank}</td><td>${esc(r.name)}${you(r.name)}</td><td class="n">${r.pts}</td><td class="r">${r.races}</td><td class="r">${r.wins || ''}</td><td class="r">${r.podiums || ''}</td><td class="r">${r.best ? r.best + '位' : '—'}</td></tr>`));
+    }
   }
-  // time attack overall
-  const ov = taOverall(g);
-  html += `<h3>タイムアタック総合（${gender === 'men' ? '男子' : '女子'}コース）</h3><p class="note">各コースのプレーヤー順位に、ワールドカップと同じポイント（1位100・2位80・3位60…30位1）を付けて合計しています。</p>`;
-  if (!ov.length) html += `<p class="note">まだタイムアタックの記録がありません。</p>`;
-  else html += table(['順位','プレーヤー','Pt','コース','1位'], ov.slice(0, 100).map(o => `<tr class="${o.me ? 'me' : ''}"><td class="n">${o.rank}</td><td>${esc(o.handle)}${o.me ? '（あなた）' : ''}</td><td class="n">${o.pts}</td><td class="r">${o.courses}</td><td class="r">${o.wins || ''}</td></tr>`));
+  else if (RK === 'wins') statTable('優勝回数', '優勝', r => r.wins);
+  else if (RK === 'podiums') statTable('表彰台の回数', '表彰台', r => r.podiums);
+  else if (RK === 'top10') statTable('トップ10入りの回数', 'トップ10', r => r.top10 || 0);
+  else if (RK === 'best') statTable('最高順位', '最高', r => r.best, false, v => v + '位');
+  else if (RK === 'avg') statTable('平均順位', '平均', r => r.avg || 0, false, v => v.toFixed(1) + '位', '完走したレースの順位の平均です。小さいほど上位。');
+  else if (RK === 'vmax') statTable('最高速度', 'km/h', r => r.vmax || 0, true, v => v + ' km/h', 'シーズンのレースで出した最高速度です（この機能を入れた後のレースから記録されます）。');
+  else if (RK === 'races') statTable('出場レース数', 'レース', r => r.races);
+  else if (RK === 'ta'){
+    const ov = taOverall(g);
+    html += `<h3>タイムアタック総合（${gender === 'men' ? '男子' : '女子'}コース）</h3><p class="note">各コースのプレーヤー順位に、ワールドカップと同じポイント（1位100・2位80・3位60…30位1）を付けて合計しています。</p>`;
+    if (!ov.length) html += `<p class="note">まだタイムアタックの記録がありません。</p>`;
+    else html += table(['順位','プレーヤー','Pt','コース','1位'], ov.slice(0, 100).map(o => `<tr class="${o.me ? 'me' : ''}"><td class="n">${o.rank}</td><td>${esc(o.handle)}${o.me ? '（あなた）' : ''}</td><td class="n">${o.pts}</td><td class="r">${o.courses}</td><td class="r">${o.wins || ''}</td></tr>`));
+  }
+  else if (RK === 'gear' || RK === 'wingear'){
+    // who uses what: all registered players, or the gear of the current top 10 in season points
+    const w = needCloud(); if (w) html += w;
+    const who = Object.assign({}, PLAYERS.who || {});
+    if (youName) who[youName] = { nat: myNat, gear: myGear };                // your own, always up to date
+    let names = Object.keys(who);
+    if (RK === 'wingear'){
+      const top = (PLAYERS.rows || []).filter(r => r.key === seasonId && r.pts > 0).sort((a, b) => b.pts - a.pts).slice(0, 10).map(r => r.name);
+      names = names.filter(n => top.includes(n));
+      html += `<h3>上位選手の用具（${gender === 'men' ? '男子' : '女子'}・${LEVEL_NAME[level]}・ポイント上位10人）</h3><p class="note">勝っているプレーヤーがどのブランドを選んでいるかです。</p>`;
+    } else html += `<h3>使用マテリアル人気ランキング</h3><p class="note">登録プレーヤー ${names.length} 人がいま使っている用具です。黄色の行があなたの用具です。</p>`;
+    if (!names.length) html += `<p class="note">まだデータがありません。</p>`;
+    else for (const [cat, grp] of Object.entries(GEAR)){
+      const cnt = {}; for (const n of names){ const id = (who[n].gear || {})[cat] || DEFAULT_GEAR[cat]; cnt[id] = (cnt[id] || 0) + 1; }
+      const items = grp.items.map(it => ({ it, n: cnt[it.id] || 0 })).sort((a, b) => b.n - a.n);
+      const max = Math.max(1, ...items.map(x => x.n));
+      html += `<div class="rkgear"><h4>${grp.label}</h4>${items.map((x, i) => rkBar(`<b>${i + 1}</b> <span class="flag sm" style="background:${FLAG[x.it.org] || '#ccc'}"></span>${esc(x.it.name)} <small>${esc(x.it.model)}</small>`, x.n, max, `${x.n}人・${Math.round(x.n / names.length * 100)}%`, myGear[cat] === x.it.id)).join('')}</div>`;
+    }
+  }
+  else if (RK === 'nat'){
+    const w = needCloud(); if (w) html += w;
+    const who = Object.assign({}, PLAYERS.who || {}); if (youName) who[youName] = { nat: myNat, gear: myGear };
+    const cnt = {}; for (const n of Object.keys(who)){ const c = who[n].nat || 'JPN'; cnt[c] = (cnt[c] || 0) + 1; }
+    // and the points each nation's players have scored this season
+    const pts = {}; for (const r of seasonRows()){ const c = (who[r.name] || {}).nat || 'JPN'; pts[c] = (pts[c] || 0) + r.pts; }
+    const nats = Object.keys(cnt).sort((a, b) => (pts[b] || 0) - (pts[a] || 0) || cnt[b] - cnt[a]);
+    const maxP = Math.max(1, ...nats.map(c => pts[c] || 0));
+    html += `<h3>国別ランキング（${gender === 'men' ? '男子' : '女子'}・${LEVEL_NAME[level]}）</h3><p class="note">プレーヤーが登録した国ごとの、シーズン獲得ポイントの合計と人数です。</p>`;
+    if (!nats.length) html += `<p class="note">まだデータがありません。</p>`;
+    else html += nats.map((c, i) => rkBar(`<b>${i + 1}</b> <span class="flag sm" style="background:${FLAG[c] || '#ccc'}"></span>${esc((NAT[c] || {}).jp || c)}`, pts[c] || 0, maxP, `${pts[c] || 0} pt・${cnt[c]}人`, c === myNat)).join('');
+  }
   if (CLOUD.url) html += `<div class="btns"><button class="btn small" type="button" onclick="this.disabled=true;(${'window.__slReloadPlayers'})()">最新にする</button></div>`;
   return html;
+}
+function bindRkTabs(root){
+  root.querySelectorAll('[data-rk]').forEach(b => b.onclick = () => { RK = b.dataset.rk; root.innerHTML = playersHTML(); bindRkTabs(root); });
 }
 window.__slReloadPlayers = () => loadPlayers(true);
 // =====================================================================
@@ -2846,7 +2921,7 @@ function commitResults(ev, res, status){
     s.form[a.id] = clamp((s.form[a.id] || 0) * .6 + push + gauss(r) * .003, -.012, .012);
   }
   s.prev = prevRank;
-  s.done[ev.date] = { rank: me ? me.rank : null, pts: me ? me.pts : 0, t: me ? me.t : null, status };
+  s.done[ev.date] = { rank: me ? me.rank : null, pts: me ? me.pts : 0, t: me ? me.t : null, status, v: race && race.maxV ? Math.round(race.maxV * .36) : 0 };
   s.hist = s.hist.filter(h => h.date !== ev.date);
   s.hist.push({ date: ev.date, venue: ev.venue, podium: res.slice(0, 3).map(o => o.id), my: me ? me.rank : null, pts: me ? me.pts : 0, status });
   const saved = save(seasonKey(), s);
@@ -3045,7 +3120,7 @@ function renderTab(){
   else if (tab === 'stand') body.innerHTML = standingsHTML();
   else if (tab === 'ta') body.innerHTML = taListHTML();
   else if (tab === 'free'){ body.innerHTML = freeTabHTML(); bindFreeTab(body); }
-  else if (tab === 'players'){ body.innerHTML = playersHTML(); loadPlayers(); }
+  else if (tab === 'players'){ body.innerHTML = playersHTML(); bindRkTabs(body); loadPlayers(); }
   else if (tab === 'battle'){ body.innerHTML = battleTabHTML(); bindBattleTab(body); }
   else if (tab === 'gear'){ body.innerHTML = gearEditorHTML(); bindGear(body); }
   else body.innerHTML = rulesHTML();
