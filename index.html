@@ -2527,21 +2527,23 @@ function showCpuResult(){
   const cpOut = cp.times[0] == null || (run === 2 && cp.times[1] == null) ? 'DNF' : '';
   const tot = (a, i) => run === 1 ? a[0] : (a[0] != null && a[1] != null ? trunc(a[0] + a[1]) : null);
   const me = myOut ? null : tot(mine), them = cpOut ? null : tot(cp.times);
+  const over = run === 2 || !!myOut || !!cpOut;           // a run not finished by either side ends the dual there and then
   let verdict, win = false;
   if (me != null && them != null){ win = me < them; verdict = me === them ? '同タイム' : win ? (run === 1 ? 'リード！' : '勝利！') : (run === 1 ? '追う展開' : '負け'); }
-  else if (me != null){ win = true; verdict = run === 1 ? 'リード！（相手が途中棄権）' : '勝利！（相手が途中棄権）'; }
-  else if (them != null) verdict = run === 1 ? '1本目 失格・途中棄権' : '負け（失格・途中棄権）';
+  else if (me != null){ win = true; verdict = '勝利！（相手が途中棄権）'; }
+  else if (them != null) verdict = '負け（失格・途中棄権）';
   else verdict = '両者 途中棄権';
   const diff = me != null && them != null ? fmtDiff(me - them) : '';
   const cell = v => v != null ? fmt(v) : '—';
-  let html = `<div><span class="badge">${run === 1 ? '1本目' : '2本合計'}</span> <span class="badge">CPライバル：${esc(cp.lv)}</span></div>
+  let html = `<div><span class="badge">${run === 1 ? (over ? '1本目で決着' : '1本目') : '2本合計'}</span> <span class="badge">CPライバル：${esc(cp.lv)}</span></div>
     <div><span class="big" style="font-size:44px">${verdict}</span></div>${diff ? `<p class="note">相手との差 ${diff}</p>` : ''}`;
   const row = (name, nat, a, out, isMe) => `<tr class="${isMe ? 'me' : ''}"><td>${esc(name)}${isMe && name !== 'あなた' ? '（あなた）' : ''} <span class="nat3">${nat}</span></td><td class="r">${out && a[0] == null ? out : cell(a[0])}</td>${run === 2 ? `<td class="r">${out && a[0] != null && a[1] == null ? out : cell(a[1])}</td><td class="n">${out ? out : cell(tot(a))}</td>` : ''}</tr>`;
   html += table(run === 1 ? ['選手', '1本目'] : ['選手', '1本目', '2本目', '合計'], [row(pname, myNat, mine, myOut, true), row(cp.name, cp.nat, cp.times, cpOut, false)]);
-  html += `<div class="btns">${run === 1 ? '<button class="btn primary" type="button" id="cpNext">2本目へ（左右が逆のコース）</button>' : '<button class="btn primary" type="button" id="cpAgain">もう一度（新しいコース）</button>'}<button class="btn" type="button" id="cpMenu">メニューに戻る</button></div>`;
+  if (over && run === 1) html += '<p class="note">どちらかがゴールしなかったので、2本目はなしでここで決着です。</p>';
+  html += `<div class="btns">${!over ? '<button class="btn primary" type="button" id="cpNext">2本目へ（左右が逆のコース）</button>' : '<button class="btn primary" type="button" id="cpAgain">もう一度（新しいコース）</button>'}<button class="btn" type="button" id="cpMenu">メニューに戻る</button></div>`;
   state = 'sheet';
-  openSheet('Dual Race · vs CP', run === 1 ? 'デュアルレース 1本目の結果' : 'デュアルレース 最終結果', html);
-  if (run === 2 && win) crowdCheer(.9);
+  openSheet('Dual Race · vs CP', !over ? 'デュアルレース 1本目の結果' : 'デュアルレース 最終結果', html);
+  if (over && win) crowdCheer(.9);
   const nx = $('#cpNext'); if (nx) nx.onclick = () => { race.run = 2; beginRun(); cdT = 5; };
   const ag = $('#cpAgain'); if (ag) ag.onclick = () => startCpuDual();
   $('#cpMenu').onclick = () => { race = null; showMenu('dual'); };
@@ -2591,7 +2593,7 @@ function lobbyHTML(){
   const dual = !!dualKeyParse(r.course), ev = evOn();
   if (r.ev) html += evBoardHTML();
   if (ev){                                                    // a tournament or league is under way
-    html += `<p class="note">${evPlaying(CLOUD.name) ? 'あなたの対戦は次のスタートで始まります。' : ev.ent.includes(CLOUD.name) ? (ev.fmt === 'tour' && ev.res.some(m => m.b != null && (m.a === CLOUD.name || m.b === CLOUD.name) && m.w !== CLOUD.name) ? 'あなたは敗退しました。ほかの対戦の結果をここで見られます。' : 'この対戦はお休みです（ほかの人の結果をここで見られます）。') : '観戦中です。'}</p>`;
+    html += `<p class="note">${evPlaying(CLOUD.name) ? 'あなたの対戦は次のスタートで始まります。' : evSettled(evPair(CLOUD.name)) ? 'あなたの対戦は1本目で決着しました（どちらかがゴールしなかったため）。ほかの対戦の結果をここで見られます。' : ev.ent.includes(CLOUD.name) ? (ev.fmt === 'tour' && ev.res.some(m => m.b != null && (m.a === CLOUD.name || m.b === CLOUD.name) && m.w !== CLOUD.name) ? 'あなたは敗退しました。ほかの対戦の結果をここで見られます。' : 'この対戦はお休みです（ほかの人の結果をここで見られます）。') : '観戦中です。'}</p>`;
     html += `<div class="btns">${evHostBtns()}<button class="btn" type="button" id="btLeave">部屋を出る</button></div>`;
     return html;
   }
@@ -2854,22 +2856,24 @@ function renderDualResult(box){
   const best = fin.length ? fin[0].val : null;
   const order = [...fin, ...rows.filter(r => r.val == null && r.running), ...rows.filter(r => r.val == null && !r.running)];
   const all = order.every(r => !r.running), me = rows.find(r => r.e.me);
-  let html = `<div><span class="badge">${run === 1 ? '1本目' : '2本合計'}</span></div>`;
-  html += me && me.rank ? `<div><span class="big">${me.rank}位</span> ${run === 2 && me.rank === 1 && all && fin.length > 1 ? '<span class="badge">勝利！</span>' : ''}</div>` : `<div><span class="big" style="font-size:40px">${me && me.out ? me.out : '—'}</span></div>`;
+  const early = run === 1 && rows.length === 2 && all && rows.some(r => r.out);   // one-on-one: someone did not finish run 1, so it is over
+  let html = `<div><span class="badge">${run === 1 ? (early ? '1本目で決着' : '1本目') : '2本合計'}</span></div>`;
+  html += me && me.rank ? `<div><span class="big">${me.rank}位</span> ${(run === 2 || early) && me.rank === 1 && all && (fin.length > 1 || early) ? '<span class="badge">勝利！</span>' : ''}</div>` : `<div><span class="big" style="font-size:40px">${me && me.out ? me.out : '—'}</span></div>`;
   html += `<p class="conn ${all ? 'ok' : ''}">${all ? (run === 1 ? '1本目の結果が出そろいました。' : '全員の結果が出ました。') : 'まだ滑っている人がいます…（自動で更新します）'}</p>`;
   const cell = (t, o, running) => t != null ? fmt(t) : o || (running ? '滑走中' : '—');
   html += run === 1
     ? table(['順位', 'プレーヤー', '1本目', '差'], order.map(r => `<tr class="${r.e.me ? 'me' : ''}"><td class="n">${r.rank || '—'}</td><td><span class="dot" style="background:${r.e.col}"></span> ${esc(r.e.name)}${r.e.me ? '（あなた）' : ''}</td><td class="n">${cell(r.r1, r.out, r.running)}</td><td class="r">${r.rank > 1 ? fmtDiff(r.val - best) : ''}</td></tr>`))
     : table(['順位', 'プレーヤー', '1本目', '2本目', '合計', '差'], order.map(r => `<tr class="${r.e.me ? 'me' : ''}"><td class="n">${r.rank || '—'}</td><td><span class="dot" style="background:${r.e.col}"></span> ${esc(r.e.name)}${r.e.me ? '（あなた）' : ''}</td><td class="r">${cell(r.r1, r.out && !r.r1 ? r.out : '', false)}</td><td class="r">${cell(r.r2, '', r.running)}</td><td class="n">${r.val != null ? fmt(r.val) : r.out || (r.running ? '滑走中' : '—')}</td><td class="r">${r.rank > 1 ? fmtDiff(r.val - best) : ''}</td></tr>`));
   const dk = dualKeyParse(race.key);
-  html += `<div class="btns">${host ? (run === 1 ? '<button class="btn primary" type="button" id="btAgain">2本目スタート</button>' : '<button class="btn primary" type="button" id="btAgain">もう一度（新しいコース）</button>') : ''}<button class="btn" type="button" id="btLobby">部屋に戻る</button><button class="btn" type="button" id="btLeave2">部屋を出る</button></div>`;
-  if (!host) html += `<p class="note">${run === 1 ? 'ホストが「2本目スタート」を押すと、自動で2本目が始まります（左右が逆のコース）。' : 'ホストが「もう一度」を押すと、新しいコースで次のレースが始まります。'}</p>`;
+  if (early) html += '<p class="note">どちらかがゴールしなかったので、2本目はなしでここで決着です。</p>';
+  html += `<div class="btns">${host ? (run === 1 && !early ? '<button class="btn primary" type="button" id="btAgain">2本目スタート</button>' : '<button class="btn primary" type="button" id="btAgain">もう一度（新しいコース）</button>') : ''}<button class="btn" type="button" id="btLobby">部屋に戻る</button><button class="btn" type="button" id="btLeave2">部屋を出る</button></div>`;
+  if (!host) html += `<p class="note">${run === 1 && !early ? 'ホストが「2本目スタート」を押すと、自動で2本目が始まります（左右が逆のコース）。' : 'ホストが「もう一度」を押すと、新しいコースで次のレースが始まります。'}</p>`;
   else if (run === 1 && !all) html += `<p class="note">全員がゴールしてから「2本目スタート」を押してください。</p>`;
   box.innerHTML = html;
   const again = $('#btAgain');
   if (again) again.onclick = async () => {
     again.disabled = true;
-    const r = await btCall('room_start', run === 1 ? { run: 2 } : { run: 1, course: newDualKey(dk.g, dk.d) }).catch(() => null);
+    const r = await btCall('room_start', run === 1 && !early ? { run: 2 } : { run: 1, course: newDualKey(dk.g, dk.d) }).catch(() => null);
     if (r && r.ok) checkRaceStart(); else again.disabled = false;
   };
   $('#btLobby').onclick = () => { race = null; showLobby(); };
@@ -2909,7 +2913,9 @@ function newEv(fmt, members){
 const evOn = () => { const e = BT.room && BT.room.ev; return e && !e.done ? e : null; };
 function evPair(name){ const e = evOn(); return e ? e.pairs.find(p => p[0] === name || p[1] === name) || null : null; }
 function evOpp(name){ const p = evPair(name); return p ? (p[0] === name ? p[1] : p[0]) : null; }
-const evPlaying = name => !!evOpp(name);
+// a match already settled in run 1 (someone did not finish it): kept in ev.r1 when run 2 starts
+function evSettled(p){ const e = evOn(), r = e && e.r1; return !!(r && p && p[1] != null && r[p[0]] && r[p[1]] && (r[p[0]].o || r[p[1]].o)); }
+const evPlaying = name => !!evOpp(name) && !((BT.room.run || 1) === 2 && evSettled(evPair(name)));
 function evRoundName(e, rnd, nPairs){
   if (e.fmt === 'league') return `第${rnd}戦`;
   return nPairs === 1 ? '決勝' : nPairs === 2 ? '準決勝' : `${rnd}回戦`;
@@ -2917,6 +2923,8 @@ function evRoundName(e, rnd, nPairs){
 // one player's two-run result in the round being raced now
 function dualTot(name){
   const room = BT.room, run = room ? room.run || 1 : 1;
+  const e = evOn();
+  if (run === 2 && e && e.r1 && evSettled(evPair(name))){ const q = e.r1[name]; return { r1: q.t, r2: null, val: q.o ? null : q.t, out: q.o, running: false, run, settled: true }; }
   let r1 = null, o1 = '', r2 = null, o2 = '', running = false;
   if (name === CLOUD.name && race && race.dual && race.battle){
     r1 = race.taTimes[0] != null ? race.taTimes[0] : null; o1 = race.playerDsq[0] || (run === 2 && r1 == null ? 'DNS' : '');
@@ -2938,8 +2946,14 @@ function evWinner(a, b, A, B){
   if (B.val != null) return b;
   return null;                                           // neither finished both runs
 }
+function evRun1Settles(){
+  // after run 1: every match has both racers done and at least one of them out
+  const e = evOn(); if (!e || (BT.room.run || 1) !== 1) return false;
+  return e.pairs.every(([a, b]) => { if (b == null) return true; const A = dualTot(a), B = dualTot(b); return !A.running && !B.running && (!!A.out || !!B.out); });
+}
 function evRoundDone(){
-  const e = evOn(); if (!e || (BT.room.run || 1) !== 2) return false;
+  const e = evOn(); if (!e) return false;
+  if ((BT.room.run || 1) === 1) return evRun1Settles();
   return e.pairs.every(([a, b]) => b == null || (!dualTot(a).running && !dualTot(b).running));
 }
 // standings: league by wins (ties: the head-to-head result, or wins among the tied players); knockout by how far each got
@@ -2983,7 +2997,7 @@ function evBoardHTML(){
     const run2 = (BT.room.run || 1) === 2;
     html += `<ul class="evm">${e.pairs.map(([a, b]) => {
       if (b == null) return `<li class="${a === me ? 'me' : ''}">${nm(a)} <span class="badge">${e.fmt === 'tour' ? '不戦勝' : '休み'}</span></li>`;
-      const A = dualTot(a), B = dualTot(b), w = run2 && !A.running && !B.running ? evWinner(a, b, A, B) : null;
+      const A = dualTot(a), B = dualTot(b), w = !A.running && !B.running && (run2 || A.out || B.out) ? evWinner(a, b, A, B) : null;
       const side = (n, T) => `<span class="${w === n ? 'win' : ''}">${nm(n)} <i>${T.running ? (run2 ? '2本目' : '1本目') + '滑走中' : tm(T.val, T.out)}</i></span>`;
       return `<li class="${a === me || b === me ? 'me' : ''}">${side(a, A)}<b>vs</b>${side(b, B)}</li>`;
     }).join('')}</ul>`;
@@ -3002,13 +3016,20 @@ function evBoardHTML(){
 // the host's controls while an event is on (in the lobby or on the results sheet)
 function evHostBtns(){
   const e = evOn(); if (!e || BT.room.host !== CLOUD.name) return '';
-  if ((BT.room.run || 1) === 1) return `<button class="btn primary" type="button" id="evRun2">2本目スタート</button>`;
+  if ((BT.room.run || 1) === 1 && !evRun1Settles()) return `<button class="btn primary" type="button" id="evRun2">2本目スタート</button>`;
   const done = evRoundDone(), last = e.fmt === 'league' ? e.rnd >= e.sched.length : e.pairs.length === 1;
   return `<button class="btn primary" type="button" id="evNext">${last ? '最終結果へ' : '次の対戦へ'}${done ? '' : '（未ゴールはDNF扱い）'}</button>`;
 }
 function evBindHost(){
   const r2 = $('#evRun2'), nx = $('#evNext');
-  if (r2) r2.onclick = async () => { r2.disabled = true; const r = await btCall('room_start', { run: 2 }).catch(() => null); if (r && r.ok) checkRaceStart(); else r2.disabled = false; };
+  if (r2) r2.onclick = async () => {
+    r2.disabled = true;
+    // remember run 1, so matches settled there (someone did not finish) can sit out run 2
+    const e = JSON.parse(JSON.stringify(evOn())); e.r1 = {};
+    e.pairs.forEach(p => p.forEach(n => { if (n == null) return; const T = dualTot(n); e.r1[n] = { t: T.val, o: T.val == null ? (T.out || 'DNF') : '' }; }));
+    const r = await btCall('room_start', { run: 2, ev: JSON.stringify(e) }).catch(() => null);
+    if (r && r.ok){ if (!checkRaceStart()) showLobby(); } else r2.disabled = false;
+  };
   if (nx) nx.onclick = async () => { nx.disabled = true; if (!(await evNext())) nx.disabled = false; };
 }
 async function evNext(){
@@ -3026,8 +3047,8 @@ async function evNext(){
     if (ws.length > 1){ next = []; for (let i = 0; i < ws.length; i += 2) next.push([ws[i], ws[i + 1] != null ? ws[i + 1] : null]); }
   }
   let r;
-  if (!next){ e.done = true; e.pairs = []; r = await btCall('room_ev', { ev: JSON.stringify(e) }).catch(() => null); if (r && r.ok){ race = null; showLobby(); } return !!(r && r.ok); }
-  e.rnd++; e.pairs = next;
+  if (!next){ e.done = true; e.pairs = []; delete e.r1; r = await btCall('room_ev', { ev: JSON.stringify(e) }).catch(() => null); if (r && r.ok){ race = null; showLobby(); } return !!(r && r.ok); }
+  e.rnd++; e.pairs = next; delete e.r1;
   r = await btCall('room_start', { run: 1, course: newDualKey(dk.g, dk.d), ev: JSON.stringify(e) }).catch(() => null);
   if (r && r.ok){ if (!checkRaceStart()) showLobby(); }
   return !!(r && r.ok);
@@ -3036,8 +3057,8 @@ function renderEvResult(box){
   const e = evOn(), me = CLOUD.name, opp = evOpp(me), run = BT.room.run || 1, host = BT.room.host === me;
   let html = '';
   if (opp){
-    const A = dualTot(me), B = dualTot(opp), settled = run === 2 && !A.running && !B.running, w = settled ? evWinner(me, opp, A, B) : null;
-    html += `<div><span class="badge">${evRoundName(e, e.rnd, e.pairs.length)}・${run === 1 ? '1本目' : '2本合計'}</span></div>`;
+    const A = dualTot(me), B = dualTot(opp), settled = !A.running && !B.running && (run === 2 || !!A.out || !!B.out), w = settled ? evWinner(me, opp, A, B) : null;
+    html += `<div><span class="badge">${evRoundName(e, e.rnd, e.pairs.length)}・${run === 1 ? (settled ? '1本目で決着' : '1本目') : '2本合計'}</span></div>`;
     html += `<div><span class="big" style="font-size:40px">${settled ? (w === me ? '勝ち！' : w === opp ? '負け' : '両者DNF') : run === 1 ? (A.val != null && B.val != null ? (A.val <= B.val ? 'リード' : 'ビハインド') : '1本目') : '結果待ち'}</span> <span class="note">vs ${esc(opp)}</span></div>`;
   }
   html += evBoardHTML();
