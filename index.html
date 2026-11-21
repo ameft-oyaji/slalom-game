@@ -3439,7 +3439,7 @@ function startWatch(){
   $('#watch').hidden = false; showActHint(true);
   $('#watchSpd').textContent = '早送り';
   WATCH.cut = !!race.watchCut;
-  WATCH.board = race.run === 1;                     // run 1: always show the provisional board
+  WATCH.board = true;                               // both runs: the provisional top 5, live as each racer finishes
   $('#cutBoard').hidden = !WATCH.board;
   $('#watchTitle').textContent = WATCH.cut ? '2本目進出（30位以内）をかけて観戦中' : 'ゴール前で観戦中';
   updateWatchInfo();
@@ -3498,11 +3498,12 @@ function updateWatchInfo(){
 }
 // ranks 28–30 around the cut line, with the gap to the leader (your row highlighted wherever you are)
 function renderCutBoard(){
-  // run 1 provisional board: the top 3, you, and ranks 28–30 around the cut line
+  // provisional board: the top 5 and you; in run 1, when the cut is at stake, also ranks 28–30 around the line
   const pool = watchPool(WATCH.i), rl = rankList(pool), best = rl.length ? rl[0].t : 0;
-  const rows = rl.filter(x => x.rank <= 3 || (x.rank >= 28 && x.rank <= 30) || x.id === 'you');
-  const lastIn = Math.max(...rl.filter(x => x.rank <= 30).map(x => x.rank));
-  let html = '<div class="cb-h">1本目 暫定タイム（30位まで2本目進出）</div>', prev = 0;
+  const cut = race.run === 1 && WATCH.cut;
+  const rows = rl.filter(x => x.rank <= 5 || (cut && x.rank >= 28 && x.rank <= 30) || x.id === 'you');
+  const lastIn = cut ? Math.max(...rl.filter(x => x.rank <= 30).map(x => x.rank)) : -1;
+  let html = `<div class="cb-h">${race.run === 1 ? '1本目' : '2本合計'} 暫定順位 TOP5${cut ? '（30位まで2本目進出）' : ''}</div>`, prev = 0;
   for (const x of rows){
     if (prev && x.rank > prev + 1) html += '<div class="gap">⋯</div>';
     html += `<div class="${x.id === 'you' ? 'me' : ''}${x.rank === lastIn && x.id !== 'you' ? ' cut' : ''}"><b>${x.rank}</b><span class="nm">${esc(nameOf(x.id))}</span><span class="tm">${fmt(x.t)}</span><span class="df">${x.rank === 1 ? '' : fmtDiff(trunc(x.t - best))}</span></div>`;
@@ -4338,7 +4339,7 @@ function calendarHTML(){
       const h = s.hist.find(x => x.date === r.date);
       if (h && h.podium[0]) extra = `優勝 ${esc(nameOf(h.podium[0]))}（${flagH(natOf(h.podium[0]))}${natOf(h.podium[0])}）`;
     }
-    html += `<div class="ev ${sl ? 'sl' : 'dim'} ${i === nextIdx ? 'next' : ''}"><div class="d">${dLabel(r.date)}</div><div class="v"><span class="chip ${r.disc}">${r.disc}</span><b>${JP[r.venue] || r.venue}</b><span class="nat">${flagH(r.nat)}${r.nat}</span>${r.tbc ? ' <span class="nat">（会場未確定）</span>' : ''}${r.night ? ' <span class="badge night">ナイター</span>' : ''}${r.finals ? ' <span class="badge">ファイナル</span>' : ''}<span class="real">${DISC[r.disc]}${extra ? ' · ゲーム：' + extra : ''}${real ? ' · 実際の結果：' + real : ''}</span></div>${st2}</div>`;
+    html += `<div class="ev ${sl ? 'sl' : 'dim'} ${i === nextIdx ? 'next' : ''}"><div class="d">${dLabel(r.date)}</div><div class="v"><span class="chip ${r.disc}">${r.disc}第${races.slice(0, i + 1).filter(x => x.disc === r.disc).length}戦</span><b>${JP[r.venue] || r.venue}</b><span class="nat">${flagH(r.nat)}${r.nat}</span>${r.tbc ? ' <span class="nat">（会場未確定）</span>' : ''}${r.night ? ' <span class="badge night">ナイター</span>' : ''}${r.finals ? ' <span class="badge">ファイナル</span>' : ''}<span class="real">${DISC[r.disc]}${extra ? ' · ゲーム：' + extra : ''}${real ? ' · 実際の結果：' + real : ''}</span></div>${st2}</div>`;
   });
   html += '</div><p class="note">日程は FIS 公表のワールドカップ・カレンダー（2026年11月時点）に基づきます。天候などで変更・中止になることがあります。ゲーム内で一緒に走る選手は架空の選手です。「もう一度」はポイント対象外のエキシビションです。</p>';
   return html;
