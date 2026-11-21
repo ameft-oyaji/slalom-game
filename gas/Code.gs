@@ -145,7 +145,11 @@ function ta_submit_(q) {
 
 function board_() {
   const v = ta_().getDataRange().getValues(), rows = [];
-  for (let i = 1; i < v.length; i++) rows.push({ name: String(v[i][0]), course: v[i][1], t: Number(v[i][2]), r1: Number(v[i][3]), r2: Number(v[i][4]) });
+  for (let i = 1; i < v.length; i++) {
+    const d = v[i][5] instanceof Date ? v[i][5] : (v[i][5] ? new Date(v[i][5]) : null);
+    const at = d && !isNaN(d) ? Utilities.formatDate(d, 'Asia/Tokyo', 'yyyy-MM-dd') : '';   // the day this best was set
+    rows.push({ name: String(v[i][0]), course: v[i][1], t: Number(v[i][2]), r1: Number(v[i][3]), r2: Number(v[i][4]), at: at });
+  }
   return { ok: true, rows: rows };
 }
 
