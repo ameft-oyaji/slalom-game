@@ -2325,15 +2325,15 @@ function bindBattleTab(root){
 function dualKeyParse(key){ const m = /^(men|women)_dual-(SL|GS)-(\d{1,6})$/.exec(key || ''); return m ? { g: m[1], d: m[2], seed: +m[3] } : null; }
 function newDualKey(g, d){ return `${g}_dual-${d}-${1 + Math.floor(Math.random() * 999998)}`; }
 const DUAL_PREF = Object.assign({ gates: 'SL', cpu: 'mid' }, load('slalomwc-dual') || {});
-let DUAL_GATES = DUAL_PREF.gates === 'GS' ? 'GS' : 'SL';
+const DUAL_GATES = 'GS';                              // the dual race is skied on giant-slalom gates
 const CPU_LV = { easy: ['やさしい', 1.24], mid: ['ふつう', 1.16], hard: ['つよい', 1.09], wc: ['ワールドカップ級', 1.03] };   // pace against the robot's clean line
 function dualTabHTML(){
   const rules = `<h3>デュアルレースのルール</h3><ul class="note">
-    <li>同じ間隔・同じ振り幅の旗門が続く、約20秒のリズムコースです。</li>
+    <li>種目は大回転。同じ間隔・同じ振り幅の大回転の旗門が続く、約20秒のリズムコースです。</li>
     <li>「3・2・1・GO!」の GO! でスタートゲートが自動で倒れ、全員同時に飛び出します（ボタンを押してのスタートはありません）。</li>
     <li>2本目は旗門の左右が逆のコースです。2本の合計タイムが速い人の勝ち。どちらかで旗門不通過（DSQ）や途中棄権（DNF）になると順位なしです。</li>
     <li>相手は半透明の姿で表示されます（オンラインでは1秒ほど遅れます）。</li></ul>`;
-  let html = `<h3>旗門</h3><div class="g-who"><select id="dualGates" aria-label="旗門"><option value="SL"${DUAL_GATES === 'SL' ? ' selected' : ''}>回転のリズム旗門</option><option value="GS"${DUAL_GATES === 'GS' ? ' selected' : ''}>大回転のリズム旗門</option></select></div>`;
+  let html = `<p class="note">種目は大回転。同じリズムの大回転の旗門で勝負します。</p>`;
   html += `<h3>CPライバルと対戦</h3><p class="note">コンピューターの選手と1対1で2本勝負。ユーザー登録なしで遊べます。</p>
     <div class="g-who"><select id="cpuLv" aria-label="CPライバルの強さ">${Object.entries(CPU_LV).map(([k, v]) => `<option value="${k}"${DUAL_PREF.cpu === k ? ' selected' : ''}>CPライバル：${v[0]}</option>`).join('')}</select><button class="btn small hot" type="button" id="cpuGo">対戦スタート</button></div>`;
   html += `<h3>オンライン対戦</h3>`;
@@ -2347,14 +2347,14 @@ function dualTabHTML(){
 }
 function bindDualTab(root){
   bindBattleTab(root);                                   // joining a room works the same way
-  const c = root.querySelector('#dualCreate'), sel = root.querySelector('#dualGates'), lv = root.querySelector('#cpuLv');
-  const keep = () => { DUAL_GATES = sel.value; DUAL_PREF.gates = sel.value; DUAL_PREF.cpu = lv.value; save('slalomwc-dual', DUAL_PREF); };
-  sel.onchange = keep; lv.onchange = keep;
+  const c = root.querySelector('#dualCreate'), lv = root.querySelector('#cpuLv');
+  const keep = () => { DUAL_PREF.cpu = lv.value; save('slalomwc-dual', DUAL_PREF); };
+  lv.onchange = keep;
   root.querySelector('#cpuGo').onclick = () => { keep(); startCpuDual(); };
   if (c) c.onclick = async () => {
     c.disabled = true;
     const err = m => { const e = root.querySelector('#btErr'); e.textContent = m; e.hidden = false; };
-    try { const r = await btCall('room_create', { course: newDualKey(gender, sel.value) }); if (!r.ok) throw new Error(BT_ERR[r.error] || '部屋を作れませんでした。'); BT.code = r.room.code; showLobby(); }
+    try { const r = await btCall('room_create', { course: newDualKey(gender, DUAL_GATES) }); if (!r.ok) throw new Error(BT_ERR[r.error] || '部屋を作れませんでした。'); BT.code = r.room.code; showLobby(); }
     catch(e){ err(e.message); } c.disabled = false;
   };
 }
@@ -2406,6 +2406,7 @@ function cpuNow(){
 }
 function cpuGhost(sprites, yNear, yFar){
   if (!(state === 'countdown' || state === 'run' || state === 'finished')) return;
+  if (SPLIT.side === 'R') return meGhost(sprites, yNear, yFar);
   const g = cpuNow(); if (g.done || g.out || g.y == null) return;
   if (g.y < yNear - 30 || g.y > yFar + 30) return;
   sprites.push({ y: g.y, d: () => drawGhost(g.x, g.y, g.th || 0, race.cpu.name, '#7048E8') });
@@ -2577,13 +2578,81 @@ function renderBattleLive(){
   box.innerHTML = list.map((x, i) => `<div class="${x.e.me ? 'me' : ''}"><b>${i + 1}</b><span class="dot" style="background:${x.e.col}"></span><span class="nm">${esc(x.e.name)}</span><span class="st">${x.label}</span></div>`).join('');
 }
 function battleGhosts(sprites, yNear, yFar){
+  if (SPLIT.side === 'R') meGhost(sprites, yNear, yFar);
   battleEntries().forEach(e => {
     if (e.me || !e.p || e.p.out || e.p.fin != null) return;
+    if (SPLIT.side === 'R' && e.name === SPLIT.name) return;           // that one is the racer this pane follows
     const age = clamp((serverNow() - e.p.ts) / 1000, 0, 2);
     const y = e.p.y + Math.cos(e.p.th || 0) * e.p.v * age, x = e.p.x + Math.sin(e.p.th || 0) * e.p.v * age;
     if (y < yNear - 30 || y > yFar + 30) return;
     sprites.push({ y, d: () => drawGhost(x, y, e.p.th || 0, e.name, e.col) });
   });
+}
+// ---- split screen for the dual race: you on the left, your rival on the right, both racing at once ----
+const SPLIT = { side: '', ox: 0, me: null, name: '', camL: 0, camR: 0, prevTh: 0, lean: 0 };
+function meGhost(sprites, yNear, yFar){
+  const m = SPLIT.me; if (!m || m.y < yNear - 30 || m.y > yFar + 30) return;
+  sprites.push({ y: m.y, d: () => drawGhost(m.x, m.y, m.th, pname, '#FFC93C') });
+}
+// who the right-hand pane follows, and where they are now
+function splitRival(){
+  if (!race || !race.dual || !(state === 'countdown' || state === 'run' || state === 'finished')) return null;
+  if (race.cpu){
+    const run = race.cpu.runs[race.run - 1], g = cpuNow();
+    let x, y, th, v = 0;
+    if (g.y != null){ x = g.x; y = g.y; th = g.th || 0; v = 60; }
+    else {                                             // finished (gliding out past the line) or gone out of the course
+      const i = g.out ? Math.floor(run.fall * (run.pts.length - 1)) : run.pts.length - 1, q = run.pts[i];
+      x = q[0]; y = q[1] + (g.out ? 0 : 30); th = g.out ? 1.3 : 0;
+    }
+    return { x, y, th, v, name: race.cpu.name, nat: race.cpu.nat, out: !!g.out };
+  }
+  if (race.battle){
+    const e = battleEntries().find(x => !x.me && x.p); if (!e) return null;
+    const age = e.p.fin != null || e.p.out ? 0 : clamp((serverNow() - e.p.ts) / 1000, 0, 2);
+    const nat = (PLAYERS.who && PLAYERS.who[e.name] && PLAYERS.who[e.name].nat) || myNat;
+    return { x: e.p.x + Math.sin(e.p.th || 0) * e.p.v * age, y: e.p.y + Math.cos(e.p.th || 0) * e.p.v * age, th: e.p.th || 0, v: e.p.v, name: e.name, nat: NAT[nat] ? nat : myNat, out: !!e.p.out };
+  }
+  return null;
+}
+function paneLabel(text, col, half){
+  ctx.setTransform(dpr, 0, 0, dpr, SPLIT.ox * dpr, 0);
+  ctx.font = "800 15px 'Noto Sans JP', sans-serif"; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  const w = ctx.measureText(text).width + 22, y = Math.round(ch * .44);
+  ctx.fillStyle = 'rgba(14,26,46,.78)'; rrect(half / 2 - w / 2, y - 14, w, 28, 6); ctx.fill();
+  ctx.fillStyle = col; ctx.fillRect(half / 2 - w / 2 + 6, y + 10, w - 12, 2.5);
+  ctx.fillStyle = '#fff'; ctx.fillText(text, half / 2, y);
+}
+function renderView(){
+  const R = splitRival();
+  if (!R){ SPLIT.side = ''; SPLIT.ox = 0; render(); return; }
+  const full = cw, S0 = S, half = Math.floor(full / 2), camSave = camX;
+  S = Math.min(half / 250, ch / 380);
+  // left: you
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.save(); ctx.beginPath(); ctx.rect(0, 0, half, ch); ctx.clip();
+  SPLIT.side = 'L'; SPLIT.ox = 0; cw = half; camX = SPLIT.camL;
+  render(); SPLIT.camL = camX;
+  paneLabel(pname === 'あなた' ? 'あなた' : pname + '（あなた）', '#FFC93C', half);
+  ctx.restore();
+  // right: the rival, drawn as the racer; you appear as the see-through one
+  const keep = { x: sk.x, y: sk.y, th: sk.th, v: sk.v, lean: sk.lean, tuck: sk.tuck, pushT: sk.pushT, skateT: sk.skateT, block: sk.block, act: sk.act, ng: sk.ng };
+  const keepTrail = trail, keepNat = myNat;
+  SPLIT.me = { x: sk.x, y: sk.y, th: sk.th };
+  SPLIT.lean += (clamp((R.th - SPLIT.prevTh) * 22, -1, 1) - SPLIT.lean) * .25; SPLIT.prevTh = R.th;
+  Object.assign(sk, { x: R.x, y: R.y, th: R.th, v: R.v, lean: R.out ? 0 : SPLIT.lean, tuck: false, pushT: 0, skateT: 0, block: null, act: null });
+  trail = []; myNat = R.nat; SPLIT.name = R.name;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.save(); ctx.beginPath(); ctx.rect(half, 0, full - half, ch); ctx.clip();
+  SPLIT.side = 'R'; SPLIT.ox = half; cw = full - half; camX = SPLIT.camR;
+  try { render(); SPLIT.camR = camX; paneLabel(R.name + (R.out ? '（DNF）' : ''), race.cpu ? '#7048E8' : '#E8590C', full - half); }
+  finally {
+    ctx.restore();
+    Object.assign(sk, keep); trail = keepTrail; myNat = keepNat;
+    cw = full; S = S0; camX = camSave; SPLIT.side = ''; SPLIT.ox = 0;
+  }
+  // the line between the two halves
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.fillStyle = '#13213A'; ctx.fillRect(half - 2, 0, 4, ch);
+  ctx.fillStyle = '#FFC93C'; ctx.fillRect(half - .75, 0, 1.5, ch);
 }
 function drawGhost(x, y, th, name, col){
   const p = proj(x, y); if (!p) return;
@@ -4369,7 +4438,7 @@ function drawStartDeck(yNear, yFar){
   if (L && R){ ctx.strokeStyle = 'rgba(31,85,200,.55)'; ctx.lineWidth = Math.max(1, 1.4 * L.k); ctx.beginPath(); ctx.moveTo(L.X, L.Y); ctx.lineTo(R.X, R.Y); ctx.stroke(); }
 }
 function render(){
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.setTransform(dpr, 0, 0, dpr, SPLIT.ox * dpr, 0);
   const live = state === 'run' || state === 'countdown' || state === 'gate' || state === 'finished';
   // keep the skier just above the athlete card / touch buttons, whatever the screen shape
   let baseFrac = Math.min(.36, 110 / ch + .1);
@@ -4477,7 +4546,7 @@ function render(){
     if (ln){ ctx.globalAlpha = isNight ? .05 : .07; ctx.fillStyle = ln[0]; ctx.fillRect(0, 0, cw, ch); ctx.globalAlpha = 1; }
   }
   if (wxNow && wxNow.cond === 'snow') drawSnowfall();
-  drawProgress();
+  if (SPLIT.side !== 'L') drawProgress();
   drawConfetti();
   const cd = $('#cd');
   if (state === 'countdown' && race && race.dual){
@@ -4931,7 +5000,7 @@ function frame(now){
   while (acc >= STEP){ step(STEP); acc -= STEP; }
   if (state === 'finished'){ finT -= dt; if (finT <= 0){ state = 'sheet'; afterFinish(); } }
   crowdTick(dt); if (state === 'watch'){ watchStep(dt); if (sk.act){ sk.act.t += dt; if (sk.act.t > (sk.act.type === 'skisup' ? 2.6 : 1.8)) sk.act = null; } }
-  hud(); render(); if (actx) updateWind();
+  hud(); renderView(); if (actx) updateWind();
   if (race && race.battle) battleTick();
   else if (race && race.cpu) cpuTick();
   requestAnimationFrame(frame);
