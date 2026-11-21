@@ -675,7 +675,7 @@ const GEAR = {
   ]},
   bind: { label: 'ビンディング', items: [
     { id: 'fixance', org: 'FRA', name: 'SALUT', model: 'Course 18', c1: '#2A2F38', c2: '#ED2939', c3: '#FFFFFF', mark: 'ring', font: 'serif', stats: { '伝達': 4, '安定': 3, '軽さ': 5 }, mod: { turn: 1.02 } },
-    { id: 'klamma', org: 'GER', name: 'MARKS', model: 'Plate WC', c1: '#F7F8FA', c2: '#D50F25', c3: '#D50F25', mark: 'chevron', font: 'wide', stats: { '伝達': 5, '安定': 5, '軽さ': 3 }, mod: { carve: 0, carveGain: .1, turn: 1.02, net: .8 } },
+    { id: 'klamma', org: 'GER', name: 'MARKS', model: 'Plate WC', c1: '#1A1A1A', c2: '#FF4A1C', c3: '#FF4A1C', mark: 'chevron', font: 'wide', stats: { '伝達': 5, '安定': 5, '軽さ': 3 }, mod: { carve: 0, carveGain: .1, turn: 1.02, net: .8 } },
     { id: 'tauern', org: 'AUT', name: 'TIRORU', model: 'Race 20', c1: '#1D1D1F', c2: '#FF6A13', c3: '#FF6A13', mark: 'peak', font: 'italic', stats: { '伝達': 5, '安定': 3, '軽さ': 3 }, mod: { carve: .92 } },
   ]},
   pole: { label: 'ストック', items: [
@@ -753,6 +753,23 @@ function itemSVG(cat, b){
   } else if (cat === 'ski'){
     const one = (dy, op) => `<g transform="translate(0 ${dy}) rotate(-13 80 46)" opacity="${op}"><path d="M8 40Q2 40 3 46Q2 52 9 52L150 50Q157 46 150 42Z" fill="${b.c1}"/><rect x="18" y="48.3" width="128" height="2.4" fill="${b.c2}"/><path d="M3 46Q2 52 9 52L14 51.8L14 40.2L8 40Q2 40 3 46Z" fill="${b.c2}"/>${logoSVG(b, 40, 45.4, 8, b.c3, b.c2)}</g>`;
     art = one(10, .55) + one(-2, 1) + `<text x="152" y="84" text-anchor="end" font-family="Barlow Condensed,sans-serif" font-size="9" fill="#56657F">${b.model}</text>`;
+  } else if (cat === 'bind' && b.id === 'klamma'){
+    // MARKS race binding, seen at three-quarters: toe piece in front, heel piece with its tall red lever behind
+    const R = '#FF4A1C', K = '#16181C', K2 = '#2A2F38', S = '#AEB5BF';
+    art = `<ellipse cx="50" cy="82" rx="38" ry="5" fill="#000" opacity=".08"/><ellipse cx="118" cy="56" rx="26" ry="4" fill="#000" opacity=".08"/>
+      <path d="M98 50L126 45L142 53L112 60Z" fill="${K2}"/><path d="M104 54L132 49" stroke="${S}" stroke-width="1.6"/><path d="M100 57L108 62M136 52L141 57" stroke="${S}" stroke-width="1.4" stroke-linecap="round"/>
+      <path d="M108 52L110 32Q111 26 118 26L126 27Q131 28 131 34L130 50Z" fill="${K}"/>
+      <path d="M115 29L119 9Q120 5 125 5L129 6Q133 7 132 11L127 30" fill="none" stroke="${R}" stroke-width="4.2" stroke-linejoin="round"/>
+      <path d="M116 4L131 6L129 13L114 11Z" fill="${K}"/><path d="M119 6.5L128 7.6" stroke="#3A404A" stroke-width="1.2"/>
+      <path d="M112 36L127 37L126 46L111 45Z" fill="${K2}"/><text x="119" y="43.5" text-anchor="middle" font-family="Barlow Condensed,sans-serif" font-weight="800" font-size="5.5" fill="${R}">WC</text>
+      <path d="M12 77Q10 71 16 67L42 49Q48 45 56 48L76 56Q82 59 79 65L70 80Q66 86 58 86L22 86Q14 85 12 77Z" fill="${K}"/>
+      <path d="M12 77Q12 85 22 87L58 88Q66 88 70 82" fill="none" stroke="#DCE1E8" stroke-width="2.2"/>
+      <path d="M60 51L76 56Q82 59 79 65L70 80L62 78L66 62Z" fill="${R}"/>
+      <path d="M26 64L46 51Q49 49 53 50L62 54L44 71Z" fill="${S}"/><path d="M32 63L47 53L56 56L43 67Z" fill="#8E96A1"/>
+      <rect x="42" y="56" width="3" height="8" rx="1" fill="#fff" transform="rotate(48 43.5 60)"/><circle cx="51" cy="57.5" r="1.6" fill="${R}"/>
+      <path d="M16 69L24 64L30 77L20 80Z" fill="${R}"/>
+      <text x="0" y="0" font-family="Barlow Condensed,sans-serif" font-weight="800" font-size="6" letter-spacing=".5" fill="#fff" transform="translate(30 81) rotate(-33)">MARKS</text>
+      <text x="152" y="86" text-anchor="end" font-family="Barlow Condensed,sans-serif" font-size="9" fill="#56657F">${b.model}</text>`;
   } else if (cat === 'bind'){
     art = `<rect x="14" y="58" width="132" height="9" rx="2" fill="#BFC7D3"/><rect x="18" y="49" width="124" height="9" rx="2" fill="${b.c1}"/>
       <path d="M20 49V36Q20 30 28 30H46L52 40V49Z" fill="${b.c1}"/><path d="M26 34H44L48 40H26Z" fill="${b.c2}"/>
