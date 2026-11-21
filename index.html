@@ -88,6 +88,13 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
 .cd.hurry em{color:var(--red)}
 .cd.dsq{color:var(--red);font-size:min(18vw,110px)}
 
+.sp-toggle{position:absolute;right:max(12px,env(safe-area-inset-right,0px));bottom:max(12px,env(safe-area-inset-bottom,0px));z-index:4;border:0;border-radius:16px;background:rgba(14,26,46,.8);color:#fff;font:700 12px var(--f-body);padding:7px 12px;cursor:pointer}
+.spectating #bCtrl{display:none}
+.spchk{display:flex;align-items:center;gap:8px;font-size:14px;margin:4px 0 10px}
+.sppick{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:6px;max-height:46vh;overflow:auto}
+.sp-o{display:flex;align-items:center;gap:6px;text-align:left;border:1px solid var(--board-3);background:var(--board-2);color:#fff;border-radius:4px;padding:7px 9px;font:700 13px var(--f-body);cursor:pointer}
+.sp-o:hover{border-color:var(--amber)}.sp-o i{font-style:normal;font-family:var(--f-num);color:var(--amber);width:1.6em;text-align:right}
+.sp-o.any{flex-direction:column;align-items:flex-start;background:var(--board-3)}.sp-o small{font-weight:400;font-size:11px;opacity:.8}
 .sp-pad{position:absolute;left:max(12px,env(safe-area-inset-left,0px));bottom:max(12px,env(safe-area-inset-bottom,0px));z-index:3;display:flex;flex-direction:column;align-items:center;gap:4px;pointer-events:none}
 .sp-cap{font:700 11px var(--f-body);color:#fff;background:rgba(14,26,46,.75);padding:2px 10px;border-radius:999px;letter-spacing:.06em}
 .sp-keys{display:flex;gap:6px}
@@ -485,6 +492,7 @@ body.nightrace .ev-label,body.nightrace .ev-label *,body.nightrace #keys,body.ni
   <section class="cer" id="cer" hidden></section>
   <div class="msg" id="msg"></div>
   <div class="cd" id="cd"></div>
+  <button type="button" class="sp-toggle" id="spToggle" hidden aria-pressed="true">操作表示：ON</button>
   <div class="sp-pad" id="spPad" hidden aria-hidden="true">
     <div class="sp-cap">観戦モード・選手の操作</div>
     <div class="sp-keys"><span data-b="l"><b>◀</b><small id="spL">左足</small></span><span data-b="push"><b>◀▶</b><small>左右同時（漕ぐ）</small></span><span data-b="d"><b>▼</b><small>クローチ</small></span><span data-b="r"><b>▶</b><small id="spR">右足</small></span></div>
@@ -2192,11 +2200,33 @@ function afterRun2(){
 // =====================================================================
 // Spectator mode: a robot racer skis a World Cup slalom; the buttons it presses light up on screen
 // =====================================================================
-const SPECT = { saved: null, lit: { l: 0, r: 0, push: 0, d: 0 } };
-function startSpectate(){
+const SPECT = { saved: null, lit: { l: 0, r: 0, push: 0, d: 0 }, who: '' };
+const SPECT_PREF = Object.assign({ show: true }, load('slalomwc-spect') || {});
+// choose whom to watch (or leave it to chance), and whether to show the buttons the racer is pressing
+function showSpectPick(){
+  const field = FIELDS[gender].slice(0, 30);
+  const html = `<p class="note">観戦する選手を選んでください。${discJP(disc)}・${gender === 'men' ? '男子' : '女子'}のランキング上位30人です。</p>
+    <label class="spchk"><input type="checkbox" id="spShowChk"${SPECT_PREF.show ? ' checked' : ''}> 選手の操作（押しているボタン）を画面に表示する</label>
+    <div class="sppick"><button type="button" class="sp-o any" data-who="">おまかせ<small>上位20人から</small></button>${field.map((a, i) =>
+      `<button type="button" class="sp-o" data-who="${a.id}"><i>${i + 1}</i><span class="flag sm" style="background:${FLAG[a.nat] || '#C9D2E3'}"></span>${esc(a.name)}</button>`).join('')}</div>
+    <div class="btns"><button class="btn" type="button" id="spBack">トップに戻る</button></div>`;
+  openSheet('Spectator', '観戦モード・選手を選ぶ', html);
+  $('#spShowChk').onchange = e => { SPECT_PREF.show = e.target.checked; save('slalomwc-spect', SPECT_PREF); };
+  document.querySelectorAll('.sppick [data-who]').forEach(b => b.onclick = () => { closeSheet(); startSpectate(b.dataset.who); });
+  $('#spBack').onclick = () => { closeSheet(); showTop(); };
+}
+document.addEventListener('click', e => { if (e.target && e.target.id === 'spToggle') setSpectShow(!SPECT_PREF.show); });
+function setSpectShow(on){
+  SPECT_PREF.show = on; save('slalomwc-spect', SPECT_PREF);
+  $('#spPad').hidden = !on;
+  $('#spToggle').textContent = on ? '操作表示：ON' : '操作表示：OFF'; $('#spToggle').setAttribute('aria-pressed', on);
+}
+function startSpectate(whoId){
   const vs = seasonSL(), v = vs[Math.floor(Math.random() * vs.length)];
   const ev = Object.assign({}, v);
-  const top = FIELDS[gender].slice(0, 20), who = top[Math.floor(Math.random() * top.length)];
+  if (whoId !== undefined) SPECT.who = whoId;
+  const top = FIELDS[gender].slice(0, 20);
+  const who = (SPECT.who && FIELDS[gender].find(a => a.id === SPECT.who)) || top[Math.floor(Math.random() * top.length)];
   const wx = weatherFor(ev, gender)[0], rc = recoFor(wx);
   const c = buildCourse(courseSeed(gender, ev.date) ^ 0x1111, gender, ev.disc);
   c.prof = makeProfile(ev.venue, c.finishY, ev.disc); c.vd = c.prof.drop;
@@ -2211,10 +2241,11 @@ function startSpectate(){
   $('#keys').hidden = true;
   const outer = ctrl === 'outer';
   $('#spL').textContent = outer ? '左足' : '左'; $('#spR').textContent = outer ? '右足' : '右';
-  $('#spPad').hidden = false;
+  $('#spToggle').hidden = false; setSpectShow(SPECT_PREF.show);
+  document.body.classList.add('spectating');
 }
 function endSpectate(){
-  $('#spPad').hidden = true;
+  $('#spPad').hidden = true; $('#spToggle').hidden = true; document.body.classList.remove('spectating');
   if (SPECT.saved){ pname = SPECT.saved.pname; myNat = SPECT.saved.myNat; SPECT.saved = null; }
 }
 // light the buttons the robot is pressing (held a moment so quick taps stay visible)
@@ -2235,10 +2266,11 @@ function showSpectateEnd(){
     <dt>会場</dt><dd style="font-family:var(--f-body);font-size:15px">${esc(JP[race.ev.venue] || race.ev.venue)}（${race.ev.nat}）</dd>
     <dt>選手</dt><dd style="font-family:var(--f-body);font-size:15px">${esc(w.name)}（${esc((NAT[w.nat] || {}).jp || w.nat)}）</dd>
     <dt>タイム</dt><dd>${tt != null ? fmt(tt) : '—'}</dd><dt>最高速度</dt><dd>${Math.round(race.maxV * .36)} km/h</dd></dl>
-    <div class="btns"><button class="btn primary" type="button" id="spAgain">別のレースを観戦</button><button class="btn" type="button" id="spTop">トップに戻る</button></div>`;
+    <div class="btns"><button class="btn primary" type="button" id="spAgain">別のレースを観戦</button><button class="btn" type="button" id="spPick">選手を選び直す</button><button class="btn" type="button" id="spTop">トップに戻る</button></div>`;
   endSpectate();
   openSheet('Spectator', '観戦モード', html);
   $('#spAgain').onclick = () => { closeSheet(); startSpectate(); };
+  $('#spPick').onclick = () => showSpectPick();
   $('#spTop').onclick = () => { race = null; closeSheet(); startDemo(); showTop(); };
 }
 function abandon(){
@@ -5653,7 +5685,7 @@ function showTop(){
   $('#topWho').textContent = setupDone ? `${pname}（${(NAT[myNat] || {}).jp || myNat}）でプレー` : 'はじめに国と用具を選びます';
   $('#top').hidden = false;
   $('#topGo').onclick = () => { $('#top').hidden = true; ac(); bootGame(); };
-  $('#topWatch').onclick = () => { $('#top').hidden = true; ac(); startSpectate(); };
+  $('#topWatch').onclick = () => { $('#top').hidden = true; ac(); showSpectPick(); };
 }
 // the TOP button on every menu and result screen: leave any online room, stop whatever was showing, back to the title
 function goTop(){
@@ -5662,6 +5694,7 @@ function goTop(){
     const code = BT.code; BT.code = null; BT.room = null; BT.pos = {}; RCHAT.seen = 0;
     cloudCall({ action: 'room_leave', token: CLOUD.token, code }).catch(() => {});
   }
+  if (race && race.spectate) endSpectate();
   race = null; closeSheet(); leaveRunUI(); startDemo(); showTop();
 }
 document.querySelectorAll('.to-top').forEach(b => b.onclick = goTop);
