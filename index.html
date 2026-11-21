@@ -3585,7 +3585,9 @@ function drawWatcher(){
   else { ctx.moveTo(-2.8, -13.5); ctx.lineTo(-3.6, -8.5); }
   ctx.stroke();
   if (wact === 'chest'){ ctx.fillStyle = '#E3B48C'; const yh = -11.6 - pumpW * .9; ctx.beginPath(); ctx.arc(1.2, yh, .8, 0, 7); ctx.arc(-1.2, yh, .8, 0, 7); ctx.fill(); }
-  ctx.fillStyle = look.helm.c1; ctx.beginPath(); ctx.arc(0, -16.8, 2.5, 0, 7); ctx.fill();
+  const hat = legendHat(racerName());
+  if (hat) drawKnitHat(0, -16.8, 2.5, hat);
+  else { ctx.fillStyle = look.helm.c1; ctx.beginPath(); ctx.arc(0, -16.8, 2.5, 0, 7); ctx.fill(); }
   ctx.restore();
 }
 $('#watchSpd').onclick = () => { WATCH.speed = WATCH.speed === 1 ? 3 : 1; $('#watchSpd').textContent = WATCH.speed === 1 ? '早送り' : '普通の速さ'; };
@@ -3778,7 +3780,7 @@ function paintFlag(nat, x, y, w, h, flap){
 // Podium ceremony (race top 3) and crystal globe ceremony (season top 3 after the Finals)
 // =====================================================================
 // a racer in race suit seen from the front; pose: 'up' (skis held overhead), 'side' (skis upright beside), 'globe', 'ground'
-function athleteSVG(nat, me, pose, place){
+function athleteSVG(nat, me, pose, place, name){
   const c = NAT[nat] || { suit: '#13213A', trim: '#fff' };
   const suit = c.suit, trim = c.trim === c.suit ? '#fff' : c.trim, legs = shade(suit, .8);
   const skiA = me ? gearItem('ski', myGear.ski) : GEAR.ski.items[(hashStr(nat + place) >>> 3) % GEAR.ski.items.length];
@@ -3806,7 +3808,17 @@ function athleteSVG(nat, me, pose, place){
     <path d="M20 66 L20 94 M36 66 L36 94" stroke="${trim}" stroke-width="2" opacity=".8"/>
     <rect x="16" y="94" width="12" height="9" rx="2" fill="#E8ECF2"/><rect x="29" y="94" width="12" height="9" rx="2" fill="#E8ECF2"/>
     <circle cx="28" cy="20" r="10" fill="${face}"/>
-    <path d="M17 18 Q28 4 39 18 L39 14 Q28 0 17 14 Z" fill="${me ? '#D42A2F' : shade(suit, .9)}"/>
+    ${(() => {
+      const L = legendHat(name);
+      if (!L) return `<path d="M17 18 Q28 4 39 18 L39 14 Q28 0 17 14 Z" fill="${me ? '#D42A2F' : shade(suit, .9)}"/>`;
+      // knitted bobble hat in the flag's colours
+      const id = 'kh' + (hashStr(name + place) % 100000), n = L.bands.length, h = 13 / n;
+      return `<clipPath id="${id}"><path d="M17 19 Q17 5 28 5 Q39 5 39 19 Z"/></clipPath>
+        <g clip-path="url(#${id})">${L.bands.map((c, i) => `<rect x="16" y="${5 + i * h}" width="24" height="${h + .3}" fill="${c}"/>`).join('')}</g>
+        <rect x="16" y="15" width="24" height="5" rx="2" fill="${L.bands[n - 1]}"/>
+        <path d="M19 15.5v4M22 15.5v4M25 15.5v4M28 15.5v4M31 15.5v4M34 15.5v4M37 15.5v4" stroke="rgba(0,0,0,.18)" stroke-width=".8"/>
+        <circle cx="28" cy="4" r="4" fill="${L.pom}" stroke="rgba(0,0,0,.18)" stroke-width=".8"/>`;
+    })()}
     ${extra}
   </svg>`;
 }
@@ -3826,7 +3838,7 @@ function showCeremony(kind, top, ev){
   const person = (x, place, pose) => {
     const me = x.id === 'you', nat = natOf(x.id);
     const plate = `<div class="plate${me ? ' me' : ''}"><span class="flag" style="background:${FLAG[nat] || '#C9D2E3'}"></span><b>${place}</b> ${esc(nameOf(x.id))}${me && nameOf(x.id) !== 'あなた' ? '（あなた）' : ''}<small>${x.line}</small></div>`;
-    const fig = `<div class="per p${place}${me ? ' me' : ''}" style="--d:${({ 1: 1.2, 2: .6, 3: .3, 4: .1, 5: .1, 6: 0 })[place]}s">${athleteSVG(nat, me, pose, place)}</div>`;
+    const fig = `<div class="per p${place}${me ? ' me' : ''}" style="--d:${({ 1: 1.2, 2: .6, 3: .3, 4: .1, 5: .1, 6: 0 })[place]}s">${athleteSVG(nat, me, pose, place, nameOf(x.id))}</div>`;
     return place <= 3 ? { fig, plate } : `<div class="gp">${fig}${plate}</div>`;
   };
   const p1 = person(top[0], 1, kind === 'globe' ? 'globe' : 'up'), p2 = person(top[1], 2, 'side'), p3 = person(top[2], 3, 'side');
@@ -5405,6 +5417,34 @@ function drawParts(){
   }
 }
 // The racer seen from behind: skis on the snow in perspective, body angulated into the turn
+// ---- the old masters race in a knitted bobble hat in their flag's colours instead of a helmet ----
+const LEGEND_HAT = {
+  'STENMARK Ingemar':  { bands: ['#006AA7', '#FECC00', '#006AA7'], pom: '#FECC00' },
+  'NYBERG Fredrik':    { bands: ['#006AA7', '#FECC00', '#006AA7'], pom: '#FECC00' },
+  'NIERLICH Rudolf':   { bands: ['#C8102E', '#FFFFFF', '#C8102E'], pom: '#FFFFFF' },
+  'ZURBRIGGEN Pirmin': { bands: ['#DA291C', '#FFFFFF', '#DA291C'], pom: '#FFFFFF' },
+  'MAHRE Phil':        { bands: ['#B31942', '#FFFFFF', '#0A3161'], pom: '#FFFFFF' },
+  'GIRARDELLI Marc':   { bands: ['#EF3340', '#FFFFFF', '#00A3E0'], pom: '#00A3E0' },
+};
+const legendHat = name => LEGEND_HAT[name] || null;
+// whose figure is being drawn right now
+function racerName(){ if (SPLIT.side === 'R') return SPLIT.name; if (race && race.watch) return race.watch.a; return pname; }
+// a knitted hat seen from behind, centred on the head (r = head radius), in the current canvas transform
+function drawKnitHat(x, y, r, L){
+  const top = y - r * 1.2, bot = y + r * .5, n = L.bands.length;
+  ctx.save();
+  ctx.beginPath(); ctx.arc(x, y - r * .1, r * 1.08, Math.PI, 0); ctx.lineTo(x + r * 1.08, bot); ctx.lineTo(x - r * 1.08, bot); ctx.closePath(); ctx.clip();
+  for (let i = 0; i < n; i++){ ctx.fillStyle = L.bands[i]; ctx.fillRect(x - r * 1.2, top + i * (bot - top) / n, r * 2.4, (bot - top) / n + .05); }
+  ctx.restore();
+  // ribbed cuff
+  ctx.fillStyle = L.bands[n - 1]; rrect(x - r * 1.14, y + r * .15, r * 2.28, r * .55, r * .2); ctx.fill();
+  ctx.strokeStyle = 'rgba(0,0,0,.18)'; ctx.lineWidth = r * .08; ctx.beginPath();
+  for (let i = -4; i <= 4; i++){ ctx.moveTo(x + i * r * .25, y + r * .18); ctx.lineTo(x + i * r * .25, y + r * .67); }
+  ctx.stroke();
+  // bobble
+  ctx.fillStyle = L.pom; ctx.beginPath(); ctx.arc(x, y - r * 1.3, r * .5, 0, 7); ctx.fill();
+  ctx.strokeStyle = 'rgba(0,0,0,.18)'; ctx.lineWidth = r * .1; ctx.stroke();
+}
 function drawSkier(){
   if (state === 'watch' || state === 'celebrate' || (sk.act && sk.act.type === 'skisup')) return drawWatcher();
   const p = proj(sk.x, sk.y); if (!p) return;
@@ -5570,13 +5610,22 @@ function drawSkier(){
     const hd = blockO ? handO : handI;
     ctx.fillStyle = look.pole.c2; ctx.beginPath(); ctx.ellipse(hd.x + bs*.9, hd.y - .6, 1.2, 2.1, bs*.5, 0, 7); ctx.fill();
   }
-  // helmet from behind
+  // helmet from behind (or the old masters' knitted bobble hat)
+  const hat = legendHat(racerName());
+  if (hat){
+    ctx.save(); ctx.translate(head.x, head.y); ctx.rotate(ang);
+    ctx.fillStyle = '#6B4A32'; ctx.beginPath(); ctx.arc(0, .3, 2.3, 0, 7); ctx.fill();          // a little hair below the hat
+    drawKnitHat(0, 0, 2.5, hat);
+    ctx.strokeStyle = look.gog.c2; ctx.lineWidth = .7; ctx.beginPath(); ctx.moveTo(-2.5, .55); ctx.lineTo(2.5, .55); ctx.stroke();   // goggle strap over the cuff
+    ctx.restore();
+  } else {
   ctx.fillStyle = look.helm.c1; ctx.beginPath(); ctx.arc(head.x, head.y, 2.5, 0, 7); ctx.fill();
   ctx.save(); ctx.translate(head.x, head.y); ctx.rotate(ang);
   ctx.fillStyle = look.helm.c2; ctx.fillRect(-.45, -2.4, .9, 4.8);
   ctx.fillStyle = 'rgba(255,255,255,.35)'; ctx.beginPath(); ctx.arc(-.8, -.9, .9, 0, 7); ctx.fill();
   ctx.strokeStyle = look.gog.c2; ctx.lineWidth = .7; ctx.beginPath(); ctx.moveTo(-2.4, .4); ctx.lineTo(2.4, .4); ctx.stroke();   // goggle strap
   ctx.restore();
+  }
   ctx.restore();
 }
 function rrect(x, y, w, h, r){ ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
