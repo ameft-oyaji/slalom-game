@@ -2589,7 +2589,7 @@ function battleGhosts(sprites, yNear, yFar){
   });
 }
 // ---- split screen for the dual race: you on the left, your rival on the right, both racing at once ----
-const SPLIT = { side: '', ox: 0, me: null, name: '', camL: 0, camR: 0, prevTh: 0, lean: 0 };
+const SPLIT = { side: '', ox: 0, oy: 0, me: null, name: '', camL: 0, camR: 0, prevTh: 0, lean: 0 };
 function meGhost(sprites, yNear, yFar){
   const m = SPLIT.me; if (!m || m.y < yNear - 30 || m.y > yFar + 30) return;
   sprites.push({ y: m.y, d: () => drawGhost(m.x, m.y, m.th, pname, '#FFC93C') });
@@ -2615,44 +2615,40 @@ function splitRival(){
   }
   return null;
 }
-function paneLabel(text, col, half){
-  ctx.setTransform(dpr, 0, 0, dpr, SPLIT.ox * dpr, 0);
-  ctx.font = "800 15px 'Noto Sans JP', sans-serif"; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  const w = ctx.measureText(text).width + 22, y = Math.round(ch * .39);
-  ctx.fillStyle = 'rgba(14,26,46,.78)'; rrect(half / 2 - w / 2, y - 14, w, 28, 6); ctx.fill();
-  ctx.fillStyle = col; ctx.fillRect(half / 2 - w / 2 + 6, y + 10, w - 12, 2.5);
-  ctx.fillStyle = '#fff'; ctx.fillText(text, half / 2, y);
+function paneLabel(text, col, atTop){
+  // a name tag beside the dividing line: at the bottom of the upper pane, at the top of the lower one
+  ctx.setTransform(dpr, 0, 0, dpr, SPLIT.ox * dpr, SPLIT.oy * dpr);
+  ctx.font = "800 14px 'Noto Sans JP', sans-serif"; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  const w = ctx.measureText(text).width + 20, x = 12, y = atTop ? 22 : ch - 22;
+  ctx.fillStyle = 'rgba(14,26,46,.78)'; rrect(x, y - 13, w, 26, 6); ctx.fill();
+  ctx.fillStyle = col; ctx.fillRect(x + 6, y + 9, w - 12, 2.5);
+  ctx.fillStyle = '#fff'; ctx.fillText(text, x + 10, y);
 }
 function renderView(){
   const R = splitRival();
-  if (!R){ SPLIT.side = ''; SPLIT.ox = 0; render(); return; }
-  const full = cw, S0 = S, half = Math.floor(full / 2), camSave = camX;
-  S = Math.min(half / 250, ch / 380);
-  // left: you
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.save(); ctx.beginPath(); ctx.rect(0, 0, half, ch); ctx.clip();
-  SPLIT.side = 'L'; SPLIT.ox = 0; cw = half; camX = SPLIT.camL;
-  render(); SPLIT.camL = camX;
-  paneLabel(pname === 'あなた' ? 'あなた' : pname + '（あなた）', '#FFC93C', half);
-  ctx.restore();
-  // right: the rival, drawn as the racer; you appear as the see-through one
+  if (!R){ SPLIT.side = ''; SPLIT.ox = 0; SPLIT.oy = 0; render(); return; }
+  const full = ch, S0 = S, half = Math.floor(full / 2), camSave = camX;
+  S = Math.min(cw / 330, half / 250);
+  // upper half: the rival, drawn as the racer; you appear as a dot
   const keep = { x: sk.x, y: sk.y, th: sk.th, v: sk.v, lean: sk.lean, tuck: sk.tuck, pushT: sk.pushT, skateT: sk.skateT, block: sk.block, act: sk.act, ng: sk.ng };
   const keepTrail = trail, keepNat = myNat;
   SPLIT.me = { x: sk.x, y: sk.y, th: sk.th };
   SPLIT.lean += (clamp((R.th - SPLIT.prevTh) * 22, -1, 1) - SPLIT.lean) * .25; SPLIT.prevTh = R.th;
   Object.assign(sk, { x: R.x, y: R.y, th: R.th, v: R.v, lean: R.out ? 0 : SPLIT.lean, tuck: false, pushT: 0, skateT: 0, block: null, act: null });
   trail = []; myNat = R.nat; SPLIT.name = R.name;
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.save(); ctx.beginPath(); ctx.rect(half, 0, full - half, ch); ctx.clip();
-  SPLIT.side = 'R'; SPLIT.ox = half; cw = full - half; camX = SPLIT.camR;
-  try { render(); SPLIT.camR = camX; paneLabel(R.name + (R.out ? '（DNF）' : ''), race.cpu ? '#7048E8' : '#E8590C', full - half); }
-  finally {
-    ctx.restore();
-    Object.assign(sk, keep); trail = keepTrail; myNat = keepNat;
-    cw = full; S = S0; camX = camSave; SPLIT.side = ''; SPLIT.ox = 0;
-  }
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.save(); ctx.beginPath(); ctx.rect(0, 0, cw, half); ctx.clip();
+  SPLIT.side = 'R'; SPLIT.ox = 0; SPLIT.oy = 0; ch = half; camX = SPLIT.camR;
+  try { render(); SPLIT.camR = camX; paneLabel(R.name + (R.out ? '（DNF）' : ''), race.cpu ? '#7048E8' : '#E8590C', false); }
+  finally { ctx.restore(); Object.assign(sk, keep); trail = keepTrail; myNat = keepNat; }
+  // lower half: you
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.save(); ctx.beginPath(); ctx.rect(0, half, cw, full - half); ctx.clip();
+  SPLIT.side = 'L'; SPLIT.oy = half; ch = full - half; camX = SPLIT.camL;
+  try { render(); SPLIT.camL = camX; paneLabel(pname === 'あなた' ? 'あなた' : pname + '（あなた）', '#FFC93C', true); }
+  finally { ctx.restore(); ch = full; S = S0; camX = camSave; SPLIT.side = ''; SPLIT.ox = 0; SPLIT.oy = 0; }
   // the line between the two halves
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  ctx.fillStyle = '#13213A'; ctx.fillRect(half - 2, 0, 4, ch);
-  ctx.fillStyle = '#FFC93C'; ctx.fillRect(half - .75, 0, 1.5, ch);
+  ctx.fillStyle = '#13213A'; ctx.fillRect(0, half - 2, cw, 4);
+  ctx.fillStyle = '#FFC93C'; ctx.fillRect(0, half - .75, cw, 1.5);
 }
 function drawGhost(x, y, th, name, col){
   // the other racer is shown as a coloured dot on the snow (no figure, no name)
@@ -4424,11 +4420,11 @@ function drawStartDeck(yNear, yFar){
   if (L && R){ ctx.strokeStyle = 'rgba(31,85,200,.55)'; ctx.lineWidth = Math.max(1, 1.4 * L.k); ctx.beginPath(); ctx.moveTo(L.X, L.Y); ctx.lineTo(R.X, R.Y); ctx.stroke(); }
 }
 function render(){
-  ctx.setTransform(dpr, 0, 0, dpr, SPLIT.ox * dpr, 0);
+  ctx.setTransform(dpr, 0, 0, dpr, SPLIT.ox * dpr, SPLIT.oy * dpr);
   const live = state === 'run' || state === 'countdown' || state === 'gate' || state === 'finished';
   // keep the skier just above the athlete card / touch buttons, whatever the screen shape
   let baseFrac = Math.min(.36, 110 / ch + .1);
-  if (live){ const cr = $('#card').getBoundingClientRect(); if (cr.height) baseFrac = clamp((ch - cr.top + 30) / ch, .16, .5); }
+  if (live){ const cr = $('#card').getBoundingClientRect(); if (cr.height) baseFrac = clamp((ch - (cr.top - SPLIT.oy) + 30) / ch, .16, .5); }
   camX += (sk.x * .75 - camX) * .1;
   setupCamera(baseFrac);
   const yNear = CAM.camZ + CAM.zBot, yFar = CAM.camZ + CAM.zTop;
@@ -4532,7 +4528,7 @@ function render(){
     if (ln){ ctx.globalAlpha = isNight ? .05 : .07; ctx.fillStyle = ln[0]; ctx.fillRect(0, 0, cw, ch); ctx.globalAlpha = 1; }
   }
   if (wxNow && wxNow.cond === 'snow') drawSnowfall();
-  if (SPLIT.side !== 'L') drawProgress();
+  if (SPLIT.side !== 'R') drawProgress();
   drawConfetti();
   const cd = $('#cd');
   if (state === 'countdown' && race && race.dual){
