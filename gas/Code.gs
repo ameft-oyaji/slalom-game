@@ -198,6 +198,8 @@ function players_() {
 // Online battle rooms (kept in the script cache for up to 6 hours; nothing is written to the sheet)
 // ---------------------------------------------------------------------
 const RC_TTL = 21600;
+// a World Cup course (gender_date), or a dual race on a rhythm set (gender_dual-SL|GS-seed)
+const COURSE_RE = /^(men|women)_(\d{4}-\d{2}-\d{2}|dual-(SL|GS)-\d{1,6})$/;
 function rc_() { return CacheService.getScriptCache(); }
 function roomGet_(code) { const s = rc_().get('room_' + code); return s ? JSON.parse(s) : null; }
 function roomPut_(r) { rc_().put('room_' + r.code, JSON.stringify(r), RC_TTL); }
@@ -212,7 +214,7 @@ function room_create_(q) {
   const name = userByToken_(q.token);
   if (!name) return { ok: false, error: 'auth' };
   const course = String(q.course || '');
-  if (!/^(men|women)_\d{4}-\d{2}-\d{2}$/.test(course)) return { ok: false, error: 'course' };
+  if (!COURSE_RE.test(course)) return { ok: false, error: 'course' };
   let code = '';
   for (let i = 0; i < 30; i++) { const c = String(1000 + Math.floor(Math.random() * 9000)); if (!roomGet_(c)) { code = c; break; } }
   if (!code) return { ok: false, error: 'busy' };
@@ -241,7 +243,8 @@ function room_start_(q) {
   const r = roomGet_(String(q.code || ''));
   if (!r) return { ok: false, error: 'noroom' };
   if (r.host !== name) return { ok: false, error: 'host' };
-  if (q.course && /^(men|women)_\d{4}-\d{2}-\d{2}$/.test(String(q.course))) r.course = String(q.course);
+  if (q.course && COURSE_RE.test(String(q.course))) r.course = String(q.course);
+  r.run = Number(q.run) === 2 ? 2 : 1;                                 // dual race: which of the two runs
   r.raceId += 1; r.state = 'race'; r.startAt = Date.now() + 9000;
   rc_().removeAll(r.members.map(function (m) { return posKey_(r.code, m); }));
   roomPut_(r);
@@ -255,7 +258,8 @@ function room_pos_(q) {
   if (r.members.indexOf(name) < 0) return { ok: false, error: 'member' };
   const num = function (x) { const n = Number(x); return isFinite(n) ? Math.round(n * 100) / 100 : 0; };
   const p = { raceId: Number(q.raceId) || 0, t: num(q.t), x: num(q.x), y: num(q.y), v: num(q.v), th: num(q.th), ng: Number(q.ng) || 0,
-              fin: q.fin == null ? null : num(q.fin), out: q.out ? String(q.out).slice(0, 3) : '', ts: Date.now() };
+              fin: q.fin == null ? null : num(q.fin), out: q.out ? String(q.out).slice(0, 3) : '', ts: Date.now(),
+              t1: q.t1 == null ? null : num(q.t1), o1: q.o1 ? String(q.o1).slice(0, 3) : '' };      // dual race run 2: the first run's result
   rc_().put(posKey_(r.code, name), JSON.stringify(p), RC_TTL);
   return roomView_(r);
 }
