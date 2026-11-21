@@ -193,7 +193,7 @@ td.r{text-align:right;font-family:var(--f-num);font-size:15px;color:var(--muted)
 tr.me td{background:rgba(255,201,60,.18);color:#fff}
 tr.cut td{border-bottom:2px solid var(--amber)}
 .nat3{font-family:var(--f-num);color:var(--muted);white-space:nowrap}
-.nat3 .flag,dd .flag.sm,.note .flag.sm,#topWho .flag,td .flag.sm,small .flag.sm,.cer-title .flag{margin-right:4px;vertical-align:-2px}
+.nat3 .flag,.ev .nat .flag,dd .flag.sm,.note .flag.sm,#topWho .flag,td .flag.sm,small .flag.sm,.cer-title .flag{margin-right:4px;vertical-align:-2px}
 .mv{font-family:var(--f-num);font-weight:700;font-size:13px;margin-left:4px}
 .mv.up{color:var(--good)} .mv.down{color:var(--bad)} .mv.same{color:var(--muted)}
 .globe{display:flex;gap:14px;align-items:center;background:var(--board-2);border-radius:4px;padding:10px 12px;border-left:4px solid var(--amber)}
@@ -4298,7 +4298,7 @@ function calendarHTML(){
   let mon = '', todayShown = false, wchShown = false;
   races.forEach((r, i) => {
     const m = r.date.slice(0, 7);
-    if (!wchShown && r.date > WCH.from){ wchShown = true; html += `<div class="mon">2027.02</div><div class="ev wch"><div class="d">2/1–14</div><div class="v"><b>世界選手権</b> ${JP[WCH.venue]}<span class="nat">${WCH.nat}</span><span class="real">FIS アルペンスキー世界選手権（ワールドカップポイント対象外）</span></div></div>`; mon = '2027-02'; }
+    if (!wchShown && r.date > WCH.from){ wchShown = true; html += `<div class="mon">2027.02</div><div class="ev wch"><div class="d">2/1–14</div><div class="v"><b>世界選手権</b> ${JP[WCH.venue]}<span class="nat">${flagH(WCH.nat)}${WCH.nat}</span><span class="real">FIS アルペンスキー世界選手権（ワールドカップポイント対象外）</span></div></div>`; mon = '2027-02'; }
     if (m !== mon){ mon = m; html += `<div class="mon">${m.replace('-', '.')}</div>`; }
     if (!todayShown && r.date >= TODAY){ todayShown = true; html += `<div class="today">▼ 今日 ${+TODAY.slice(5,7)}/${+TODAY.slice(8)}</div>`; }
     const sl = r.disc === disc;
@@ -4316,7 +4316,7 @@ function calendarHTML(){
       const h = s.hist.find(x => x.date === r.date);
       if (h && h.podium[0]) extra = `優勝 ${esc(nameOf(h.podium[0]))}（${flagH(natOf(h.podium[0]))}${natOf(h.podium[0])}）`;
     }
-    html += `<div class="ev ${sl ? 'sl' : 'dim'} ${i === nextIdx ? 'next' : ''}"><div class="d">${dLabel(r.date)}</div><div class="v"><span class="chip ${r.disc}">${r.disc}</span><b>${JP[r.venue] || r.venue}</b><span class="nat">${r.nat}</span>${r.tbc ? ' <span class="nat">（会場未確定）</span>' : ''}${r.night ? ' <span class="badge night">ナイター</span>' : ''}${r.finals ? ' <span class="badge">ファイナル</span>' : ''}<span class="real">${DISC[r.disc]}${extra ? ' · ゲーム：' + extra : ''}${real ? ' · 実際の結果：' + real : ''}</span></div>${st2}</div>`;
+    html += `<div class="ev ${sl ? 'sl' : 'dim'} ${i === nextIdx ? 'next' : ''}"><div class="d">${dLabel(r.date)}</div><div class="v"><span class="chip ${r.disc}">${r.disc}</span><b>${JP[r.venue] || r.venue}</b><span class="nat">${flagH(r.nat)}${r.nat}</span>${r.tbc ? ' <span class="nat">（会場未確定）</span>' : ''}${r.night ? ' <span class="badge night">ナイター</span>' : ''}${r.finals ? ' <span class="badge">ファイナル</span>' : ''}<span class="real">${DISC[r.disc]}${extra ? ' · ゲーム：' + extra : ''}${real ? ' · 実際の結果：' + real : ''}</span></div>${st2}</div>`;
   });
   html += '</div><p class="note">日程は FIS 公表のワールドカップ・カレンダー（2026年11月時点）に基づきます。天候などで変更・中止になることがあります。ゲーム内で一緒に走る選手は架空の選手です。「もう一度」はポイント対象外のエキシビションです。</p>';
   return html;
@@ -4578,7 +4578,7 @@ function taListHTML(){
     const key = taKey(gender, r.date);
     const b = taBoard(key);
     const mine = b.find(x => x.me);
-    html += `<div class="ev sl"><div class="d">${dLabel(r.date)}</div><div class="v"><b>${JP[r.venue]}</b><span class="nat">${r.nat}</span>${r.night ? ' <span class="badge night">ナイター</span>' : ''}<span class="real">${b[0] ? `レコード ${fmt(b[0].t)} ${esc(b[0].handle)}` : 'レコードなし'}${mine ? ` · あなた ${fmt(mine.t)}（${mine.rank}位 / ${b.length}人）` : ''}</span></div><div class="st"><button class="btn small hot" type="button" data-race="${r.idx}" data-mode="ta">挑戦</button></div></div>`;
+    html += `<div class="ev sl"><div class="d">${dLabel(r.date)}</div><div class="v"><b>${JP[r.venue]}</b><span class="nat">${flagH(r.nat)}${r.nat}</span>${r.night ? ' <span class="badge night">ナイター</span>' : ''}<span class="real">${b[0] ? `レコード ${fmt(b[0].t)} ${esc(b[0].handle)}` : 'レコードなし'}${mine ? ` · あなた ${fmt(mine.t)}（${mine.rank}位 / ${b.length}人）` : ''}</span></div><div class="st"><button class="btn small hot" type="button" data-race="${r.idx}" data-mode="ta">挑戦</button></div></div>`;
   }
   return html + '</div><p class="note">ランキングには上の「名前」が表示されます。</p>';
 }
