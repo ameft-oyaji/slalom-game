@@ -2484,8 +2484,8 @@ const DUAL_PREF = Object.assign({ cpu: 'mid' }, load('slalomwc-dual') || {});
 if (DUAL_PREF.d !== 'SL') DUAL_PREF.d = 'GS';          // which gates the dual race is skied on: slalom or giant slalom (giant slalom unless chosen)
 // CP rival levels: [label, ranking from, ranking to]. The rival is drawn from that part of the ranking and skis at that rank's pace
 const CPU_LV = { easy: ['インカレクラス', 84, 999], mid: ['全日本クラス', 70, 83], hard: ['ヨーロッパカップ級', 20, 60], wc: ['ワールドカップ級', 1, 15] };
-// インカレクラス: the ability of a skier ranked 84th or lower, under these names
-const CPU_COLLEGE = [['OUCHI Keita', 'JPN']];
+// levels raced under given names (at the ability of their ranking band): インカレクラス and 全日本クラス
+const CPU_NAMED = { easy: [['OUCHI Keita', 'JPN']], mid: [['SASAKI Akira', 'JPN']] };
 // pace against the robot's clean line, by ranking (1st = fastest)
 function cpuPace(rank){
   const P = [[1, 1.03], [15, 1.05], [20, 1.07], [60, 1.12], [70, 1.14], [83, 1.18], [92, 1.24]];
@@ -2558,7 +2558,8 @@ function startCpuDual(){
   const lo = Math.min(k[1], field.length), hi = Math.min(k[2], field.length);
   const rank = lo + Math.floor(r() * (hi - lo + 1));          // where in the ranking this rival stands
   let who = field[rank - 1];
-  if (DUAL_PREF.cpu === 'easy'){ const c = CPU_COLLEGE[Math.floor(r() * CPU_COLLEGE.length)]; who = { name: c[0], nat: c[1] }; }
+  const named = CPU_NAMED[DUAL_PREF.cpu];
+  if (named){ const c = named[Math.floor(r() * named.length)]; who = { name: c[0], nat: c[1] }; }
   const pace = cpuPace(rank);
   const runs = race.courses.map((c, i) => {
     race.run = i + 1; const tr = cpuTrack(c, runMods()); race.run = 1;
@@ -2566,7 +2567,7 @@ function startCpuDual(){
     const fall = r() < .05 ? .3 + r() * .55 : null;             // now and then the rival goes out
     return { pts: tr.pts, f, T: trunc(tr.T * f), fall };
   });
-  race.cpu = { name: who.name, nat: who.nat, lv: k[0], rank, college: DUAL_PREF.cpu === 'easy', runs, times: runs.map(x => x.fall ? null : x.T) };
+  race.cpu = { name: who.name, nat: who.nat, lv: k[0], rank, college: !!CPU_NAMED[DUAL_PREF.cpu], runs, times: runs.map(x => x.fall ? null : x.T) };
   $('#menu').hidden = true;
   beginRun();
   cdT = 5;
