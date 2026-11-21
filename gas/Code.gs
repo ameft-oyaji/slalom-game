@@ -276,7 +276,8 @@ function room_pos_(q) {
   const num = function (x) { const n = Number(x); return isFinite(n) ? Math.round(n * 100) / 100 : 0; };
   const p = { raceId: Number(q.raceId) || 0, t: num(q.t), x: num(q.x), y: num(q.y), v: num(q.v), th: num(q.th), ng: Number(q.ng) || 0,
               fin: q.fin == null ? null : num(q.fin), out: q.out ? String(q.out).slice(0, 3) : '', ts: Date.now(),
-              t1: q.t1 == null ? null : num(q.t1), o1: q.o1 ? String(q.o1).slice(0, 3) : '' };      // dual race run 2: the first run's result
+              t1: q.t1 == null ? null : num(q.t1), o1: q.o1 ? String(q.o1).slice(0, 3) : '',      // dual race run 2: the first run's result
+              sp: q.sp ? 1 : 0, ch: q.ch ? String(q.ch).slice(0, 24) : '', cid: Number(q.cid) || 0 };  // a watcher's cheer (speech bubble)
   rc_().put(posKey_(r.code, name), JSON.stringify(p), RC_TTL);
   return roomView_(r);
 }
