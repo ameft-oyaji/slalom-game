@@ -114,7 +114,11 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
 button:focus-visible,select:focus-visible,input:focus-visible{outline:3px solid var(--amber);outline-offset:2px}
 
 .panel{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(580px,calc(100% - 24px));max-height:calc(100% - 24px);overflow:auto;-webkit-overflow-scrolling:touch;background:var(--board);color:#fff;border-radius:6px;box-shadow:0 12px 40px rgba(14,26,46,.35);overscroll-behavior:contain}
-.panel-head{padding:16px 18px 12px;border-bottom:4px solid;border-image:linear-gradient(90deg,var(--red) 0 50%,var(--blue) 50% 100%) 1}
+.panel-head{position:relative;padding:16px 18px 12px;border-bottom:4px solid;border-image:linear-gradient(90deg,var(--red) 0 50%,var(--blue) 50% 100%) 1}
+/* back to the title screen, top right of every menu and result screen */
+.to-top{position:absolute;top:10px;right:12px;border:1px solid var(--board-3);background:var(--board-2);color:#fff;font:700 13px var(--f-num);letter-spacing:.12em;padding:6px 12px;border-radius:4px;cursor:pointer}
+.to-top::before{content:'⌂';margin-right:5px;font-size:14px;letter-spacing:0}
+.to-top:hover{background:var(--board-3)}
 .eyebrow{font-family:var(--f-num);font-weight:500;font-size:13px;letter-spacing:.18em;color:var(--muted);text-transform:uppercase}
 h1{margin:2px 0 0;font-family:var(--f-num);font-style:italic;font-weight:800;font-size:50px;line-height:.95;letter-spacing:.01em}
 h1 small{display:block;font-family:var(--f-body);font-style:normal;font-weight:700;font-size:14px;letter-spacing:.04em;margin-top:6px}
@@ -490,6 +494,7 @@ body.nightrace .ev-label,body.nightrace .ev-label *,body.nightrace #keys,body.ni
   </section>
   <section class="panel" id="menu">
     <div class="panel-head">
+      <button class="to-top" type="button" aria-label="トップ画面に戻る">TOP</button>
       <div class="eyebrow">FIS Alpine Ski World Cup 2026/27</div>
       <h1 id="menuTitle">SLALOM<small>回転（スラローム）ワールドカップ</small></h1>
     </div>
@@ -541,6 +546,7 @@ body.nightrace .ev-label,body.nightrace .ev-label *,body.nightrace #keys,body.ni
 
   <section class="panel" id="sheet" hidden>
     <div class="panel-head">
+      <button class="to-top" type="button" aria-label="トップ画面に戻る">TOP</button>
       <div class="eyebrow" id="shEyebrow"></div>
       <h2 id="shTitle"></h2>
     </div>
@@ -5323,6 +5329,16 @@ function showTop(){
   $('#topGo').onclick = () => { $('#top').hidden = true; ac(); bootGame(); };
   $('#topWatch').onclick = () => { $('#top').hidden = true; ac(); startSpectate(); };
 }
+// the TOP button on every menu and result screen: leave any online room, stop whatever was showing, back to the title
+function goTop(){
+  if (BT.code){
+    clearInterval(BT.poll);
+    const code = BT.code; BT.code = null; BT.room = null; BT.pos = {};
+    cloudCall({ action: 'room_leave', token: CLOUD.token, code }).catch(() => {});
+  }
+  race = null; closeSheet(); leaveRunUI(); startDemo(); showTop();
+}
+document.querySelectorAll('.to-top').forEach(b => b.onclick = goTop);
 function showLock(){
   $('#menu').hidden = true; $('#sheet').hidden = true; $('#lock').hidden = false;
   setTimeout(() => { try { $('#lockPw').focus(); } catch(_){} }, 50);
