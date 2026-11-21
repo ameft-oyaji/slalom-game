@@ -4000,6 +4000,35 @@ function drawTrack(pts, wt, rgb, alpha, width, yNear, yFar){
     }
   }
 }
+// giant slalom: blue dye sprayed on the snow on the inside of each turning pole, tracing the arc —
+// a long sweep coming in from above, the tip at the pole, a short hook out below. A faint blue haze lies around it
+function drawDye(yNear, yFar){
+  if (!course.gh) return;
+  const gh = course.gh;
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  for (const g of course.gates){
+    if (g.y < yNear - 60 || g.y - 130 > yFar) continue;
+    const sd = Math.sign(g.x) || 1, tp = g.x - sd * gh;        // the turning pole is the one nearer the middle of the piste
+    const r = hash2(g.i, 77), wob = ((r & 255) / 255 - .5) * 8;
+    const pts = [];
+    for (let k = 0; k <= 22; k++){
+      const u = -1 + k / 22 * 1.5;                              // -1 = top of the sweep, 0 = at the pole, .5 = end of the hook
+      const y = g.y + (u < 0 ? u * 75 : u * 90);
+      const x = tp - sd * (3 + (u < 0 ? (80 + wob * 2) * u * u : 70 * u * u * 4));
+      const q = proj(x, y); if (q) pts.push(q);
+    }
+    if (pts.length < 2) continue;
+    const line = (rgba, w) => {
+      ctx.strokeStyle = rgba;
+      for (let i = 1; i < pts.length; i++){
+        ctx.lineWidth = Math.max(.8, w * pts[i].k);
+        ctx.beginPath(); ctx.moveTo(pts[i - 1].X, pts[i - 1].Y); ctx.lineTo(pts[i].X, pts[i].Y); ctx.stroke();
+      }
+    };
+    line('rgba(70,140,230,.06)', 12);         // overspray haze
+    line('rgba(40,110,215,.38)', 2.2);        // the sprayed line
+  }
+}
 function drawRuts(yNear, yFar){
   const w = WEAR;
   if (w < .02 || !course.gates.length) return;
@@ -4091,6 +4120,7 @@ function render(){
   }
   WEAR = courseWear();
   drawStartDeck(yNear, yFar);
+  drawDye(yNear, yFar);
   if (state !== 'inspect' || race) drawRuts(yNear, yFar);
   // ski tracks (your own)
   drawTrack(trail, trackWeights(trail), '110,135,180', .5, 1.3, yNear, yFar);
