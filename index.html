@@ -4316,7 +4316,7 @@ function calendarHTML(){
       const h = s.hist.find(x => x.date === r.date);
       if (h && h.podium[0]) extra = `優勝 ${esc(nameOf(h.podium[0]))}（${flagH(natOf(h.podium[0]))}${natOf(h.podium[0])}）`;
     }
-    html += `<div class="ev ${sl ? 'sl' : 'dim'} ${i === nextIdx ? 'next' : ''}"><div class="d">${dLabel(r.date)}</div><div class="v"><span class="chip ${r.disc}">${r.disc}</span><b>${JP[r.venue] || r.venue}</b><span class="nat">${r.nat}</span>${r.tbc ? ' <span class="nat">（会場未確定）</span>' : ''}${r.night ? ' <span class="badge night">ナイター</span>' : ''}${r.finals ? ' <span class="badge">ファイナル</span>' : ''}<span class="real">${DISC[r.disc]}${extra ? ' · ゲーム：' + esc(extra) : ''}${real ? ' · 実際の結果：' + real : ''}</span></div>${st2}</div>`;
+    html += `<div class="ev ${sl ? 'sl' : 'dim'} ${i === nextIdx ? 'next' : ''}"><div class="d">${dLabel(r.date)}</div><div class="v"><span class="chip ${r.disc}">${r.disc}</span><b>${JP[r.venue] || r.venue}</b><span class="nat">${r.nat}</span>${r.tbc ? ' <span class="nat">（会場未確定）</span>' : ''}${r.night ? ' <span class="badge night">ナイター</span>' : ''}${r.finals ? ' <span class="badge">ファイナル</span>' : ''}<span class="real">${DISC[r.disc]}${extra ? ' · ゲーム：' + extra : ''}${real ? ' · 実際の結果：' + real : ''}</span></div>${st2}</div>`;
   });
   html += '</div><p class="note">日程は FIS 公表のワールドカップ・カレンダー（2026年11月時点）に基づきます。天候などで変更・中止になることがあります。ゲーム内で一緒に走る選手は架空の選手です。「もう一度」はポイント対象外のエキシビションです。</p>';
   return html;
