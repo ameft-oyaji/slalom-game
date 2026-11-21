@@ -1025,14 +1025,10 @@ function buildCourse(seedN, gender, d){
   const r = rng(seedN);
   const vd = gender === 'men' ? 180 + Math.round(r()*40) : 150 + Math.round(r()*45);   // vertical drop (m)
   const N = Math.round(vd * (0.30 + r()*0.04));                                       // ≈ 30–34 % of vertical drop
-  const combos = [];
-  const nHair = 2 + (r() < .5 ? 1 : 0), nVert = 1 + Math.floor(r()*3);
-  for (let i = 0; i < nHair; i++) combos.push({ n: 2, tag: 'ヘアピン' });
-  for (let i = 0; i < nVert; i++) combos.push({ n: 3 + (r() < .5 ? 1 : 0), tag: 'バーティカル' });
-  const comboGates = combos.reduce((s, c) => s + c.n, 0);
-  const seq = Array(Math.max(8, N - comboGates)).fill(null);
-  shuffle(combos, r);
-  combos.forEach((c, k) => { const pos = Math.floor((k + .5 + (r() - .5)*.6) / combos.length * (seq.length - 8)) + 4; seq.splice(pos + k, 0, c); });
+  // closed gates in just one place, around the middle of the course: a vertical of three or four
+  const combo = { n: 3 + (r() < .5 ? 1 : 0), tag: 'バーティカル' };
+  const seq = Array(Math.max(8, N - combo.n)).fill(null);
+  seq.splice(Math.floor(seq.length * (.42 + r() * .16)), 0, combo);
   const gates = [];
   let y = 150, side = r() < .5 ? -1 : 1, prevT = 0, first = true;
   for (const it of seq){
