@@ -1673,13 +1673,35 @@ function thwack(vol){
   const g = actx.createGain(); g.gain.setValueAtTime(vol || .5, actx.currentTime); g.gain.exponentialRampToValueAtTime(.001, actx.currentTime + .12);
   s.connect(f).connect(g).connect(master); s.start();
 }
+// ---- the snow under the skis today: powder, wet, ice or hard-packed. Spray, carving sound and the piste follow it ----
+function snowKind(){
+  const w = race && race.wx && race.wx[(race.run || 1) - 1], s = (w && w.surface) || '';
+  return s.includes('湿') ? 'wet' : s.includes('新雪') ? 'powder' : s.includes('アイス') ? 'ice' : 'hard';
+}
+const SPRAY = {
+  hard:   { rate: .8, n: 2, sp: 1,    life: 1,   r: 1 },
+  powder: { rate: 1,  n: 6, sp: 1.3,  life: 1.7, r: 2.2 },   // a big cloud of snow
+  wet:    { rate: .8, n: 2, sp: .8,   life: .9,  r: 1.3 },   // heavy, pale-blue slush
+  ice:    { rate: .7, n: 3, sp: 1.35, life: .65, r: 1 },     // sharp little shards
+};
+const CARVE_SND = {
+  hard:   { f: 1900, q: 1.2, vol: .10 },
+  powder: { f: 620,  q: .6,  vol: .07 },   // a soft hiss
+  wet:    { f: 1050, q: .8,  vol: .12 },   // a slushy swish
+  ice:    { f: 3600, q: 3.2, vol: .17 },   // a hard scrape
+};
 function startWind(){
   if (!actx) return;
   const s = actx.createBufferSource(); s.buffer = noiseBuf(2); s.loop = true;
   const f = actx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 500;
   const g = actx.createGain(); g.gain.value = 0;
   s.connect(f).connect(g).connect(master); s.start();
-  wind = { g, f };
+  // the edges biting into the snow in a turn
+  const s2 = actx.createBufferSource(); s2.buffer = noiseBuf(2); s2.loop = true;
+  const f2 = actx.createBiquadFilter(); f2.type = 'bandpass'; f2.frequency.value = 1900; f2.Q.value = 1.2;
+  const g2 = actx.createGain(); g2.gain.value = 0;
+  s2.connect(f2).connect(g2).connect(master); s2.start();
+  wind = { g, f, cg: g2, cf: f2 };
   startCrowdNoise();
 }
 function updateWind(){
@@ -1687,6 +1709,12 @@ function updateWind(){
   const live = state === 'run' || state === 'finished';
   wind.g.gain.setTargetAtTime(muted || !live ? 0 : Math.min(.2, sk.v / 1300), actx.currentTime, .1);
   wind.f.frequency.setTargetAtTime(300 + sk.v*4 + (Math.abs(sk.lean) > .3 ? 600 : 0), actx.currentTime, .1);
+  if (wind.cg){
+    const C = CARVE_SND[snowKind()], turn = live && Math.abs(sk.lean) > .15 ? Math.abs(sk.lean) * Math.min(1, sk.v / 150) : 0;
+    const jitter = C === CARVE_SND.ice ? (Math.random() - .5) * 900 : 0;          // ice chatters
+    wind.cg.gain.setTargetAtTime(muted ? 0 : turn * C.vol, actx.currentTime, .06);
+    wind.cf.frequency.setTargetAtTime(C.f + jitter, actx.currentTime, .05); wind.cf.Q.setTargetAtTime(C.q, actx.currentTime, .1);
+  }
 }
 
 // =====================================================================
@@ -1945,11 +1973,12 @@ function step(dt){
 
   const lp = trail[trail.length - 1];
   if (!lp || Math.hypot(sk.x - lp.x, sk.y - lp.y) > 5) trail.push({ x: sk.x, y: sk.y, th: sk.th, inp: ctl.inp || 0 });
-  if (ctl.inp && sk.v > 50 && Math.random() < .8){
+  const sKind = snowKind(), SP = SPRAY[sKind];
+  if (ctl.inp && sk.v > 50 && Math.random() < SP.rate){
     const px = Math.cos(sk.th), py = -Math.sin(sk.th);
-    for (let n = 0; n < 2; n++){
-      const sp = 30 + Math.random()*70;
-      parts.push({ x: sk.x - Math.sin(sk.th)*6, y: sk.y - Math.cos(sk.th)*6, vx: -ctl.inp*px*sp + Math.sin(sk.th)*sk.v*.3, vy: -ctl.inp*py*sp + Math.cos(sk.th)*sk.v*.3, life: .5 + Math.random()*.4, max: .9, r: 1 + Math.random()*1.8 });
+    for (let n = 0; n < SP.n; n++){
+      const sp = (30 + Math.random()*70) * SP.sp;
+      parts.push({ x: sk.x - Math.sin(sk.th)*6, y: sk.y - Math.cos(sk.th)*6, vx: -ctl.inp*px*sp + Math.sin(sk.th)*sk.v*.3, vy: -ctl.inp*py*sp + Math.cos(sk.th)*sk.v*.3, life: (.5 + Math.random()*.4) * SP.life, max: .9 * SP.life, r: (1 + Math.random()*1.8) * SP.r, k: sKind, rot: Math.random() * 6.28 });
     }
   }
 }
@@ -4946,6 +4975,8 @@ function render(){
       }
     }
   }
+  // the snow itself: an icy sheen with glassy streaks, or soft lumps of fresh powder
+  drawSurface(yNear, yFar);
   // speckles
   const C = 44;
   ctx.fillStyle = 'rgba(150,170,205,.38)';
@@ -5240,12 +5271,63 @@ function drawPanels(g, c){
     ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(a1[0], a1[1], 1.2 * k, 0, 7); ctx.arc(a2[0], a2[1], 1.2 * k, 0, 7); ctx.fill();
   }
 }
+function drawSurface(yNear, yFar){
+  const kind = snowKind(); if (kind === 'hard') return;
+  if (kind === 'ice'){
+    ctx.fillStyle = 'rgba(150,200,240,.22)'; if (quad(-W/2, W/2, yNear - 5, yFar + 5)) ctx.fill();
+    const C = 70;
+    for (let cy = Math.floor(yNear / C); cy <= Math.floor(yFar / C); cy++){
+      for (let cx = Math.floor(-W/2 / C); cx < Math.ceil(W/2 / C); cx++){
+        const h = hash2(cx + 911, cy);
+        if ((h & 3) === 0) continue;
+        const x = cx * C + (h & 63) / 64 * C, y = cy * C + ((h >>> 6) & 63) / 64 * C, w = 4 + ((h >>> 12) & 7), l = 30 + ((h >>> 15) & 31);
+        if (x < -W/2 + 6 || x + w > W/2 - 6) continue;
+        ctx.fillStyle = 'rgba(205,238,255,.7)'; if (quad(x, x + w, y, y + l)) ctx.fill();          // a polished, glassy patch
+        ctx.fillStyle = 'rgba(255,255,255,.9)'; if (quad(x + 1, x + 2, y + 3, y + l * .7)) ctx.fill();  // the glint on it
+        ctx.fillStyle = 'rgba(100,155,210,.28)'; if (quad(x + w, x + w + 1.5, y, y + l)) ctx.fill();
+      }
+    }
+    return;
+  }
+  if (kind === 'wet'){ ctx.fillStyle = 'rgba(175,205,225,.16)'; if (quad(-W/2, W/2, yNear - 5, yFar + 5)) ctx.fill(); return; }
+  // powder: the corduroy softened, and little lumps of loose snow
+  ctx.fillStyle = 'rgba(255,255,255,.45)'; if (quad(-W/2, W/2, yNear - 5, yFar + 5)) ctx.fill();
+  const C = 34;
+  for (let cy = Math.floor(yNear / C); cy <= Math.floor(yFar / C); cy++){
+    for (let cx = Math.floor(-W/2 / C); cx < Math.ceil(W/2 / C); cx++){
+      const h = hash2(cx + 377, cy);
+      if ((h & 1) === 0) continue;
+      const x = cx * C + (h & 63) / 64 * C, y = cy * C + ((h >>> 6) & 63) / 64 * C;
+      if (x < -W/2 + 4 || x > W/2 - 4) continue;
+      const p = proj(x, y); if (!p || p.Y < -10 || p.Y > ch + 10) continue;
+      const r = (3 + ((h >>> 12) & 7) * .6) * p.k;
+      ctx.fillStyle = 'rgba(160,182,218,.38)'; ctx.beginPath(); ctx.ellipse(p.X + r * .35, p.Y + r * .25, r * 1.15, r * .45, 0, 0, 7); ctx.fill();
+      ctx.fillStyle = '#FFFFFF'; ctx.beginPath(); ctx.ellipse(p.X, p.Y - r * .15, r, r * .55, 0, 0, 7); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(p.X - r * .55, p.Y + r * .05, r * .6, r * .38, 0, 0, 7); ctx.fill();
+    }
+  }
+}
 function drawParts(){
   for (const pt of parts){
     const p = proj(pt.x, pt.y); if (!p) continue;
-    const a = clamp(pt.life/pt.max, 0, 1), lift = (1 - a) * 10 * p.k;
-    ctx.fillStyle = `rgba(255,255,255,${a})`; ctx.beginPath(); ctx.arc(p.X, p.Y - lift, pt.r*p.k, 0, 7); ctx.fill();
-    ctx.strokeStyle = `rgba(150,175,215,${a*.5})`; ctx.lineWidth = .6; ctx.stroke();
+    const a = clamp(pt.life/pt.max, 0, 1);
+    if (pt.k === 'ice'){
+      // a glinting shard of ice
+      const r = pt.r * p.k * 1.4, lift = (1 - a) * 6 * p.k, X = p.X, Y = p.Y - lift, t = pt.rot + (1 - a) * 5;
+      ctx.beginPath();
+      ctx.moveTo(X + Math.cos(t) * r * 1.6, Y + Math.sin(t) * r * 1.6);
+      ctx.lineTo(X + Math.cos(t + 2.3) * r * .7, Y + Math.sin(t + 2.3) * r * .7);
+      ctx.lineTo(X + Math.cos(t + 3.9) * r * .9, Y + Math.sin(t + 3.9) * r * .9);
+      ctx.closePath();
+      ctx.fillStyle = `rgba(228,246,255,${a})`; ctx.fill();
+      ctx.strokeStyle = `rgba(110,170,225,${a * .9})`; ctx.lineWidth = .7; ctx.stroke();
+      continue;
+    }
+    const powder = pt.k === 'powder', wet = pt.k === 'wet';
+    const lift = (1 - a) * (powder ? 20 : wet ? 5 : 10) * p.k, r = pt.r * p.k * (powder ? 1 + (1 - a) * .8 : 1);
+    ctx.fillStyle = wet ? `rgba(184,222,246,${a})` : `rgba(255,255,255,${powder ? a * .85 : a})`;
+    ctx.beginPath(); ctx.arc(p.X, p.Y - lift, r, 0, 7); ctx.fill();
+    ctx.strokeStyle = wet ? `rgba(90,150,205,${a * .55})` : `rgba(150,175,215,${a * (powder ? .25 : .5)})`; ctx.lineWidth = .6; ctx.stroke();
   }
 }
 // The racer seen from behind: skis on the snow in perspective, body angulated into the turn
