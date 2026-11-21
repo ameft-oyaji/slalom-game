@@ -2760,9 +2760,10 @@ function paneLabel(text, col, atTop){
 function renderView(){
   const R = splitRival();
   if (!R){ SPLIT.side = ''; SPLIT.ox = 0; SPLIT.oy = 0; render(); return; }
-  const full = ch, S0 = S, half = Math.floor(full / 2), camSave = camX;
+  // your view gets about 62% of the height, the rival's the rest
+  const full = ch, S0 = S, half = Math.floor(full * .62), camSave = camX;
   S = Math.min(cw / 330, half / 250);
-  // upper half: you
+  // upper, larger part: you
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.save(); ctx.beginPath(); ctx.rect(0, 0, cw, half); ctx.clip();
   SPLIT.side = 'L'; SPLIT.ox = 0; SPLIT.oy = 0; ch = half; camX = SPLIT.camL;
   try { render(); SPLIT.camL = camX; paneLabel(pname === 'あなた' ? 'あなた' : pname + '（あなた）', '#FFC93C', false); }
@@ -2775,7 +2776,7 @@ function renderView(){
   Object.assign(sk, { x: R.x, y: R.y, th: R.th, v: R.v, lean: R.out ? 0 : SPLIT.lean, tuck: false, pushT: 0, skateT: 0, block: null, act: null });
   trail = []; myNat = R.nat; SPLIT.name = R.name;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.save(); ctx.beginPath(); ctx.rect(0, half, cw, full - half); ctx.clip();
-  SPLIT.side = 'R'; SPLIT.oy = half; ch = full - half; camX = SPLIT.camR;
+  SPLIT.side = 'R'; SPLIT.oy = half; ch = full - half; camX = SPLIT.camR; S = Math.min(cw / 330, ch / 250);
   try { render(); SPLIT.camR = camX; paneLabel(R.name + (R.out ? '（DNF）' : ''), race.cpu ? '#7048E8' : '#E8590C', true); }
   finally {
     ctx.restore(); Object.assign(sk, keep); trail = keepTrail; myNat = keepNat;
