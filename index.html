@@ -4110,7 +4110,7 @@ function render(){
   const gs = course.gates;
   for (const g of gs) if (g.y > yNear - 30 && g.y < yFar + 40) sprites.push({ y: g.y, d: () => drawGate(g) });
   const label = race && race.ev ? race.ev.venue.toUpperCase() : 'SLALOM';
-  if (22 > yNear - 30 && 22 < yFar + 40) sprites.push({ y: 22, d: () => banner(22, label + (race && race.mode === 'free' ? ' · FREE SKI' : ' · RUN ' + (race ? race.run : 1)), COL.blue, COL.red) });
+  if (22 > yNear - 30 && 22 < yFar + 40) sprites.push({ y: 22, d: () => banner(22, label + (race && race.mode === 'free' && !race.spectate ? ' · FREE SKI' : ' · RUN ' + (race ? race.run : 1)), COL.blue, COL.red) });
   if (fy + 2 > yNear - 30 && fy < yFar + 40) sprites.push({ y: fy + 2, d: () => banner(fy + 2, 'FINISH', COL.red, COL.blue) });
   if (-76 > yNear - 60) sprites.push({ y: -76, d: drawStartHut });
   if (-2 > yNear - 60 && -2 < yFar){ sprites.push({ y: GATE_Y + 2, d: drawStartGate }); sprites.push({ y: WAND_Y + 4 + Math.sin(WAND.a) * WAND_L * .5, d: drawWand }); }
@@ -4221,7 +4221,7 @@ function stepWand(dt){
 function drawWand(){
   const h0 = WAND_H, open = WAND.a / 1.15;
   const hEnd = h0 * (1 - .9 * clamp(open, 0, 1));                 // the free end falls as it swings away
-  const a = proj(WAND_X, WAND_Y), bx = WAND_X + Math.cos(WAND.a) * WAND_L, by = WAND_Y + Math.sin(WAND.a) * WAND_L, b = proj(bx, by);
+  const a = proj(WAND_X, WAND_Y), bx = WAND_X + Math.cos(WAND.a) * WAND_L, by = WAND_Y + Math.sin(WAND.a) * WAND_L * .45, b = proj(bx, by);   // seen from behind, the downhill direction stretches on screen: keep the open bar as short as the closed one
   if (!a || !b) return;
   const ax = a.X, ay = a.Y - h0 * a.k, ex = b.X, ey = b.Y - hEnd * b.k;
   // shadow on the snow
