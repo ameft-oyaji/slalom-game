@@ -2326,7 +2326,7 @@ function dualKeyParse(key){ const m = /^(men|women)_dual-(SL|GS)-(\d{1,6})$/.exe
 function newDualKey(g, d){ return `${g}_dual-${d}-${1 + Math.floor(Math.random() * 999998)}`; }
 const DUAL_PREF = Object.assign({ gates: 'SL', cpu: 'mid' }, load('slalomwc-dual') || {});
 let DUAL_GATES = DUAL_PREF.gates === 'GS' ? 'GS' : 'SL';
-const CPU_LV = { easy: ['やさしい', 1.10], mid: ['ふつう', 1.05], hard: ['つよい', 1.015], wc: ['ワールドカップ級', .985] };
+const CPU_LV = { easy: ['やさしい', 1.24], mid: ['ふつう', 1.16], hard: ['つよい', 1.09], wc: ['ワールドカップ級', 1.03] };   // pace against the robot's clean line
 function dualTabHTML(){
   const rules = `<h3>デュアルレースのルール</h3><ul class="note">
     <li>同じ間隔・同じ振り幅の旗門が続く、約20秒のリズムコースです。</li>
