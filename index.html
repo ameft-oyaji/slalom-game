@@ -2329,7 +2329,7 @@ const DUAL_GATES = 'GS';                              // the dual race is skied 
 const CPU_LV = { easy: ['やさしい', 1.24], mid: ['ふつう', 1.16], hard: ['つよい', 1.09], wc: ['ワールドカップ級', 1.03] };   // pace against the robot's clean line
 function dualTabHTML(){
   const rules = `<h3>デュアルレースのルール</h3><ul class="note">
-    <li>種目は大回転。同じ間隔・同じ振り幅の大回転の旗門が続く、約20秒のリズムコースです。</li>
+    <li>種目は大回転。同じ間隔・同じ振り幅の大回転の旗門が20個続く、約25秒のリズムコースです。</li>
     <li>「3・2・1・GO!」の GO! でスタートゲートが自動で倒れ、全員同時に飛び出します（ボタンを押してのスタートはありません）。</li>
     <li>2本目は旗門の左右が逆のコースです。2本の合計タイムが速い人の勝ち。どちらかで旗門不通過（DSQ）や途中棄権（DNF）になると順位なしです。</li>
     <li>相手は半透明の姿で表示されます（オンラインでは1秒ほど遅れます）。</li></ul>`;
@@ -2462,10 +2462,7 @@ function dualCourse(seed, d, mirror){
     c.prof = makeProfile('', c.finishY, d); c.vd = c.prof.drop;
     return c;
   };
-  const long = make(gs ? 34 : 64), ref = refRun(long);
-  let n = ref.frac.findIndex(f => f * ref.time > 19);
-  if (n < 0) n = long.gates.length;
-  return make(Math.max(6, n));
+  return make(20);                                     // always 20 gates
 }
 function makeDualRace(key){
   const k = dualKeyParse(key);
