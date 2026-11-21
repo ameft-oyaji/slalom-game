@@ -4094,7 +4094,6 @@ function drawProgress(){
   const x = cw - 32;
   let floor = card.right > x - 24 ? card.top : ch - 20;
   const pad = $('#pad'), padOn = getComputedStyle(pad).display !== 'none';
-  const thumbs = padOn && cw > ch && ch <= 540;          // phone held sideways: the right thumb sits over the bar
   let rTop = ch;
   if (padOn){ const pr = pad.querySelector('[data-k="right"]').getBoundingClientRect(); rTop = pr.top; if (pr.right > x - 12) floor = Math.min(floor, pr.top); }
   const top = 84, bot = floor - 50;
@@ -4144,8 +4143,8 @@ function drawProgress(){
     const txt = fmtDiff(trunc(Math.abs(lastDiff.d)) * Math.sign(lastDiff.d));
     ctx.font = `800 ${near ? 32 : 26}px 'Barlow Condensed', sans-serif`;
     const w = ctx.measureText(txt).width + (near ? 26 : 20), h = near ? 44 : 36;
-    // beside the marker; on a sideways phone it stays put on the right, halfway up, clear of the right thumb
-    const bx = x - 16 - w, byy = thumbs ? Math.max(70, Math.min(ch * .45 - h / 2, rTop - h - 30)) : my - h/2;
+    // fixed on the right, halfway down the screen (kept clear of the right-foot button)
+    const bx = x - 16 - w, byy = Math.max(70, Math.min(ch * .5 - h / 2, rTop - h - 30));
     ctx.fillStyle = lastDiff.d <= 0 ? '#1FA855' : '#D93A3F';
     ctx.fillRect(bx, byy, w, h);
     ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.fillText(txt, bx + w/2, byy + h/2 + 1);
