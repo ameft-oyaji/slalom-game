@@ -95,7 +95,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
 .sp-keys b{font:800 20px var(--f-num);line-height:1}.sp-keys small{font:700 10px var(--f-body);margin-top:2px;white-space:nowrap}
 .sp-keys span.on{background:#FFC93C;color:#1A1300;border-color:#fff;transform:translateY(2px) scale(.96)}
 .sp-keys span[data-b=push].on{background:#4C8DFF;color:#fff}.sp-keys span[data-b=d].on{background:#2FB36A;color:#fff}
-.top-disc{margin:0 auto 14px}.top-disc button{font-size:16px;padding:9px 22px}
+.top-disc{margin:0 auto 14px;display:inline-grid;grid-template-columns:repeat(3,1fr)}.top-disc button{font-size:16px;padding:9px 0;width:6.2em;text-align:center}   /* three modes, all the same width */
 .clog{margin:6px 0;padding:6px 10px;background:rgba(255,255,255,.06);border-radius:6px}.clog summary{cursor:pointer;font-weight:700}.clog ul{margin:6px 0 2px 18px;padding:0}.clog li{margin:3px 0;font-size:13px}
 .top-watch{min-width:220px;font-size:16px;background:rgba(255,255,255,.12);color:#fff;border:1px solid rgba(255,255,255,.4)}
 .pad{position:absolute;left:0;right:0;bottom:0;display:none;gap:8px;padding:0 max(10px,env(safe-area-inset-right,0px)) 12px max(10px,env(safe-area-inset-left,0px));pointer-events:none}
@@ -473,7 +473,7 @@ body.nightrace .ev-label,body.nightrace .ev-label *,body.nightrace #keys,body.ni
       <h1 class="top-title" id="topTitle">SLALOM<span>WORLD CUP</span></h1>
       <p class="top-sub" id="topSub">回転（スラローム）ワールドカップ</p>
       <div class="top-stripe"><i></i><i></i></div>
-      <div class="seg top-disc" role="group" aria-label="種目"><button type="button" id="tdSL" aria-pressed="true">回転</button><button type="button" id="tdGS" aria-pressed="false">大回転</button><button type="button" id="tdDual" aria-pressed="false">デュアルレース</button></div>
+      <div class="seg top-disc" role="group" aria-label="種目"><button type="button" id="tdSL" aria-pressed="true">回転</button><button type="button" id="tdGS" aria-pressed="false">大回転</button><button type="button" id="tdDual" aria-pressed="false">デュアル</button></div>
       <button class="btn primary top-go" type="button" id="topGo">スタート</button>
       <button class="btn top-watch" type="button" id="topWatch">観戦モード</button>
       <p class="top-who" id="topWho"></p>
