@@ -3092,6 +3092,49 @@ function drawOfficial(x, y, col, pose, label){
   ctx.fillStyle = '#13213A'; ctx.fillRect(-2.2, -19.6, 4.4, 1.5);                   // cap
   ctx.restore();
 }
+// ---- course workers along the sides of the piste: gatekeepers in yellow bibs on skis, the odd slipper in red ----
+// and now and then Mr. Shimizu himself, standing at the side of the course with a ski
+function makeCrew(c){
+  const crew = [], r = Math.random;
+  if (!c.gates.length) return { crew, shimizu: null };
+  const y0 = c.gates[0].y + 60, y1 = c.finishY - 260;
+  for (let y = y0; y < y1; y += 100 + r() * 110){
+    const side = r() < .5 ? -1 : 1, n = r() < .4 ? 2 : 1;
+    for (let k = 0; k < n; k++){
+      const kind = r() < .72 ? 'gate' : r() < .6 ? 'slip' : 'crew';
+      crew.push({ x: side * (W / 2 - 13 - r() * 12) - side * k * 9, y: y + k * 7, side, kind, look: r() < .5 ? 1 : -1, poles: r() < .7 });
+    }
+  }
+  let shimizu = null;
+  if (r() < .3){
+    const side = r() < .5 ? -1 : 1, y = y0 + (y1 - y0) * (.25 + r() * .5);
+    shimizu = { x: side * (W / 2 - 18), y };
+    for (let i = crew.length - 1; i >= 0; i--) if (crew[i].side === side && Math.abs(crew[i].y - y) < 45) crew.splice(i, 1);   // room for him
+  }
+  return { crew, shimizu };
+}
+const CREW_COL = { gate: '#E3D23A', slip: '#D42A2F', crew: '#1F55C8' };
+function drawWorker(w){
+  const p = proj(w.x, w.y); if (!p || p.X < -30 || p.X > cw + 30) return;
+  const u = p.k * 1.6;
+  // skis across the hill (side-on to the fall line), poles planted beside them
+  ctx.save(); ctx.translate(p.X, p.Y); ctx.scale(u, u); ctx.lineCap = 'round';
+  ctx.strokeStyle = '#3A3F4A'; ctx.lineWidth = .9;
+  ctx.beginPath(); ctx.moveTo(-7, .3); ctx.lineTo(7, -.3); ctx.moveTo(-7, 1.6); ctx.lineTo(7, 1); ctx.stroke();
+  if (w.poles){ ctx.strokeStyle = '#8A93A3'; ctx.lineWidth = .45; ctx.beginPath(); ctx.moveTo(-4.2, -9.5); ctx.lineTo(-5.4, 1.4); ctx.moveTo(4.2, -9.5); ctx.lineTo(5.4, 1.4); ctx.stroke(); }
+  ctx.restore();
+  drawOfficial(w.x, w.y, CREW_COL[w.kind], w.kind === 'slip' ? 'down' : 'clip', '');
+}
+function collectCrew(sprites, yNear, yFar){
+  if (!course || state === 'inspect' && !race) return;
+  if (!course.crewSet) course.crewSet = makeCrew(course);
+  for (const w of course.crewSet.crew){
+    if (w.y < yNear - 20 || w.y > yFar + 20) continue;
+    sprites.push({ y: w.y, d: () => drawWorker(w) });
+  }
+  const sh = course.crewSet.shimizu;
+  if (sh && sh.y > yNear - 20 && sh.y < yFar + 20) sprites.push({ y: sh.y, d: () => drawShimizu(sh.x, sh.y, 1.6) });
+}
 // the timing booth beside the finish line
 function drawFinishHouse(x, y){
   const p = proj(x, y); if (!p) return;
@@ -4152,6 +4195,7 @@ function render(){
     sprites.push({ y: -58, d: () => drawOfficial(-52, -58, '#13213A', 'clip', '') });
   }
   collectTrees(yNear, yFar, sprites);
+  collectCrew(sprites, yNear, yFar);
   sprites.push({ y: sk.y, d: () => { drawSkier(); drawParts(); } });
   if (race && race.battle) battleGhosts(sprites, yNear, yFar);
   collectCrowd(sprites, yNear, yFar);
