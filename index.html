@@ -4206,7 +4206,7 @@ function banner(y, text, colA, colB){
 }
 // ---- start gate and start wand ----
 // the racer's shins push the wand open; the clock starts as it swings away (FIS: timing begins when the wand is opened)
-const WAND_Y = -6, WAND_X = -21, WAND_L = 29.4, WAND_H = 8, GATE_Y = -12, GATE_HW = 22;
+const WAND_Y = -6, WAND_X = -21, WAND_L = 23.5, WAND_H = 8, GATE_Y = -12, GATE_HW = 22;
 const WAND = { a: 0, va: 0, open: false };
 function stepWand(dt){
   if (!WAND.open && sk.y > WAND_Y - 5 && sk.v > 1){
