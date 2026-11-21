@@ -216,11 +216,11 @@ tr.cut td{border-bottom:2px solid var(--amber)}
 .gorg{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--muted);flex-wrap:wrap}
 .flag.sm{width:15px;height:10px}
 .gstats{display:flex;flex-direction:column;gap:2px;margin-top:3px}
-.gs{display:flex;align-items:center;justify-content:space-between;gap:6px;font-size:11px;color:#C9D2E3}
-.gs i{font-style:normal}
-.gs em{display:flex;gap:2px}
-.gs b,.gs s{display:block;width:9px;height:5px;border-radius:1px;background:var(--amber)}
-.gs s{background:var(--board)}
+.gstat{display:flex;align-items:center;justify-content:space-between;gap:6px;font-size:11px;color:#C9D2E3}
+.gstat i{font-style:normal}
+.gstat em{display:flex;gap:2px}
+.gstat b,.gstat s{display:block;width:9px;height:5px;border-radius:1px;background:var(--amber)}
+.gstat s{background:var(--board)}
 .gsum{background:var(--board-2);border-left:4px solid var(--amber);padding:8px 10px;border-radius:4px;font-size:13px;display:flex;flex-direction:column;gap:3px}
 .gsum span{color:#C9D2E3}
 .wxbox{display:flex;gap:12px;align-items:center;background:var(--board-2);border-radius:4px;padding:8px 12px}
@@ -4217,7 +4217,7 @@ function gearSummary(){
 }
 function gearCard(cat, it){
   const on = myGear[cat] === it.id;
-  const bars = Object.entries(it.stats).map(([k, v]) => `<span class="gs"><i>${k}</i><em>${'<b></b>'.repeat(v)}${'<s></s>'.repeat(5 - v)}</em></span>`).join('');
+  const bars = Object.entries(it.stats).map(([k, v]) => `<span class="gstat"><i>${k}</i><em>${'<b></b>'.repeat(v)}${'<s></s>'.repeat(5 - v)}</em></span>`).join('');
   return `<button type="button" class="gcard${on ? ' on' : ''}" data-cat="${cat}" data-id="${it.id}" aria-pressed="${on}">${itemSVG(cat, it)}<span class="gname">${it.name}</span><span class="gorg">${it.org ? `<span class="flag sm" style="background:${FLAG[it.org]}"></span>${NAT[it.org].jp}製 · ` : ''}${it.model}</span><span class="gstats">${bars}</span></button>`;
 }
 function gearEditorHTML(){
