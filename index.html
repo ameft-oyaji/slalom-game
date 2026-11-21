@@ -4997,6 +4997,8 @@ function render(){
   // keep the skier just above the athlete card / touch buttons, whatever the screen shape
   let baseFrac = Math.min(.36, 110 / ch + .1);
   if (live){ const cr = $('#card').getBoundingClientRect(); if (cr.height) baseFrac = clamp((ch - (cr.top - SPLIT.oy) + 30) / ch, .16, .5); }
+  // slalom, giant slalom and free ski (one full view): the racer sits a little higher, with more room under the skis
+  if (live && !SPLIT.side && !(race && race.dual)) baseFrac = Math.min(.58, baseFrac + .08);
   camX += (sk.x * .75 - camX) * .1;
   setupCamera(baseFrac);
   const yNear = CAM.camZ + CAM.zBot, yFar = CAM.camZ + CAM.zTop;
