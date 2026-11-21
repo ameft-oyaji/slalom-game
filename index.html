@@ -498,6 +498,7 @@ body.nightrace .ev-label,body.nightrace .ev-label *,body.nightrace #keys,body.ni
           <option value="kansai">ライバル：関西インカレ級</option>
           <option value="ih">ライバル：インターハイ級</option>
         </select>
+        <span class="note" id="levelLock" hidden>シーズン途中はライバルの強さを変えられません</span>
         <select id="ctrl" aria-label="操作方法">
           <option value="outer">操作：外足に乗って曲がる</option>
           <option value="dir">操作：押した方向へ曲がる</option>
@@ -1139,6 +1140,7 @@ function shimizuLeft(){ return Math.max(0, SHIMIZU_MAX - shimizuUsed()); }
 function season(){ const s = load(seasonKey()) || {}; return { pts: s.pts || {}, done: s.done || {}, fis: s.fis || (START_RANK - .5), places: s.places || {}, form: s.form || {}, prev: s.prev || null, hist: s.hist || [] }; }
 // FIS tie-break for the standings: more wins, then more 2nd places, and so on
 function cmpPlaces(a, b){ for (let i = 0; i < 30; i++){ const d = (b[i] || 0) - (a[i] || 0); if (d) return d; } return 0; }
+function seasonInProgress(){ const n = Object.keys(season().done).length; return n > 0 && n < seasonSL().length; }
 function seasonSL(){ return slRaces(gender).filter(r => r.disc === disc); }
 function nextRace(){ const s = season(); return seasonSL().find(r => !s.done[r.date]) || null; }
 function maxLeft(){ const s = season(); return seasonSL().filter(r => !s.done[r.date]).length * 100; }
@@ -3396,6 +3398,9 @@ function showMenu(which){
   $('#gMen').setAttribute('aria-pressed', gender === 'men'); $('#gWomen').setAttribute('aria-pressed', gender === 'women');
   $('#level').value = level; $('#pname').value = pname;
   $('#level').hidden = tab === 'ta' || tab === 'free';
+  // the rivals' strength is fixed once a season has started, until its last race
+  const locked = seasonInProgress();
+  $('#level').disabled = locked; $('#levelLock').hidden = !locked || $('#level').hidden;
   for (const [id, k] of TABS) $('#' + id).setAttribute('aria-selected', tab === k);
   renderTab();
   $('#menu').hidden = false;
@@ -3415,7 +3420,7 @@ function renderTab(){
   else body.innerHTML = rulesHTML();
   body.querySelectorAll('[data-race]').forEach(b => b.onclick = () => enterRace(slRaces(gender)[+b.dataset.race], b.dataset.mode || 'career'));
   body.querySelectorAll('[data-skip]').forEach(b => b.onclick = () => { if (b.dataset.armed){ showSkipped(slRaces(gender)[+b.dataset.skip]); } else { b.dataset.armed = '1'; b.textContent = '欠場を確定'; } });
-  if ($('#bReset')) $('#bReset').onclick = () => { const b = $('#bReset'); if (b.dataset.armed){ save(seasonKey(), {}); save(shimizuKey(), { n: 0 }); renderTab(); } else { b.dataset.armed = '1'; b.textContent = 'もう一度押すとリセット'; } };
+  if ($('#bReset')) $('#bReset').onclick = () => { const b = $('#bReset'); if (b.dataset.armed){ save(seasonKey(), {}); save(shimizuKey(), { n: 0 }); showMenu(); } else { b.dataset.armed = '1'; b.textContent = 'もう一度押すとリセット'; } };
 }
 function calendarHTML(){
   const races = slRaces(gender);
@@ -3756,7 +3761,7 @@ $('#tdSL').onclick = () => setDisc('SL');
 $('#tdGS').onclick = () => setDisc('GS');
 $('#gMen').onclick = () => { gender = 'men'; savePrefs(); showMenu(); };
 $('#gWomen').onclick = () => { gender = 'women'; savePrefs(); showMenu(); };
-$('#level').onchange = e => { level = e.target.value; savePrefs(); renderTab(); };
+$('#level').onchange = e => { if (seasonInProgress()){ e.target.value = level; return; } level = e.target.value; savePrefs(); renderTab(); };
 $('#ctrl').onchange = e => { ctrl = e.target.value; savePrefs(); applyCtrlLabels(); if (tab === 'rules') renderTab(); };
 applyCtrlLabels();
 $('#pname').oninput = e => { pname = e.target.value.trim().slice(0, 14) || 'あなた'; savePrefs(); };
