@@ -68,7 +68,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
 .c-diff.bad{background:#D93A3F}
 .vs{position:absolute;right:max(16px,env(safe-area-inset-right,0px));font-family:var(--f-body);font-size:12px;font-weight:700;color:var(--ink);background:rgba(255,255,255,.85);padding:2px 8px;border-radius:2px;white-space:nowrap}
 .flag{display:inline-block;width:24px;height:16px;flex:none;box-shadow:0 0 0 1px rgba(19,33,58,.25);background:#C9D2E3}
-.touch .tv.live .card{bottom:108px}
+.touch .tv.live .card{bottom:190px}                  /* above the round crouch button */
 @media (max-width:560px){
   .ev-name{font-size:16px} .ev-place{font-size:13px}
   .c-last{font-size:20px} .c-first{font-size:13px} .c-time,.c-diff{min-width:76px;font-size:22px;padding:0 9px} .c-rank{min-width:40px;font-size:26px} .c-nat{padding:0 6px}
@@ -103,7 +103,9 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
 .pad button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
 .pad button b{font:800 26px var(--f-body);line-height:1.1}
 .pad button small{font:700 12px var(--f-body);opacity:.85}
-.pad button.mid{flex:.7;font:700 14px var(--f-body);background:rgba(14,26,46,.4)}
+/* crouch: a round button floating just above the gap between the two foot buttons */
+.pad button.mid{position:absolute;left:50%;transform:translateX(-50%);bottom:106px;width:74px;height:74px;flex:none;border-radius:50%;font:700 14px var(--f-body);background:rgba(14,26,46,.55);box-shadow:0 0 0 2px rgba(255,255,255,.55)}
+.pad button.mid.on{background:rgba(212,42,47,.85)}
 .pad button.on{background:rgba(212,42,47,.85)}
 .touch .pad.live{display:flex}
 
@@ -368,7 +370,7 @@ body.nightrace .ev-label,body.nightrace .ev-label *,body.nightrace #keys,body.ni
 @media (orientation:landscape) and (max-height:540px){
   .pad{justify-content:space-between;padding-bottom:max(10px,env(safe-area-inset-bottom,0px))}
   .pad button{flex:0 0 auto;width:min(19vw,150px);height:min(30vh,120px)}
-  .pad button.mid{position:absolute;left:max(10px,env(safe-area-inset-left,0px));bottom:calc(min(30vh,120px) + max(10px,env(safe-area-inset-bottom,0px)) + 48px);width:min(19vw,150px);height:44px;flex:none}
+  .pad button.mid{bottom:calc(max(10px,env(safe-area-inset-bottom,0px)) + 52px);width:66px;height:66px;font-size:13px;white-space:nowrap}   /* centred, just above the athlete card */
   .touch .tv.live .card{bottom:10px;right:50%;transform:translateX(50%);max-width:calc(100% - 2*min(19vw,150px) - 36px)}
   .touch .tv.live .vs{right:50%;transform:translateX(50%)}
   .ev-label{top:50px} .ev-name{font-size:14px} .ev-place{font-size:12px}
@@ -4428,7 +4430,11 @@ function render(){
   const live = state === 'run' || state === 'countdown' || state === 'gate' || state === 'finished';
   // keep the skier just above the athlete card / touch buttons, whatever the screen shape
   let baseFrac = Math.min(.36, 110 / ch + .1);
-  if (live){ const cr = $('#card').getBoundingClientRect(); if (cr.height) baseFrac = clamp((ch - (cr.top - SPLIT.oy) + 30) / ch, .16, .5); }
+  if (live){
+    const cr = $('#card').getBoundingClientRect(), mr = $('#pad .mid').getBoundingClientRect();
+    const top = mr.height ? Math.min(cr.top, mr.top) : cr.top;    // the round crouch button sits just above the card
+    if (cr.height) baseFrac = clamp((ch - (top - SPLIT.oy) + 30) / ch, .16, SPLIT.oy ? .72 : .5);
+  }
   camX += (sk.x * .75 - camX) * .1;
   setupCamera(baseFrac);
   const yNear = CAM.camZ + CAM.zBot, yFar = CAM.camZ + CAM.zTop;
