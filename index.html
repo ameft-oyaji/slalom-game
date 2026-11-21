@@ -2629,26 +2629,31 @@ function renderView(){
   if (!R){ SPLIT.side = ''; SPLIT.ox = 0; SPLIT.oy = 0; render(); return; }
   const full = ch, S0 = S, half = Math.floor(full / 2), camSave = camX;
   S = Math.min(cw / 330, half / 250);
-  // upper half: the rival, drawn as the racer; you appear as a dot
+  // upper half: you
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.save(); ctx.beginPath(); ctx.rect(0, 0, cw, half); ctx.clip();
+  SPLIT.side = 'L'; SPLIT.ox = 0; SPLIT.oy = 0; ch = half; camX = SPLIT.camL;
+  try { render(); SPLIT.camL = camX; paneLabel(pname === 'あなた' ? 'あなた' : pname + '（あなた）', '#FFC93C', false); }
+  finally { ctx.restore(); }
+  // lower half: the rival, drawn as the racer; you appear as a dot
   const keep = { x: sk.x, y: sk.y, th: sk.th, v: sk.v, lean: sk.lean, tuck: sk.tuck, pushT: sk.pushT, skateT: sk.skateT, block: sk.block, act: sk.act, ng: sk.ng };
   const keepTrail = trail, keepNat = myNat;
   SPLIT.me = { x: sk.x, y: sk.y, th: sk.th };
   SPLIT.lean += (clamp((R.th - SPLIT.prevTh) * 22, -1, 1) - SPLIT.lean) * .25; SPLIT.prevTh = R.th;
   Object.assign(sk, { x: R.x, y: R.y, th: R.th, v: R.v, lean: R.out ? 0 : SPLIT.lean, tuck: false, pushT: 0, skateT: 0, block: null, act: null });
   trail = []; myNat = R.nat; SPLIT.name = R.name;
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.save(); ctx.beginPath(); ctx.rect(0, 0, cw, half); ctx.clip();
-  SPLIT.side = 'R'; SPLIT.ox = 0; SPLIT.oy = 0; ch = half; camX = SPLIT.camR;
-  try { render(); SPLIT.camR = camX; paneLabel(R.name + (R.out ? '（DNF）' : ''), race.cpu ? '#7048E8' : '#E8590C', false); }
-  finally { ctx.restore(); Object.assign(sk, keep); trail = keepTrail; myNat = keepNat; }
-  // lower half: you
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.save(); ctx.beginPath(); ctx.rect(0, half, cw, full - half); ctx.clip();
-  SPLIT.side = 'L'; SPLIT.oy = half; ch = full - half; camX = SPLIT.camL;
-  try { render(); SPLIT.camL = camX; paneLabel(pname === 'あなた' ? 'あなた' : pname + '（あなた）', '#FFC93C', true); }
-  finally { ctx.restore(); ch = full; S = S0; camX = camSave; SPLIT.side = ''; SPLIT.ox = 0; SPLIT.oy = 0; }
+  SPLIT.side = 'R'; SPLIT.oy = half; ch = full - half; camX = SPLIT.camR;
+  try { render(); SPLIT.camR = camX; paneLabel(R.name + (R.out ? '（DNF）' : ''), race.cpu ? '#7048E8' : '#E8590C', true); }
+  finally {
+    ctx.restore(); Object.assign(sk, keep); trail = keepTrail; myNat = keepNat;
+    ch = full; S = S0; camX = camSave; SPLIT.side = ''; SPLIT.ox = 0; SPLIT.oy = 0;
+  }
   // the line between the two halves
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.fillStyle = '#13213A'; ctx.fillRect(0, half - 2, cw, 4);
   ctx.fillStyle = '#FFC93C'; ctx.fillRect(0, half - .75, cw, 1.5);
+  // your progress bar and gap to the leader, over the whole screen as in a normal run
+  drawProgress();
 }
 function drawGhost(x, y, th, name, col){
   // the other racer is shown as a coloured dot on the snow (no figure, no name)
@@ -4531,7 +4536,7 @@ function render(){
     if (ln){ ctx.globalAlpha = isNight ? .05 : .07; ctx.fillStyle = ln[0]; ctx.fillRect(0, 0, cw, ch); ctx.globalAlpha = 1; }
   }
   if (wxNow && wxNow.cond === 'snow') drawSnowfall();
-  if (SPLIT.side !== 'R') drawProgress();
+  if (!SPLIT.side) drawProgress();
   drawConfetti();
   const cd = $('#cd');
   if (state === 'countdown' && race && race.dual){
