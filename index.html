@@ -371,7 +371,8 @@ body.nightrace .ev-label,body.nightrace .ev-label *,body.nightrace #keys,body.ni
   .pad{justify-content:space-between;padding-bottom:max(10px,env(safe-area-inset-bottom,0px))}
   .pad button{flex:0 0 auto;width:min(19vw,150px);height:min(30vh,120px)}
   .pad button.mid{width:64px;height:64px}
-  #padL + .mid{margin-right:auto}                     /* left crouch stays beside the left foot, the other beside the right */
+  #padL + .mid{margin-right:auto}
+  .touch .btlive{top:auto;left:auto;right:calc(max(10px,env(safe-area-inset-right,0px)) + 40px);bottom:calc(min(30vh,120px) + max(10px,env(safe-area-inset-bottom,0px)) + 36px);width:min(30vw,210px)}   /* race order sits on top of the right foot button, left of the progress bar */                     /* left crouch stays beside the left foot, the other beside the right */
   .touch .tv.live .card{bottom:10px;right:50%;transform:translateX(50%);max-width:calc(100% - 2*min(19vw,150px) - 36px)}
   .touch .tv.live .vs{right:50%;transform:translateX(50%)}
   .ev-label{top:50px} .ev-name{font-size:14px} .ev-place{font-size:12px}
@@ -4097,6 +4098,8 @@ function drawProgress(){
   const pad = $('#pad'), padOn = getComputedStyle(pad).display !== 'none';
   let rTop = ch;
   if (padOn){ const pr = pad.querySelector('[data-k="right"]').getBoundingClientRect(); rTop = pr.top; if (pr.right > x - 12) floor = Math.min(floor, pr.top); }
+  const lv = $('#btLive'), lr = lv && !lv.hidden ? lv.getBoundingClientRect() : null;   // the race order may sit above the right button
+  if (lr && lr.height && lr.left > cw / 2 && lr.top > ch / 3) rTop = Math.min(rTop, lr.top);   // keep the gap flag above it
   const top = 84, bot = floor - 50;
   if (bot - top < 80) return;
   const yOf = p => bot - (bot - top) * p;
