@@ -2482,7 +2482,17 @@ function dualKeyParse(key){ const m = /^(men|women)_dual-(SL|GS)-(\d{1,6})$/.exe
 function newDualKey(g, d){ return `${g}_dual-${d}-${1 + Math.floor(Math.random() * 999998)}`; }
 const DUAL_PREF = Object.assign({ cpu: 'mid' }, load('slalomwc-dual') || {});
 if (DUAL_PREF.d !== 'SL') DUAL_PREF.d = 'GS';          // which gates the dual race is skied on: slalom or giant slalom (giant slalom unless chosen)
-const CPU_LV = { easy: ['やさしい', 1.24], mid: ['ふつう', 1.16], hard: ['つよい', 1.09], wc: ['ワールドカップ級', 1.03] };   // pace against the robot's clean line
+// CP rival levels: [label, ranking from, ranking to]. The rival is drawn from that part of the ranking and skis at that rank's pace
+const CPU_LV = { easy: ['インカレクラス', 84, 999], mid: ['全日本クラス', 70, 83], hard: ['ヨーロッパカップ級', 20, 60], wc: ['ワールドカップ級', 1, 15] };
+// インカレクラス: the ability of a skier ranked 84th or lower, under these names
+const CPU_COLLEGE = [['OUCHI Keita', 'JPN']];
+// pace against the robot's clean line, by ranking (1st = fastest)
+function cpuPace(rank){
+  const P = [[1, 1.03], [15, 1.05], [20, 1.07], [60, 1.12], [70, 1.14], [83, 1.18], [92, 1.24]];
+  if (rank <= P[0][0]) return P[0][1];
+  for (let i = 1; i < P.length; i++) if (rank <= P[i][0]){ const [a, fa] = P[i - 1], [b, fb] = P[i]; return fa + (fb - fa) * (rank - a) / (b - a); }
+  return P[P.length - 1][1];
+}
 function dualTabHTML(){
   const rules = `<h3>デュアルレースのルール</h3><ul class="note">
     <li>種目は回転か大回転を選べます。同じ間隔・同じ振り幅の旗門が20個続くリズムコースです（大回転は約25秒、回転は約15秒）。</li>
@@ -2544,15 +2554,19 @@ function startCpuDual(){
   ac();
   const key = newDualKey(gender, DUAL_PREF.d);
   race = makeDualRace(key);
-  const field = buildField(gender, race.ev.disc).slice(0, 40), who = field[Math.floor(Math.random() * field.length)];
-  const k = CPU_LV[DUAL_PREF.cpu] || CPU_LV.mid, r = Math.random;
+  const field = buildField(gender, race.ev.disc), k = CPU_LV[DUAL_PREF.cpu] || CPU_LV.mid, r = Math.random;
+  const lo = Math.min(k[1], field.length), hi = Math.min(k[2], field.length);
+  const rank = lo + Math.floor(r() * (hi - lo + 1));          // where in the ranking this rival stands
+  let who = field[rank - 1];
+  if (DUAL_PREF.cpu === 'easy'){ const c = CPU_COLLEGE[Math.floor(r() * CPU_COLLEGE.length)]; who = { name: c[0], nat: c[1] }; }
+  const pace = cpuPace(rank);
   const runs = race.courses.map((c, i) => {
     race.run = i + 1; const tr = cpuTrack(c, runMods()); race.run = 1;
-    const f = k[1] * (1 + gauss(r) * .008);                    // this run's pace against the robot's clean line
+    const f = pace * (1 + gauss(r) * .008);                    // this run's pace against the robot's clean line
     const fall = r() < .05 ? .3 + r() * .55 : null;             // now and then the rival goes out
     return { pts: tr.pts, f, T: trunc(tr.T * f), fall };
   });
-  race.cpu = { name: who.name, nat: who.nat, lv: k[0], runs, times: runs.map(x => x.fall ? null : x.T) };
+  race.cpu = { name: who.name, nat: who.nat, lv: k[0], rank, college: DUAL_PREF.cpu === 'easy', runs, times: runs.map(x => x.fall ? null : x.T) };
   $('#menu').hidden = true;
   beginRun();
   cdT = 5;
@@ -2601,7 +2615,7 @@ function showCpuResult(){
   else verdict = '両者 途中棄権';
   const diff = me != null && them != null ? fmtDiff(me - them) : '';
   const cell = v => v != null ? fmt(v) : '—';
-  let html = `<div><span class="badge">${run === 1 ? (over ? '1本目で決着' : '1本目') : '2本合計'}</span> <span class="badge">CPライバル：${esc(cp.lv)}</span></div>
+  let html = `<div><span class="badge">${run === 1 ? (over ? '1本目で決着' : '1本目') : '2本合計'}</span> <span class="badge">CPライバル：${esc(cp.lv)}${cp.rank ? `・ランキング${cp.rank}位${cp.college ? '相当' : ''}` : ''}</span></div>
     <div><span class="big" style="font-size:44px">${verdict}</span></div>${diff ? `<p class="note">相手との差 ${diff}</p>` : ''}`;
   const row = (name, nat, a, out, isMe) => `<tr class="${isMe ? 'me' : ''}"><td>${esc(name)}${isMe && name !== 'あなた' ? '（あなた）' : ''} <span class="nat3">${nat}</span></td><td class="r">${out && a[0] == null ? out : cell(a[0])}</td>${run === 2 ? `<td class="r">${out && a[0] != null && a[1] == null ? out : cell(a[1])}</td><td class="n">${out ? out : cell(tot(a))}</td>` : ''}</tr>`;
   html += table(run === 1 ? ['選手', '1本目'] : ['選手', '1本目', '2本目', '合計'], [row(pname, myNat, mine, myOut, true), row(cp.name, cp.nat, cp.times, cpOut, false)]);
