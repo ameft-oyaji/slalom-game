@@ -64,6 +64,7 @@ function doPost(e) {
       case 'room_create': return out_(room_create_(q));
       case 'room_join': return out_(room_join_(q));
       case 'room_start': return out_(room_start_(q));
+      case 'room_ev': return out_(room_ev_(q));
       case 'room_leave': return out_(room_leave_(q));
     }
     return out_({ ok: false, error: 'unknown' });
@@ -245,8 +246,24 @@ function room_start_(q) {
   if (r.host !== name) return { ok: false, error: 'host' };
   if (q.course && COURSE_RE.test(String(q.course))) r.course = String(q.course);
   r.run = Number(q.run) === 2 ? 2 : 1;                                 // dual race: which of the two runs
+  if (q.ev != null) r.ev = evParse_(q.ev);                             // dual tournament / league: pairings and results so far
   r.raceId += 1; r.state = 'race'; r.startAt = Date.now() + 9000;
   rc_().removeAll(r.members.map(function (m) { return posKey_(r.code, m); }));
+  roomPut_(r);
+  return roomView_(r);
+}
+// a dual tournament or league among the room's members, worked out by the host's game and kept with the room
+function evParse_(s) {
+  s = s && typeof s === 'object' ? JSON.stringify(s) : String(s || '');
+  if (!s || s === 'null' || s.length > 8000) return null;
+  try { const e = JSON.parse(s); return e && (e.fmt === 'tour' || e.fmt === 'league') ? e : null; } catch (err) { return null; }
+}
+function room_ev_(q) {
+  const name = userByToken_(q.token);
+  const r = roomGet_(String(q.code || ''));
+  if (!r) return { ok: false, error: 'noroom' };
+  if (r.host !== name) return { ok: false, error: 'host' };
+  r.ev = evParse_(q.ev);
   roomPut_(r);
   return roomView_(r);
 }
