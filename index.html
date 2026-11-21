@@ -4622,7 +4622,7 @@ function sha256hex(str){
 function gateOpen(){ try { return localStorage.getItem('slalomwc-gate') === GATE_HASH; } catch(e){ return false; } }
 function bootGame(){ if (setupDone) showMenu('cal'); else showSetup(); }
 // title screen with the game's version
-const APP_VERSION = '1.2.0', APP_DATE = '2026.11.20';
+const APP_VERSION = '1.3.0', APP_DATE = '2026.11.21';
 function showTop(){
   $('#menu').hidden = true; $('#sheet').hidden = true; $('#lock').hidden = true;
   $('#topVer').textContent = `Ver. ${APP_VERSION}（${APP_DATE}）`;
