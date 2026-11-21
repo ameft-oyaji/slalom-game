@@ -920,6 +920,11 @@ const GS_GH = 32;           // giant slalom: 6.4 m between the inner and outer p
 const GS_PULL = 1.573;      // giant slalom runs faster: more of the hill's pull reaches the skis
 const ghOf = c => (c && c.gh) || GH;
 const POLE_R = 3, SK_R = 6;
+// closed (vertical) slalom gate: both poles on the fall line, 4.6 m apart. You pass it by crossing the line between them
+// from one side to the other, so a hairpin or a flush of them is skied as quick zig-zags straight down the hill
+const CL_H = 23;
+const poleXY = (g, k, c) => g.cl ? [g.x, g.y + (k ? CL_H : -CL_H)] : [g.x + (k ? ghOf(c) : -ghOf(c)), g.y];
+const gateLine = g => g.cl ? g.y + CL_H : g.y;      // where a gate is judged
 const G = 125, DRAG = 0.0022, FR = 14;
 
 // =====================================================================
@@ -1031,10 +1036,13 @@ function buildCourse(seedN, gender, d){
       if (!first){ const dx = Math.abs(x - prevT); y += Math.max(92, dx*1.15, Math.sqrt(Math.max(0, dist*dist - dx*dx))); }
       gates.push({ x, y, tag: '' }); prevT = x; side = -side; first = false;
     } else {
+      // hairpin (2) or vertical/flush (3–4): closed gates in a line straight down the hill
       const cx = side * (4 + r()*18);
       const dist = 100 + r()*25;
-      if (!first){ const dx = Math.abs(cx - prevT); y += Math.sqrt(Math.max(86*86, dist*dist - dx*dx)); }
-      for (let k = 0; k < it.n; k++){ if (k) y += 62 + r()*8; gates.push({ x: cx + (it.n > 2 ? (k % 2 ? 6 : -6) : 0), y, tag: k === 0 ? it.tag : '' }); }
+      if (!first){ const dx = Math.abs(cx - prevT); y += Math.sqrt(Math.max(96*96, dist*dist - dx*dx)); }
+      const d0 = prevT < cx ? 1 : -1;                    // coming in from the left, the first one is crossed left to right
+      for (let k = 0; k < it.n; k++){ if (k) y += 62 + r()*8; gates.push({ x: cx, y, tag: k === 0 ? it.tag : '', cl: true, dir: k % 2 ? -d0 : d0 }); }
+      y += CL_H;                                         // leave room below the last lower pole
       prevT = cx; side = -side; first = false;
     }
   }
@@ -1095,21 +1103,38 @@ function physStep(b, ctl, dt, braking){
 }
 function crossGates(b, course, cb){
   const gs = course.gates;
-  while (b.ng < gs.length && gs[b.ng].y <= b.y && b.py < gs[b.ng].y + 1e-9){
-    const g = gs[b.ng];
-    const f = b.y === b.py ? 1 : (g.y - b.py) / (b.y - b.py);
+  // a closed gate: note which side of it the skier is on when level with its upper pole
+  const cg = gs[b.ng];
+  if (cg && cg.cl && b.py < cg.y - CL_H && b.y >= cg.y - CL_H){ const f = (cg.y - CL_H - b.py) / (b.y - b.py); b.cin = b.px + (b.x - b.px) * f; b.cinI = b.ng; }
+  while (b.ng < gs.length && gateLine(gs[b.ng]) <= b.y && b.py < gateLine(gs[b.ng]) + 1e-9){
+    const g = gs[b.ng], ly = gateLine(g);
+    const f = b.y === b.py ? 1 : (ly - b.py) / (b.y - b.py);
     const xc = b.px + (b.x - b.px) * f;
-    cb(g, Math.abs(xc - g.x) < ghOf(course));
+    // open gate: between the two poles. Closed gate: on the other side of it by the lower pole than by the upper one
+    const ok = g.cl ? b.cinI === b.ng && (b.cin - g.x) * (xc - g.x) < 0 : Math.abs(xc - g.x) < ghOf(course);
+    cb(g, ok);
     b.ng++;
   }
 }
+// where a robot skier heads: beside an open gate's turning pole; for a closed gate, first to the near side of its
+// upper pole, then across the line to the far side of its lower pole. `tight` pulls the line nearer the poles
+function aiAim(b, course, early, tight){
+  let i = b.ng, g = course.gates[i];
+  if (g && !g.cl && g.y - b.y < 8 + b.v * early && Math.abs(b.x - g.x) < ghOf(course) - 6) g = course.gates[++i];
+  if (g && g.cl && b.y >= g.y - CL_H && (b.x - g.x) * (g.dir || 1) > 3) g = course.gates[++i];    // already across: on to the next
+  if (!g) return null;
+  if (g.cl){
+    const d = g.dir || 1, w = 11 - tight * .3;
+    return b.y < g.y - CL_H ? { x: g.x - d * w, y: g.y - CL_H } : { x: g.x + d * w, y: g.y + CL_H };
+  }
+  return { x: g.x - (Math.sign(g.x) || 1) * tight, y: g.y };
+}
 function aiCtl(b, course){
-  let g = course.gates[b.ng];
-  if (g && g.y - b.y < 8 + b.v*(course.gh ? .34 : .22) && Math.abs(b.x - g.x) < ghOf(course) - 6) g = course.gates[b.ng + 1];
-  const tx = g ? g.x : 0, ty = g ? g.y : course.finishY;
-  const want = Math.atan2(tx - b.x, Math.max(30, ty - b.y));
+  const a = aiAim(b, course, course.gh ? .34 : .22, 0);
+  const tx = a ? a.x : 0, ty = a ? a.y : course.finishY;
+  const want = Math.atan2(tx - b.x, Math.max(a && course.gates[b.ng] && course.gates[b.ng].cl ? 14 : 30, ty - b.y));
   const d = want - b.th;
-  return { inp: Math.abs(d) < .05 ? 0 : Math.sign(d), tuck: !g };
+  return { inp: Math.abs(d) < .05 ? 0 : Math.sign(d), tuck: !a };
 }
 // Reference run: a clean robot run that sets the pace of the simulated field
 function refRun(course){
@@ -1773,10 +1798,10 @@ function step(dt){
   if (sk.block){ sk.block.t += dt; if (sk.block.t > sk.block.dur) sk.block = null; }
   for (let i = Math.max(0, sk.ng - 2); i < Math.min(course.gates.length, sk.ng + 3); i++){
     const g = course.gates[i];
-    const gy = g.y - sk.y;
-    if (gy < -12 || gy > 34) continue;
+    if (g.y - sk.y < -12 - (g.cl ? CL_H : 0) || g.y - sk.y > 34 + (g.cl ? CL_H : 0)) continue;
     for (let k = 0; k < 2; k++){
-      const px = g.x + (k ? ghOf(course) : -ghOf(course)), ddx = px - sk.x;
+      const [px, py] = poleXY(g, k, course), ddx = px - sk.x, gy = py - sk.y;
+      if (gy < -12 || gy > 34) continue;
       if (course.gh){
         // giant slalom: no cross-block. Laid over in the turn, the inside shoulder and shin brush the panel pole —
         // it flexes around the body and springs back up, it is never knocked flat
@@ -2477,6 +2502,20 @@ function dualCourse(seed, d, mirror){
   const side0 = (r() < .5 ? -1 : 1) * (mirror ? -1 : 1), tail = gs ? 220 : 130;
   const make = n => {
     const gates = [];
+    if (!gs){
+      // slalom: one straight flush of four closed gates in the middle; the rest is the steady rhythm
+      const f0 = 8, fn = 4;
+      let y = 150;
+      for (let i = 0; i < n; i++){
+        const fl = i >= f0 && i < f0 + fn, k = i - f0;
+        if (i){ y += fl ? (k ? 64 : 112) : (i === f0 + fn ? 112 + CL_H : dy); }
+        const x = fl ? 0 : (i % 2 ? -side0 : side0) * off;
+        const d0 = Math.sign(gates[f0 - 1] ? -gates[f0 - 1].x : 1) || 1;   // in from the previous gate's side
+        const g = { x, y, tag: fl && !k ? 'バーティカル' : '', col: i % 2 ? 'blue' : 'red', bend: [0,0], bv: [0,0], cool: [0,0], res: 0, i };
+        if (fl){ g.cl = true; g.dir = k % 2 ? -d0 : d0; }
+        gates.push(g);
+      }
+    } else
     for (let i = 0; i < n; i++) gates.push({ x: (i % 2 ? -side0 : side0) * off, y: 150 + i * dy, tag: '', col: i % 2 ? 'blue' : 'red', bend: [0,0], bv: [0,0], cool: [0,0], res: 0, i });
     const c = { gates, finishY: gates[n - 1].y + tail, checks: [Math.floor(n * .25), Math.floor(n * .5), Math.floor(n * .75)], vd: 0, nGates: n, gh: gs ? GS_GH : 0, disc: d };
     c.prof = makeProfile('', c.finishY, d); c.vd = c.prof.drop;
@@ -4507,13 +4546,11 @@ function aiLine(course, j){
   const b = newBody(); b.v = 40 + r() * 10; b.x = (r() - .5) * 4; b.prof = course.prof;
   const pts = [];
   for (let i = 0; i < 120 * 240; i++){
-    let g = course.gates[b.ng];
-    if (g && g.y - b.y < 8 + b.v * early * (course.gh ? 1.5 : 1) && Math.abs(b.x - g.x) < ghOf(course) - 6) g = course.gates[b.ng + 1];
-    let tx = 0, ty = course.finishY;
-    if (g){ const sd = Math.sign(g.x) || 1; tx = g.x - sd * tight; ty = g.y; }
-    const d = Math.atan2(tx - b.x, Math.max(30, ty - b.y)) - b.th;
+    const a = aiAim(b, course, early * (course.gh ? 1.5 : 1), tight);
+    const tx = a ? a.x : 0, ty = a ? a.y : course.finishY;
+    const d = Math.atan2(tx - b.x, Math.max(a && course.gates[b.ng] && course.gates[b.ng].cl ? 14 : 30, ty - b.y)) - b.th;
     const inp = Math.abs(d) < dead ? 0 : Math.sign(d);
-    physStep(b, { inp, tuck: !g }, STEP, false);
+    physStep(b, { inp, tuck: !a }, STEP, false);
     crossGates(b, course, () => {});
     const lp = pts[pts.length - 1];
     if (!lp || Math.hypot(b.x - lp.x, b.y - lp.y) > 4) pts.push({ x: b.x, y: b.y, th: b.th, inp });
@@ -4707,7 +4744,10 @@ function render(){
   // everything that stands up off the snow, painted far to near
   const sprites = [];
   const gs = course.gates;
-  for (const g of gs) if (g.y > yNear - 30 && g.y < yFar + 40) sprites.push({ y: g.y, d: () => drawGate(g) });
+  for (const g of gs) if (g.y > yNear - 30 - (g.cl ? CL_H : 0) && g.y < yFar + 40 + (g.cl ? CL_H : 0)){
+    if (g.cl){ sprites.push({ y: g.y - CL_H, d: () => drawGate(g, 0) }); sprites.push({ y: g.y + CL_H, d: () => drawGate(g, 1) }); }   // closed gate: each pole in its own depth
+    else sprites.push({ y: g.y, d: () => drawGate(g) });
+  }
   const label = race && race.ev ? race.ev.venue.toUpperCase() : 'SLALOM';
   if (22 > yNear - 30 && 22 < yFar + 40) sprites.push({ y: 22, d: () => banner(22, label + (race && race.mode === 'free' && !race.spectate ? ' · FREE SKI' : ' · RUN ' + (race ? race.run : 1)), COL.blue, COL.red) });
   if (fy + 2 > yNear - 30 && fy < yFar + 40) sprites.push({ y: fy + 2, d: () => banner(fy + 2, 'FINISH', COL.red, COL.blue) });
@@ -4898,8 +4938,10 @@ function drawStartHut(){
   ctx.fillStyle = '#fff'; ctx.font = `italic 800 ${12*k}px 'Barlow Condensed', sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.fillText('START', p.X, p.Y - h*.6);
 }
-function drawGate(g){
+function drawGate(g, only){
+  // `only`: for a closed gate, which of its two poles to draw (each is drawn at its own depth)
   const c = g.col === 'red' ? COL.red : COL.blue;
+  if (only !== 1){
   if (state === 'inspect'){
     const p = proj(g.x, g.y);
     if (p && p.k > .25){
@@ -4917,9 +4959,11 @@ function drawGate(g){
       ctx.textAlign = right ? 'left' : 'right'; ctx.fillText(g.tag, p.X, p.Y - 4*p.k);
     }
   }
+  }
   if (course.gh){ drawPanels(g, c); return drawMiss(g); }
   for (let i = 0; i < 2; i++){
-    const p = proj(g.x + (i ? GH : -GH), g.y); if (!p) continue;
+    if (only != null && i !== only) continue;
+    const [qx, qy] = poleXY(g, i, course), p = proj(qx, qy); if (!p) continue;
     const k = p.k, b = clamp(g.bend[i], -1.05, 1.05), h = 26*k;
     const tx = p.X + b*h*.85, ty = p.Y - h*(1 - Math.min(.55, Math.abs(b)*.35));
     ctx.strokeStyle = COL.shadow; ctx.lineWidth = 2.4*k; ctx.lineCap = 'round';
@@ -4930,7 +4974,7 @@ function drawGate(g){
     ctx.beginPath(); ctx.moveTo(p.X - .7*k, p.Y - 2*k); ctx.lineTo(tx - .7*k, ty + 1); ctx.stroke();
     ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(tx, ty, 1.3*k, 0, 7); ctx.fill();
   }
-  drawMiss(g);
+  if (only !== 0) drawMiss(g);
 }
 function drawMiss(g){
   if (g.res === -1){
