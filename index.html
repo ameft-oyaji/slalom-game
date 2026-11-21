@@ -286,6 +286,15 @@ body.nightrace .ev-gear .up,body.nightrace .ev-gear .dn{color:#fff!important}
 .evm i{font-style:normal;font-family:var(--f-num);color:#C9D2E3;margin-left:4px}
 .evm .win{font-weight:800;color:#fff}.evm .win i{color:var(--amber)}
 .evm .win::after{content:'○';margin-left:4px;color:var(--amber)}
+.roomchat{position:sticky;bottom:0;z-index:2;border-top:1px solid var(--board-3);padding:10px 18px 14px;display:flex;flex-direction:column;gap:8px;background:var(--board)}
+.rc-log{max-height:150px;overflow:auto;display:flex;flex-direction:column;gap:4px;font-size:14px}
+.rc-log div{display:flex;gap:8px;align-items:baseline}.rc-log b{flex:none;font-size:12px;color:#9FB0C8}.rc-log div.me b{color:var(--amber)}
+.rc-log p{margin:0}
+.rc-quick{display:flex;flex-wrap:wrap;gap:6px}
+.rc-quick button{border:0;border-radius:16px;background:var(--board-3);color:#fff;font:700 12px var(--f-body);padding:5px 10px;cursor:pointer}
+.rc-quick button:hover{background:#fff;color:var(--board)}
+.rc-form{display:flex;gap:6px}.rc-form input{flex:1;min-width:0}
+.rc-form button{border:0;border-radius:4px;background:var(--amber);color:var(--board);font:700 13px var(--f-body);padding:0 14px;cursor:pointer}
 .evm li.now{box-shadow:inset 3px 0 0 var(--red);background:var(--board-3)}.evm li.later{opacity:.6}
 /* watching someone else's match */
 .watching #pad,.watching #keys,.watching #bQuit,.watching #bCtrl{display:none!important}
@@ -573,6 +582,11 @@ body.nightrace .ev-label,body.nightrace .ev-label *,body.nightrace #keys,body.ni
       <h2 id="shTitle"></h2>
     </div>
     <div class="panel-body" id="shBody"></div>
+    <div class="roomchat" id="roomChat" hidden>
+      <div class="rc-log" id="rcLog" aria-live="polite"></div>
+      <div class="rc-quick"><button type="button" data-q="準備はいいですか？">準備はいいですか？</button><button type="button" data-q="よろしく！">よろしく！</button><button type="button" data-q="道具変えます！">道具変えます！</button><button type="button" data-q="少しお待ちを">少しお待ちを</button><button type="button" data-q="準備OK！">準備OK！</button></div>
+      <form class="rc-form" id="rcForm"><input type="text" id="rcTxt" maxlength="40" placeholder="メッセージ（40文字まで）" autocomplete="off"><button type="submit">送る</button></form>
+    </div>
   </section>
 </div>
 
@@ -2393,7 +2407,7 @@ const BT_ERR = { auth: 'もう一度ログインしてください。', noroom: 
 async function btCall(action, extra){
   const r = await cloudCall(Object.assign({ action, token: CLOUD.token, code: BT.code }, extra || {}));
   if (r && r.now) BT.offset = r.now - Date.now();
-  if (r && r.room) BT.room = r.room;
+  if (r && r.room){ BT.room = r.room; setTimeout(renderChat, 0); }
   if (r && r.pos){ BT.pos = r.pos; pickCheers(); }
   return r;
 }
@@ -3190,7 +3204,7 @@ function renderEvResult(box){
 }
 async function leaveRoom(){
   clearInterval(BT.poll);
-  const code = BT.code; BT.code = null; BT.room = null; BT.pos = {};
+  const code = BT.code; BT.code = null; BT.room = null; BT.pos = {}; RCHAT.seen = 0; renderChat();
   race = null;
   try { await cloudCall({ action: 'room_leave', token: CLOUD.token, code }); } catch(e){}
   showMenu(playMode === 'DUAL' ? 'dual' : 'battle');
@@ -3897,13 +3911,38 @@ function drawFinishHouse(x, y){
 // Sheets
 // =====================================================================
 function openSheet(eyebrow, title, html, sub){
-  $('#menu').hidden = true;
+  $('#menu').hidden = true; setTimeout(renderChat, 0);
   $('#shEyebrow').textContent = eyebrow + (sub ? ' · ' + sub : '');
   $('#shTitle').textContent = title;
   $('#shBody').innerHTML = html;
   $('#sheet').hidden = false; $('#sheet').scrollTop = 0;
 }
-function closeSheet(){ $('#sheet').hidden = true; }
+function closeSheet(){ $('#sheet').hidden = true; const c = $('#roomChat'); if (c) c.hidden = true; }
+// ---- room chat: always at the bottom of the room's screens; new lines pop up as bubbles while racing or watching ----
+const RCHAT = { seen: 0, sending: false };
+function renderChat(){
+  const box = $('#roomChat'); if (!box) return;
+  const inRoom = !!(BT.code && BT.room);
+  box.hidden = !inRoom || $('#sheet').hidden;
+  if (!inRoom) return;
+  const log = BT.room.chat || [];
+  const el = $('#rcLog'), atEnd = el.scrollHeight - el.scrollTop - el.clientHeight < 30;
+  el.innerHTML = log.length ? log.map(m => `<div class="${m.n === CLOUD.name ? 'me' : ''}"><b>${esc(m.n)}</b><span>${esc(m.t)}</span></div>`).join('') : '<p class="note">ここで部屋のみんなと話せます。下のボタンでひと言送れます。</p>';
+  if (atEnd) el.scrollTop = el.scrollHeight;
+  // lines from others that arrived while the room screen is not showing: a speech bubble
+  const fresh = log.filter(m => m.ts > RCHAT.seen);
+  if (RCHAT.seen && $('#sheet').hidden) fresh.filter(m => m.n !== CLOUD.name).slice(-3).forEach(m => showCheer(m.n, m.t));
+  if (log.length) RCHAT.seen = Math.max(RCHAT.seen, log[log.length - 1].ts);
+}
+async function sendChat(text){
+  text = String(text || '').trim().slice(0, 40); if (!text || !BT.code || RCHAT.sending) return;
+  RCHAT.sending = true;
+  try { await btCall('room_chat', { text }); } catch(e){}
+  RCHAT.sending = false; renderChat();
+  const el = $('#rcLog'); el.scrollTop = el.scrollHeight;
+}
+document.querySelectorAll('#roomChat [data-q]').forEach(b => b.onclick = () => sendChat(b.dataset.q));
+$('#rcForm').onsubmit = e => { e.preventDefault(); const i = $('#rcTxt'); sendChat(i.value); i.value = ''; };
 function table(head, rows){
   return `<div class="tbl-wrap"><table><thead><tr>${head.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>${rows.join('')}</tbody></table></div>`;
 }
@@ -5522,7 +5561,7 @@ function showTop(){
 function goTop(){
   if (BT.code){
     clearInterval(BT.poll);
-    const code = BT.code; BT.code = null; BT.room = null; BT.pos = {};
+    const code = BT.code; BT.code = null; BT.room = null; BT.pos = {}; RCHAT.seen = 0;
     cloudCall({ action: 'room_leave', token: CLOUD.token, code }).catch(() => {});
   }
   race = null; closeSheet(); leaveRunUI(); startDemo(); showTop();

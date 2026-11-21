@@ -65,6 +65,7 @@ function doPost(e) {
       case 'room_join': return out_(room_join_(q));
       case 'room_start': return out_(room_start_(q));
       case 'room_ev': return out_(room_ev_(q));
+      case 'room_chat': return out_(room_chat_(q));
       case 'room_leave': return out_(room_leave_(q));
     }
     return out_({ ok: false, error: 'unknown' });
@@ -264,6 +265,19 @@ function room_ev_(q) {
   if (!r) return { ok: false, error: 'noroom' };
   if (r.host !== name) return { ok: false, error: 'host' };
   r.ev = evParse_(q.ev);
+  roomPut_(r);
+  return roomView_(r);
+}
+// room chat: the last 30 lines, kept with the room
+function room_chat_(q) {
+  const name = userByToken_(q.token);
+  if (!name) return { ok: false, error: 'auth' };
+  const r = roomGet_(String(q.code || ''));
+  if (!r) return { ok: false, error: 'noroom' };
+  if (r.members.indexOf(name) < 0) return { ok: false, error: 'member' };
+  const t = String(q.text || '').replace(/\s+/g, ' ').trim().slice(0, 40);
+  if (!t) return { ok: false, error: 'empty' };
+  r.chat = (r.chat || []).concat([{ n: name, t: t, ts: Date.now() }]).slice(-30);
   roomPut_(r);
   return roomView_(r);
 }
