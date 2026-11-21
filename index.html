@@ -2129,10 +2129,10 @@ async function loadPlayers(force){
 }
 function taOverall(g){
   const per = {};                // handle -> { pts, courses, wins }
-  const courses = {};
+  const courses = {}, taDates = new Set(seasonSL().map(r => r.date));
   for (const [uid, d] of Object.entries(TA.docs)){
     for (const [key, e] of Object.entries((d && d.best) || {})){
-      if (!key.startsWith(g + '_') || !validEntry(e)) continue;
+      if (!key.startsWith(g + '_') || !validEntry(e) || !taDates.has(key.slice(g.length + 1))) continue;
       (courses[key] = courses[key] || []).push({ uid, handle: String(d.handle || '名無し').slice(0, 14), t: +e.t });
     }
   }
@@ -2156,8 +2156,8 @@ function rkBar(label, n, max, extra, me){
   return `<div class="rkb${me ? ' me' : ''}"><span class="rkl">${label}</span><span class="rkt"><i style="width:${w}%"></i></span><span class="rkn">${extra}</span></div>`;
 }
 function playersHTML(){
-  const g = gender, seasonId = `${gender}-${level}`;
-  let html = `<p class="note">登録したプレーヤーどうしのランキングです。シーズンの項目は、上の「男子／女子」と「ライバルの強さ」の組み合わせごとです。</p>`;
+  const g = gender, seasonId = `${gender}-${level}` + (disc === 'GS' ? '-gs' : '');
+  let html = `<p class="note">登録したプレーヤーどうしのランキングです。シーズンの項目は、上の「回転／大回転」「男子／女子」「ライバルの強さ」の組み合わせごとです。</p>`;
   html += `<div class="rk-tabs" role="tablist">${RK_TABS.map(([k, l]) => `<button type="button" role="tab" class="rk-tab${RK === k ? ' on' : ''}" data-rk="${k}" aria-selected="${RK === k}">${l}</button>`).join('')}</div>`;
   const youName = CLOUD.name || '';
   const rowCls = n => youName && n === youName ? 'me' : '';
@@ -2170,14 +2170,14 @@ function playersHTML(){
     return xs;
   };
   const statTable = (title, unit, val, desc = true, fmtV = v => v, note = '') => {
-    html += `<h3>${title}（${gender === 'men' ? '男子' : '女子'}・${LEVEL_NAME[level]}）</h3>${note ? `<p class="note">${note}</p>` : ''}`;
+    html += `<h3>${title}（${discJP()}・${gender === 'men' ? '男子' : '女子'}・${LEVEL_NAME[level]}）</h3>${note ? `<p class="note">${note}</p>` : ''}`;
     const w = needCloud(); if (w){ html += w; return; }
     const xs = ranked(seasonRows(), val, desc);
     if (!xs.length){ html += `<p class="note">まだ記録がありません。</p>`; return; }
     html += table(['順位', 'プレーヤー', unit, 'レース', 'Pt'], xs.slice(0, 100).map(r => `<tr class="${rowCls(r.name)}"><td class="n">${r._rk}</td><td>${esc(r.name)}${you(r.name)}</td><td class="n">${fmtV(val(r))}</td><td class="r">${r.races}</td><td class="r">${r.pts}</td></tr>`));
   };
   if (RK === 'pts'){
-    html += `<h3>シーズン総合（${gender === 'men' ? '男子' : '女子'}・${LEVEL_NAME[level]}）</h3>`;
+    html += `<h3>シーズン総合（${discJP()}・${gender === 'men' ? '男子' : '女子'}・${LEVEL_NAME[level]}）</h3>`;
     const w = needCloud();
     if (w) html += w;
     else {
@@ -2196,7 +2196,7 @@ function playersHTML(){
   else if (RK === 'races') statTable('出場レース数', 'レース', r => r.races);
   else if (RK === 'ta'){
     const ov = taOverall(g);
-    html += `<h3>タイムアタック総合（${gender === 'men' ? '男子' : '女子'}コース）</h3><p class="note">各コースのプレーヤー順位に、ワールドカップと同じポイント（1位100・2位80・3位60…30位1）を付けて合計しています。</p>`;
+    html += `<h3>タイムアタック総合（${discJP()}・${gender === 'men' ? '男子' : '女子'}コース）</h3><p class="note">各コースのプレーヤー順位に、ワールドカップと同じポイント（1位100・2位80・3位60…30位1）を付けて合計しています。</p>`;
     if (!ov.length) html += `<p class="note">まだタイムアタックの記録がありません。</p>`;
     else html += table(['順位','プレーヤー','Pt','コース','1位'], ov.slice(0, 100).map(o => `<tr class="${o.me ? 'me' : ''}"><td class="n">${o.rank}</td><td>${esc(o.handle)}${o.me ? '（あなた）' : ''}</td><td class="n">${o.pts}</td><td class="r">${o.courses}</td><td class="r">${o.wins || ''}</td></tr>`));
   }
@@ -2209,7 +2209,7 @@ function playersHTML(){
     if (RK === 'wingear'){
       const top = (PLAYERS.rows || []).filter(r => r.key === seasonId && r.pts > 0).sort((a, b) => b.pts - a.pts).slice(0, 10).map(r => r.name);
       names = names.filter(n => top.includes(n));
-      html += `<h3>上位選手の用具（${gender === 'men' ? '男子' : '女子'}・${LEVEL_NAME[level]}・ポイント上位10人）</h3><p class="note">勝っているプレーヤーがどのブランドを選んでいるかです。</p>`;
+      html += `<h3>上位選手の用具（${discJP()}・${gender === 'men' ? '男子' : '女子'}・${LEVEL_NAME[level]}・ポイント上位10人）</h3><p class="note">勝っているプレーヤーがどのブランドを選んでいるかです。</p>`;
     } else html += `<h3>使用マテリアル人気ランキング</h3><p class="note">登録プレーヤー ${names.length} 人がいま使っている用具です。黄色の行があなたの用具です。</p>`;
     if (!names.length) html += `<p class="note">まだデータがありません。</p>`;
     else for (const [cat, grp] of Object.entries(GEAR)){
@@ -2227,7 +2227,7 @@ function playersHTML(){
     const pts = {}; for (const r of seasonRows()){ const c = (who[r.name] || {}).nat || 'JPN'; pts[c] = (pts[c] || 0) + r.pts; }
     const nats = Object.keys(cnt).sort((a, b) => (pts[b] || 0) - (pts[a] || 0) || cnt[b] - cnt[a]);
     const maxP = Math.max(1, ...nats.map(c => pts[c] || 0));
-    html += `<h3>国別ランキング（${gender === 'men' ? '男子' : '女子'}・${LEVEL_NAME[level]}）</h3><p class="note">プレーヤーが登録した国ごとの、シーズン獲得ポイントの合計と人数です。</p>`;
+    html += `<h3>国別ランキング（${discJP()}・${gender === 'men' ? '男子' : '女子'}・${LEVEL_NAME[level]}）</h3><p class="note">プレーヤーが登録した国ごとの、シーズン獲得ポイントの合計と人数です。</p>`;
     if (!nats.length) html += `<p class="note">まだデータがありません。</p>`;
     else html += nats.map((c, i) => rkBar(`<b>${i + 1}</b> <span class="flag sm" style="background:${FLAG[c] || '#ccc'}"></span>${esc((NAT[c] || {}).jp || c)}`, pts[c] || 0, maxP, `${pts[c] || 0} pt・${cnt[c]}人`, c === myNat)).join('');
   }

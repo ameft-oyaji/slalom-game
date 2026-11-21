@@ -156,7 +156,7 @@ function players_() {
       try { const pf = JSON.parse(v[i][2] || '{}'); who[String(v[i][0])] = { nat: String(pf.nat || ''), gear: pf.gear || {} }; } catch (e) {}
       continue;
     }
-    if (!/^slalomwc-2627-(men|women)-[a-z]+$/.test(key)) continue;
+    if (!/^slalomwc-2627-(men|women)-[a-z]+(-gs)?$/.test(key)) continue;   // slalom, and giant slalom (-gs)
     try {
       const d = JSON.parse(v[i][2] || '{}');
       const done = d.done || {}, places = (d.places && d.places.you) || [];
