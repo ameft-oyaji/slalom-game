@@ -192,7 +192,8 @@ td.n{text-align:right;font-family:var(--f-num);font-size:15px;font-weight:700}
 td.r{text-align:right;font-family:var(--f-num);font-size:15px;color:var(--muted)}
 tr.me td{background:rgba(255,201,60,.18);color:#fff}
 tr.cut td{border-bottom:2px solid var(--amber)}
-.nat3{font-family:var(--f-num);color:var(--muted)}
+.nat3{font-family:var(--f-num);color:var(--muted);white-space:nowrap}
+.nat3 .flag,dd .flag.sm,.note .flag.sm,#topWho .flag,td .flag.sm,small .flag.sm,.cer-title .flag{margin-right:4px;vertical-align:-2px}
 .mv{font-family:var(--f-num);font-weight:700;font-size:13px;margin-left:4px}
 .mv.up{color:var(--good)} .mv.down{color:var(--bad)} .mv.same{color:var(--muted)}
 .globe{display:flex;gap:14px;align-items:center;background:var(--board-2);border-radius:4px;padding:10px 12px;border-left:4px solid var(--amber)}
@@ -1587,6 +1588,8 @@ function makeRace(ev, mode){
 }
 function nameOf(id){ return id === 'you' ? pname : (FIELDS[gender].find(a => a.id === id) || {}).name; }
 function natOf(id){ return id === 'you' ? myNat : (FIELDS[gender].find(a => a.id === id) || {}).nat; }
+// a small national flag to put beside a country code or name
+const flagH = c => `<span class="flag sm" style="background:${FLAG[c] || '#C9D2E3'}"></span>`;
 function rankList(times){
   const fin = Object.entries(times).filter(([, t]) => t != null).sort((a, b) => a[1] - b[1]);
   return fin.map(([id, t]) => ({ id, t, rank: 1 + fin.filter(x => x[1] < t).length }));
@@ -2263,8 +2266,8 @@ function spectatePad(dt){
 function showSpectateEnd(){
   const tt = race.freeTime, w = race.who;
   let html = `<div><span class="badge">観戦モード</span></div><dl class="rows">
-    <dt>会場</dt><dd style="font-family:var(--f-body);font-size:15px">${esc(JP[race.ev.venue] || race.ev.venue)}（${race.ev.nat}）</dd>
-    <dt>選手</dt><dd style="font-family:var(--f-body);font-size:15px">${esc(w.name)}（${esc((NAT[w.nat] || {}).jp || w.nat)}）</dd>
+    <dt>会場</dt><dd style="font-family:var(--f-body);font-size:15px">${esc(JP[race.ev.venue] || race.ev.venue)}（${flagH(race.ev.nat)}${race.ev.nat}）</dd>
+    <dt>選手</dt><dd style="font-family:var(--f-body);font-size:15px">${esc(w.name)}（${flagH(w.nat)}${esc((NAT[w.nat] || {}).jp || w.nat)}）</dd>
     <dt>タイム</dt><dd>${tt != null ? fmt(tt) : '—'}</dd><dt>最高速度</dt><dd>${Math.round(race.maxV * .36)} km/h</dd></dl>
     <div class="btns"><button class="btn primary" type="button" id="spAgain">別のレースを観戦</button><button class="btn" type="button" id="spPick">選手を選び直す</button><button class="btn" type="button" id="spTop">トップに戻る</button></div>`;
   endSpectate();
@@ -2476,7 +2479,7 @@ const serverNow = () => Date.now() + BT.offset;
 function courseLabelOf(key){
   const dk = dualKeyParse(key); if (dk) return `${dk.g === 'men' ? '男子' : '女子'} デュアルレース（${DISC[dk.d]}のリズム旗門・2本合計）`;
   const [g, date] = key.split('_'); const ev = slRaces(g).find(r => r.date === date);
-  return ev ? `${g === 'men' ? '男子' : '女子'} ${JP[ev.venue] || ev.venue}（${ev.nat}）` : key;
+  return ev ? `${g === 'men' ? '男子' : '女子'} ${JP[ev.venue] || ev.venue}（${flagH(ev.nat)}${ev.nat}）` : key;
 }
 function battleTabHTML(){
   if (!CLOUD.url) return '<p class="note">オンライン対戦は公開サイト（https://ameft-oyaji.github.io/slalom-game/）で、ユーザー登録して遊べます。</p>';
@@ -2650,7 +2653,7 @@ function showCpuResult(){
   const cell = v => v != null ? fmt(v) : '—';
   let html = `<div><span class="badge">${run === 1 ? (over ? '1本目で決着' : '1本目') : '2本合計'}</span> <span class="badge">CPライバル：${esc(cp.lv)}${cp.rank ? `・ランキング${cp.rank}位${cp.college ? '相当' : ''}` : ''}</span></div>
     <div><span class="big" style="font-size:44px">${verdict}</span></div>${diff ? `<p class="note">相手との差 ${diff}</p>` : ''}`;
-  const row = (name, nat, a, out, isMe) => `<tr class="${isMe ? 'me' : ''}"><td>${esc(name)}${isMe && name !== 'あなた' ? '（あなた）' : ''} <span class="nat3">${nat}</span></td><td class="r">${out && a[0] == null ? out : cell(a[0])}</td>${run === 2 ? `<td class="r">${out && a[0] != null && a[1] == null ? out : cell(a[1])}</td><td class="n">${out ? out : cell(tot(a))}</td>` : ''}</tr>`;
+  const row = (name, nat, a, out, isMe) => `<tr class="${isMe ? 'me' : ''}"><td>${esc(name)}${isMe && name !== 'あなた' ? '（あなた）' : ''} <span class="nat3">${flagH(nat)}${nat}</span></td><td class="r">${out && a[0] == null ? out : cell(a[0])}</td>${run === 2 ? `<td class="r">${out && a[0] != null && a[1] == null ? out : cell(a[1])}</td><td class="n">${out ? out : cell(tot(a))}</td>` : ''}</tr>`;
   html += table(run === 1 ? ['選手', '1本目'] : ['選手', '1本目', '2本目', '合計'], [row(pname, myNat, mine, myOut, true), row(cp.name, cp.nat, cp.times, cpOut, false)]);
   if (over && run === 1) html += '<p class="note">どちらかがゴールしなかったので、2本目はなしでここで決着です。</p>';
   html += `<div class="btns">${!over ? '<button class="btn primary" type="button" id="cpNext">2本目へ（左右が逆のコース）</button>' : '<button class="btn primary" type="button" id="cpAgain">もう一度（新しいコース）</button>'}<button class="btn" type="button" id="cpMenu">メニューに戻る</button></div>`;
@@ -2701,7 +2704,7 @@ function lobbyHTML(){
   const r = BT.room; if (!r) return '';
   const host = r.host === CLOUD.name;
   let html = `<div class="btcode"><span>部屋番号</span><b>${r.code}</b></div>
-    <dl class="rows"><dt>コース</dt><dd style="font-family:var(--f-body);font-size:15px">${esc(courseLabelOf(r.course))}${dualKeyParse(r.course) ? '' : '・1本勝負'}</dd><dt>参加者</dt><dd>${r.members.length} / 8 人</dd></dl>
+    <dl class="rows"><dt>コース</dt><dd style="font-family:var(--f-body);font-size:15px">${courseLabelOf(r.course)}${dualKeyParse(r.course) ? '' : '・1本勝負'}</dd><dt>参加者</dt><dd>${r.members.length} / 8 人</dd></dl>
     <ul class="btmem">${r.members.map((m, i) => `<li><span class="dot" style="background:${m === CLOUD.name ? 'var(--amber)' : GHOST_COL[i % GHOST_COL.length]}"></span>${esc(m)}${m === r.host ? ' <span class="badge">ホスト</span>' : ''}${m === CLOUD.name ? '（あなた）' : ''}</li>`).join('')}</ul>`;
   const dual = !!dualKeyParse(r.course), ev = evOn();
   if (r.ev) html += evBoardHTML();
@@ -3844,7 +3847,7 @@ function showCeremony(kind, top, ev){
         </div>
         <div class="ground-r">${side[1] || ''}</div>
       </div>
-      <div class="cer-title">${esc(title)}<small>FIS Alpine Ski World Cup · ${esc(venue)} (${ev.nat}) · ${gender === 'men' ? "Men's" : "Women's"} ${discEN(ev.disc)}</small></div>
+      <div class="cer-title">${esc(title)}<small>FIS Alpine Ski World Cup · ${esc(venue)} (${flagH(ev.nat)}${ev.nat}) · ${gender === 'men' ? "Men's" : "Women's"} ${discEN(ev.disc)}</small></div>
       <div class="btns"><button class="btn primary" type="button" id="cerClose">閉じる</button></div>
     </div>`;
   el.hidden = false;
@@ -4034,7 +4037,7 @@ function showRun1Result(){
   const rows = rl.map((x, i) => {
     const next = rl[i + 1];
     const cls = (x.id === 'you' ? 'me' : '') + (x.rank <= cut && next && next.rank > cut ? ' cut' : '');
-    return `<tr class="${cls}"><td class="n">${x.rank}</td><td class="r">${race.bib.get(x.id)}</td><td>${esc(nameOf(x.id))}</td><td class="nat3">${natOf(x.id)}</td><td class="n">${fmt(x.t)}</td><td class="r">${x.rank === 1 ? '' : fmtDiff(x.t - best)}</td></tr>`;
+    return `<tr class="${cls}"><td class="n">${x.rank}</td><td class="r">${race.bib.get(x.id)}</td><td>${esc(nameOf(x.id))}</td><td class="nat3">${flagH(natOf(x.id))}${natOf(x.id)}</td><td class="n">${fmt(x.t)}</td><td class="r">${x.rank === 1 ? '' : fmtDiff(x.t - best)}</td></tr>`;
   });
   let html = '';
   if (me) html += `<div><span class="big">${fmt(me.t)}</span></div><dl class="rows"><dt>1本目の順位</dt><dd>${me.rank}位 / ${rl.length}名完走</dd><dt>トップとの差</dt><dd>${me.rank === 1 ? 'トップ' : fmtDiff(me.t - best)}</dd>${waxRow(1)}</dl>`;
@@ -4080,8 +4083,8 @@ function arrow(prev, now){
 }
 function movementHTML(mv){
   const st = mv.after, me = st.find(e => e.me), lead = st[0];
-  const rows = st.slice(0, 10).map(e => `<tr class="${e.me ? 'me' : ''}"><td class="n">${e.rank}</td><td>${arrow(mv.before[e.id], e.rank)}</td><td>${esc(e.name)}</td><td class="nat3">${e.nat}</td><td class="n">${e.pts}</td></tr>`);
-  if (me.rank > 10) rows.push(`<tr><td class="r">…</td><td></td><td></td><td></td><td></td></tr><tr class="me"><td class="n">${me.rank}</td><td>${arrow(mv.before.you, me.rank)}</td><td>${esc(me.name)}</td><td class="nat3">${myNat}</td><td class="n">${me.pts}</td></tr>`);
+  const rows = st.slice(0, 10).map(e => `<tr class="${e.me ? 'me' : ''}"><td class="n">${e.rank}</td><td>${arrow(mv.before[e.id], e.rank)}</td><td>${esc(e.name)}</td><td class="nat3">${flagH(e.nat)}${e.nat}</td><td class="n">${e.pts}</td></tr>`);
+  if (me.rank > 10) rows.push(`<tr><td class="r">…</td><td></td><td></td><td></td><td></td></tr><tr class="me"><td class="n">${me.rank}</td><td>${arrow(mv.before.you, me.rank)}</td><td>${esc(me.name)}</td><td class="nat3">${flagH(myNat)}${myNat}</td><td class="n">${me.pts}</td></tr>`);
   return `<h3>${discJP(race && race.ev.disc)}ランキングの変動</h3><dl class="rows"><dt>あなた</dt><dd>${mv.before.you}位 → ${me.rank}位 ${arrow(mv.before.you, me.rank)}</dd><dt>獲得 / 合計</dt><dd>+${mv.gained} pt / ${me.pts} pt</dd><dt>トップ（${esc(lead.name)}）との差</dt><dd>${me.rank === 1 ? (st[1] ? '2位に +' + (me.pts - st[1].pts) + ' pt' : '—') : '−' + (lead.pts - me.pts) + ' pt'}</dd></dl>` + table(['順位','変動','選手','国','Pt'], rows);
 }
 // Run a World Cup race without you (you did not start): the season moves on
@@ -4097,7 +4100,7 @@ function runWithoutYou(ev){
 function showSkipped(ev){
   const out = runWithoutYou(ev);
   const best = out.res[0];
-  const pod = out.res.slice(0, 3).map(o => `${o.rank}位 ${esc(nameOf(o.id))}（${natOf(o.id)}）${fmt(o.t)}`).join('<br>');
+  const pod = out.res.slice(0, 3).map(o => `${o.rank}位 ${esc(nameOf(o.id))}（${flagH(natOf(o.id))}${natOf(o.id)}）${fmt(o.t)}`).join('<br>');
   let html = `<p>${JP[ev.venue]}の${discJP(ev.disc)}はあなた抜きで行われました。</p><dl class="rows"><dt>優勝</dt><dd style="font-family:var(--f-body);font-size:15px">${best ? esc(nameOf(best.id)) : '—'}</dd></dl><p class="note">${pod}</p>`;
   html += movementHTML(out.mv);
   html += `<div class="btns"><button class="btn primary" type="button" id="toCal">日程に戻る</button></div>`;
@@ -4116,7 +4119,7 @@ function showFinal(){
     const out = commitResults(race.ev, res, me ? 'ok' : (race.run1.you == null ? 'r1' : race.qualified ? 'r2' : 'nq'));
     saved = out.saved; mv = out;
   }
-  const rows = res.map(o => `<tr class="${o.id === 'you' ? 'me' : ''}"><td class="n">${o.rank}</td><td>${esc(nameOf(o.id))}</td><td class="nat3">${natOf(o.id)}</td><td class="r">${fmt(o.r1)}</td><td class="r">${fmt(o.r2)}</td><td class="n">${fmt(o.t)}</td><td class="r">${o.rank === 1 ? '' : fmtDiff(o.t - best)}</td><td class="n">${o.pts || ''}</td></tr>`);
+  const rows = res.map(o => `<tr class="${o.id === 'you' ? 'me' : ''}"><td class="n">${o.rank}</td><td>${esc(nameOf(o.id))}</td><td class="nat3">${flagH(natOf(o.id))}${natOf(o.id)}</td><td class="r">${fmt(o.r1)}</td><td class="r">${fmt(o.r2)}</td><td class="n">${fmt(o.t)}</td><td class="r">${o.rank === 1 ? '' : fmtDiff(o.t - best)}</td><td class="n">${o.pts || ''}</td></tr>`);
   let html = '';
   if (me){
     html += `<div><span class="big">${me.rank}位</span> ${me.rank === 1 ? '<span class="badge">優勝</span>' : me.rank <= 3 ? '<span class="badge">表彰台</span>' : ''}</div>`;
@@ -4311,7 +4314,7 @@ function calendarHTML(){
     }
     if (sl && done){
       const h = s.hist.find(x => x.date === r.date);
-      if (h && h.podium[0]) extra = `優勝 ${nameOf(h.podium[0])}（${natOf(h.podium[0])}）`;
+      if (h && h.podium[0]) extra = `優勝 ${esc(nameOf(h.podium[0]))}（${flagH(natOf(h.podium[0]))}${natOf(h.podium[0])}）`;
     }
     html += `<div class="ev ${sl ? 'sl' : 'dim'} ${i === nextIdx ? 'next' : ''}"><div class="d">${dLabel(r.date)}</div><div class="v"><span class="chip ${r.disc}">${r.disc}</span><b>${JP[r.venue] || r.venue}</b><span class="nat">${r.nat}</span>${r.tbc ? ' <span class="nat">（会場未確定）</span>' : ''}${r.night ? ' <span class="badge night">ナイター</span>' : ''}${r.finals ? ' <span class="badge">ファイナル</span>' : ''}<span class="real">${DISC[r.disc]}${extra ? ' · ゲーム：' + esc(extra) : ''}${real ? ' · 実際の結果：' + real : ''}</span></div>${st2}</div>`;
   });
@@ -4338,7 +4341,7 @@ function standingsHTML(){
   const st = ranking(), s = season();
   const myIdx = st.findIndex(e => e.me);
   const lead = st[0];
-  const row = e => `<tr class="${e.me ? 'me' : ''}${e.rank === 25 ? ' cut' : ''}"><td class="n">${e.rank}</td><td>${s.prev ? arrow(s.prev[e.id], e.rank) : ''}</td><td>${esc(e.name)}</td><td class="nat3">${e.nat}</td><td class="r">${e.wins || ''}</td><td class="n">${e.pts}</td><td class="r">${e.rank === 1 ? '' : lead.pts ? '−' + (lead.pts - e.pts) : ''}</td></tr>`;
+  const row = e => `<tr class="${e.me ? 'me' : ''}${e.rank === 25 ? ' cut' : ''}"><td class="n">${e.rank}</td><td>${s.prev ? arrow(s.prev[e.id], e.rank) : ''}</td><td>${esc(e.name)}</td><td class="nat3">${flagH(e.nat)}${e.nat}</td><td class="r">${e.wins || ''}</td><td class="n">${e.pts}</td><td class="r">${e.rank === 1 ? '' : lead.pts ? '−' + (lead.pts - e.pts) : ''}</td></tr>`;
   const rows = st.slice(0, 30).map(row);
   if (myIdx >= 30) rows.push(`<tr><td class="r">…</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>` + row(st[myIdx]));
   let html = raceForHTML()
@@ -4405,7 +4408,7 @@ function freeCond(){
 function freePerfHTML(prev){
   const { ev, wx, rc, rows } = freeCond();
   const gear = Object.keys(GEAR).map(cat => { const it = gearItem(cat, myGear[cat]); return `<button type="button" class="fgi${FREE_PICK === cat ? ' open' : ''}" data-pickcat="${cat}" aria-expanded="${FREE_PICK === cat}">${itemSVG(cat, it)}<span><small>${GEAR_SHORT[cat] || GEAR[cat].label} <em>変更 ▾</em></small><b>${esc(it.name)}</b><small>${esc(it.model)}</small></span></button>`; }).join('');
-  const pick = FREE_PICK ? `<div class="fpick" role="group" aria-label="${GEAR[FREE_PICK].label}を選ぶ">${GEAR[FREE_PICK].items.map(it => `<button type="button" class="fpo${myGear[FREE_PICK] === it.id ? ' on' : ''}" data-pickid="${it.id}" aria-pressed="${myGear[FREE_PICK] === it.id}">${itemSVG(FREE_PICK, it)}<b>${esc(it.name)}</b><small>${it.org ? NAT[it.org].jp + '製 · ' : ''}${esc(it.model)}</small></button>`).join('')}</div>` : '';
+  const pick = FREE_PICK ? `<div class="fpick" role="group" aria-label="${GEAR[FREE_PICK].label}を選ぶ">${GEAR[FREE_PICK].items.map(it => `<button type="button" class="fpo${myGear[FREE_PICK] === it.id ? ' on' : ''}" data-pickid="${it.id}" aria-pressed="${myGear[FREE_PICK] === it.id}">${itemSVG(FREE_PICK, it)}<b>${esc(it.name)}</b><small>${it.org ? flagH(it.org) + NAT[it.org].jp + '製 · ' : ''}${esc(it.model)}</small></button>`).join('')}</div>` : '';
   const rowsH = rows.map(([label, r, src], i) => {
     const pr = prev && prev[i] ? prev[i][1] : null;
     const w1 = perfW(r), w0 = pr ? perfW(pr) : w1;
@@ -5685,7 +5688,7 @@ function showTop(){
   $('#menu').hidden = true; $('#sheet').hidden = true; $('#lock').hidden = true;
   $('#topVer').textContent = `Ver. ${APP_VERSION}（${APP_DATE}）`;
   applyDisc();
-  $('#topWho').textContent = setupDone ? `${pname}（${(NAT[myNat] || {}).jp || myNat}）でプレー` : 'はじめに国と用具を選びます';
+  $('#topWho').innerHTML = setupDone ? `${esc(pname)}（${flagH(myNat)}${esc((NAT[myNat] || {}).jp || myNat)}）でプレー` : 'はじめに国と用具を選びます';
   $('#top').hidden = false;
   $('#topGo').onclick = () => { $('#top').hidden = true; ac(); bootGame(); };
   $('#topWatch').onclick = () => { $('#top').hidden = true; ac(); showSpectPick(); };
