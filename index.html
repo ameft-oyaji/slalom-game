@@ -95,6 +95,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
 .sp-keys b{font:800 20px var(--f-num);line-height:1}.sp-keys small{font:700 10px var(--f-body);margin-top:2px;white-space:nowrap}
 .sp-keys span.on{background:#FFC93C;color:#1A1300;border-color:#fff;transform:translateY(2px) scale(.96)}
 .sp-keys span[data-b=push].on{background:#4C8DFF;color:#fff}.sp-keys span[data-b=d].on{background:#2FB36A;color:#fff}
+.top-disc{margin:0 auto 14px}.top-disc button{font-size:16px;padding:9px 22px}
 .top-watch{min-width:220px;font-size:16px;background:rgba(255,255,255,.12);color:#fff;border:1px solid rgba(255,255,255,.4)}
 .pad{position:absolute;left:0;right:0;bottom:0;display:none;gap:8px;padding:0 max(10px,env(safe-area-inset-right,0px)) 12px max(10px,env(safe-area-inset-left,0px));pointer-events:none}
 .pad button{pointer-events:auto;flex:1;height:84px;border:0;border-radius:10px;background:rgba(14,26,46,.55);color:#fff;font:800 30px var(--f-num);touch-action:none;-webkit-tap-highlight-color:transparent}
@@ -463,9 +464,10 @@ body.nightrace .ev-label,body.nightrace .ev-label *,body.nightrace #keys,body.ni
   <section class="topscr" id="top" hidden>
     <div class="top-in">
       <div class="top-eyebrow">FIS ALPINE SKI WORLD CUP 2026/27</div>
-      <h1 class="top-title">SLALOM<span>WORLD CUP</span></h1>
-      <p class="top-sub">回転（スラローム）ワールドカップ</p>
+      <h1 class="top-title" id="topTitle">SLALOM<span>WORLD CUP</span></h1>
+      <p class="top-sub" id="topSub">回転（スラローム）ワールドカップ</p>
       <div class="top-stripe"><i></i><i></i></div>
+      <div class="seg top-disc" role="group" aria-label="種目"><button type="button" id="tdSL" aria-pressed="true">回転</button><button type="button" id="tdGS" aria-pressed="false">大回転</button></div>
       <button class="btn primary top-go" type="button" id="topGo">スタート</button>
       <button class="btn top-watch" type="button" id="topWatch">観戦モード</button>
       <p class="top-who" id="topWho"></p>
@@ -475,10 +477,14 @@ body.nightrace .ev-label,body.nightrace .ev-label *,body.nightrace #keys,body.ni
   <section class="panel" id="menu">
     <div class="panel-head">
       <div class="eyebrow">FIS Alpine Ski World Cup 2026/27</div>
-      <h1>SLALOM<small>回転（スラローム）ワールドカップ</small></h1>
+      <h1 id="menuTitle">SLALOM<small>回転（スラローム）ワールドカップ</small></h1>
     </div>
     <div class="panel-body">
       <div class="controls">
+        <div class="seg" role="group" aria-label="種目">
+          <button type="button" id="dSL" aria-pressed="true">回転</button>
+          <button type="button" id="dGS" aria-pressed="false">大回転</button>
+        </div>
         <div class="seg" role="group" aria-label="種別">
           <button type="button" id="gMen" aria-pressed="true">男子</button>
           <button type="button" id="gWomen" aria-pressed="false">女子</button>
@@ -888,6 +894,9 @@ const LEVEL_NAME = { wc:'ワールドカップ級', ec:'ヨーロッパカップ
 const STEP = 1/120;
 const W = 440;              // piste width between safety nets (44 m)
 const GH = 25;              // half gate width -> 5.0 m between the two poles (FIS 4–6 m)
+const GS_GH = 32;           // giant slalom: 6.4 m between the inner and outer panel (FIS 4–8 m)
+const GS_PULL = 1.3;        // giant slalom runs faster: more of the hill's pull reaches the skis
+const ghOf = c => (c && c.gh) || GH;
 const POLE_R = 3, SK_R = 6;
 const G = 125, DRAG = 0.0022, FR = 14;
 
@@ -918,7 +927,31 @@ const SLOPES = {
   'Gosau':                { drop: 160, max: 45, avg: 28, src: 'est', name: 'Zwieselalm',           pts: [[0,26],[.3,36],[.52,45],[.72,28],[.9,22],[1,12]] },
 };
 const SLOPE_DEFAULT = { drop: 180, max: 45, avg: 30, src: 'est', name: '', pts: [[0,30],[.3,42],[.6,28],[.85,34],[1,14]] };
-function makeProfile(venue, fy){ const d = SLOPES[venue] || SLOPE_DEFAULT; return Object.assign({ fy }, d); }
+// giant slalom hills: longer and higher than the slalom hill at the same resort. All estimates
+const GS_HILL = {
+  'Sölden':        { drop: 370, max: 68, avg: 36, name: 'Rettenbachferner', pts: [[0,40],[.1,62],[.22,68],[.38,46],[.56,30],[.76,28],[.9,22],[1,12]] },
+  'Copper Mountain': { drop: 380, max: 48, avg: 28, name: 'Rosi\'s Run', pts: [[0,26],[.24,40],[.44,48],[.64,28],[.84,24],[1,12]] },
+  'Beaver Creek':  { drop: 420, max: 60, avg: 33, name: 'Birds of Prey', pts: [[0,34],[.16,52],[.3,60],[.5,38],[.7,30],[.86,36],[1,14]] },
+  "Val d'Isère":   { drop: 400, name: 'La Face de Bellevarde' },
+  'Alta Badia':    { drop: 448, max: 62, avg: 36, name: 'Gran Risa' },
+  'Kranjska Gora': { drop: 400, name: 'Podkoren 3' },
+  'Adelboden':     { drop: 410, name: 'Chuenisbärgli' },
+  'Schladming':    { drop: 400, name: 'Planai' },
+  'Åre':           { drop: 400, name: 'Störtloppsbacken' },
+  'Sun Valley':    { drop: 400, name: 'Warm Springs' },
+  'Killington':    { drop: 380, name: 'Superstar' },
+  'Tremblant':     { drop: 400, max: 52, avg: 30, name: 'Flying Mile', pts: [[0,30],[.2,44],[.4,52],[.6,32],[.8,26],[1,12]] },
+  'St. Moritz':    { drop: 400, max: 55, avg: 31, name: 'Corviglia', pts: [[0,34],[.18,48],[.34,55],[.54,32],[.76,28],[1,14]] },
+  'Gosau':         { drop: 360, name: 'Zwieselalm' },
+  'Flachau':       { drop: 360, name: 'Hermann Maier WC-Strecke' },
+  'Kronplatz':     { drop: 420, max: 61, avg: 34, name: 'Erta', pts: [[0,34],[.16,50],[.32,61],[.5,40],[.7,30],[.88,26],[1,12]] },
+  'Jasná':         { drop: 380, name: 'Jasná' },
+  'Soldeu':        { drop: 400, name: 'Avet' },
+};
+function makeProfile(venue, fy, d){
+  if (d === 'GS') return Object.assign({ fy }, SLOPES[venue] || SLOPE_DEFAULT, { src: 'gs' }, GS_HILL[venue] || { drop: 380 }, { gs: true });
+  return Object.assign({ fy }, SLOPES[venue] || SLOPE_DEFAULT);
+}
 // gradient (%) at a point on the course, smoothed between the profile points
 function gradAt(prof, y){
   if (!prof) return 30;
@@ -932,7 +965,7 @@ function gradAt(prof, y){
 function slopeFactor(prof, y){
   if (!prof) return 1;
   const s = Math.sin(Math.atan(gradAt(prof, y) / 100)), s0 = Math.sin(Math.atan(prof.avg / 100));
-  return clamp(1 + .3 * (s / s0 - 1), .75, 1.25) * .661;    // speed ∝ √gravity: .546 × 1.1² — then 10% up
+  return clamp(1 + .3 * (s / s0 - 1), .75, 1.25) * .661 * (prof.gs ? GS_PULL : 1);    // speed ∝ √gravity: .546 × 1.1² — then 10% up
 }
 function slopeWord(g){ return g >= 50 ? '急斜面' : g >= 40 ? 'やや急' : g >= 25 ? '中斜面' : '緩斜面'; }
 // side profile of the hill as a small chart (start on the left, finish on the right)
@@ -951,10 +984,11 @@ function profileSVG(prof){
 function profileHTML(prof){
   return `<div class="profbox">${profileSVG(prof)}
     <div class="proflegend"><span><i style="background:#2FB36A"></i>緩斜面</span><span><i style="background:#4C8DFF"></i>中斜面</span><span><i style="background:#F59F00"></i>やや急</span><span><i style="background:#E5484D"></i>急斜面</span></div>
-    <small>${prof.name ? esc(prof.name) + '・' : ''}高低差 ${prof.drop} m・最大斜度 ${prof.max}%・平均斜度 ${prof.avg}%（${prof.src === 'fis' ? '公式データ' : prof.src === 'drop' ? '高低差は公式データ・斜度は推定' : '公式データが見つからないため推定'}）</small></div>`;
+    <small>${prof.name ? esc(prof.name) + '・' : ''}高低差 ${prof.drop} m・最大斜度 ${prof.max}%・平均斜度 ${prof.avg}%（${prof.src === 'gs' ? '大回転コースの数値は推定' : prof.src === 'fis' ? '公式データ' : prof.src === 'drop' ? '高低差は公式データ・斜度は推定' : '公式データが見つからないため推定'}）</small></div>`;
 }
 
-function buildCourse(seedN, gender){
+function buildCourse(seedN, gender, d){
+  if (d === 'GS') return buildGS(seedN, gender);
   const r = rng(seedN);
   const vd = gender === 'men' ? 180 + Math.round(r()*40) : 150 + Math.round(r()*45);   // vertical drop (m)
   const N = Math.round(vd * (0.30 + r()*0.04));                                       // ≈ 30–34 % of vertical drop
@@ -986,6 +1020,24 @@ function buildCourse(seedN, gender){
   const n = gates.length;
   return { gates, finishY: gates[n-1].y + 130, checks: [Math.floor(n*.25), Math.floor(n*.5), Math.floor(n*.75)], vd, nGates: n };
 }
+// giant slalom: about 40–46 gates, 23–28 m apart, wide arcs. One or two delay gates (a longer traverse)
+function buildGS(seedN, gender){
+  const r = rng(seedN ^ 0x6151);
+  const N = (gender === 'men' ? 42 : 39) + Math.floor(r() * 6);
+  const delays = new Set([10 + Math.floor(r() * (N - 22))]);
+  if (r() < .6) delays.add(Math.min(N - 6, [...delays][0] + 8 + Math.floor(r() * 10)));
+  const gates = [];
+  let y = 200, side = r() < .5 ? -1 : 1, prevX = 0;
+  for (let i = 0; i < N; i++){
+    const dl = delays.has(i);
+    const x = side * (dl ? 20 + r() * 20 : 42 + r() * 58);
+    const dist = dl ? 330 + r() * 40 : 232 + r() * 48;
+    if (i){ const dx = Math.abs(x - prevX); y += Math.sqrt(Math.max(200 * 200, dist * dist - dx * dx)); }
+    gates.push({ x, y, tag: dl ? 'ディレイ' : '' }); prevX = x; side = -side;
+  }
+  gates.forEach((g, i) => { g.col = i % 2 ? 'blue' : 'red'; g.bend = [0,0]; g.bv = [0,0]; g.cool = [0,0]; g.res = 0; g.i = i; });
+  return { gates, finishY: gates[N-1].y + 220, checks: [Math.floor(N*.25), Math.floor(N*.5), Math.floor(N*.75)], vd: 380, nGates: N, gh: GS_GH, disc: 'GS' };
+}
 function resetCourseState(c){ c.gates.forEach(g => { g.bend = [0,0]; g.bv = [0,0]; g.cool = [0,0]; g.res = 0; }); }
 function courseSeed(g, date){ return hashStr(`${g}-${date}`); }
 
@@ -1004,11 +1056,12 @@ function physStep(b, ctl, dt, braking){
   b.lean += (ctl.inp - b.lean) * Math.min(1, dt*10);
   b.tuck = ctl.tuck;
   const m = b.mod || NOMOD;
-  b.th = clamp(b.th + ctl.inp * (ctl.tuck ? 1.8 : 3.4) * m.turn * dt, -1.45, 1.45);
+  const gs = !!(b.prof && b.prof.gs);              // giant slalom: longer skis, wider arcs, less scrubbing in the turn
+  b.th = clamp(b.th + ctl.inp * (ctl.tuck ? 1.8 : 3.4) * m.turn * (gs ? .72 : 1) * dt, -1.45, 1.45);
   if (braking){ b.v = Math.max(0, b.v - 150*dt); b.th *= (1 - dt*2); }
   else {
     let a = G*(b.prof ? slopeFactor(b.prof, b.y) : 1)*Math.cos(b.th) - DRAG*m.drag*(ctl.tuck ? .55*m.tuck : 1)*b.v*b.v - FR*(m.fr || 1);
-    if (ctl.inp) a += (m.carveGain || 0) * b.v - .3*m.carve*b.v;
+    if (ctl.inp) a += (m.carveGain || 0) * b.v - (gs ? .2 : .3)*m.carve*b.v;
     b.v = Math.max(0, b.v + a*dt);
   }
   b.px = b.x; b.py = b.y;
@@ -1024,13 +1077,13 @@ function crossGates(b, course, cb){
     const g = gs[b.ng];
     const f = b.y === b.py ? 1 : (g.y - b.py) / (b.y - b.py);
     const xc = b.px + (b.x - b.px) * f;
-    cb(g, Math.abs(xc - g.x) < GH);
+    cb(g, Math.abs(xc - g.x) < ghOf(course));
     b.ng++;
   }
 }
 function aiCtl(b, course){
   let g = course.gates[b.ng];
-  if (g && g.y - b.y < 8 + b.v*.22 && Math.abs(b.x - g.x) < GH - 6) g = course.gates[b.ng + 1];
+  if (g && g.y - b.y < 8 + b.v*(course.gh ? .34 : .22) && Math.abs(b.x - g.x) < ghOf(course) - 6) g = course.gates[b.ng + 1];
   const tx = g ? g.x : 0, ty = g ? g.y : course.finishY;
   const want = Math.atan2(tx - b.x, Math.max(30, ty - b.y));
   const d = want - b.th;
@@ -1052,10 +1105,10 @@ function refRun(course){
 // =====================================================================
 // Career storage
 // =====================================================================
-let gender = 'men', level = 'ec', pname = 'あなた', ctrl = 'outer', myNat = 'JPN', myGear = Object.assign({}, DEFAULT_GEAR), setupDone = false;
+let disc = 'SL', gender = 'men', level = 'ec', pname = 'あなた', ctrl = 'outer', myNat = 'JPN', myGear = Object.assign({}, DEFAULT_GEAR), setupDone = false;
 const prefs = load('slalomwc-prefs');
-if (prefs){ gender = prefs.gender || gender; level = LEVEL_K[prefs.level] ? prefs.level : (prefs.level === 'jr' ? 'jpn' : level); pname = prefs.pname || pname; ctrl = prefs.ctrl || ctrl; myNat = NAT[prefs.nat] ? prefs.nat : myNat; myGear = Object.assign({}, DEFAULT_GEAR, prefs.gear || {}); for (const c of Object.keys(DEFAULT_GEAR)) if (!GEAR[c].items.some(i => i.id === myGear[c])) myGear[c] = DEFAULT_GEAR[c]; setupDone = !!prefs.setupDone; }
-function savePrefs(){ save('slalomwc-prefs', { gender, level, pname, ctrl, nat: myNat, gear: myGear, setupDone }); }
+if (prefs){ gender = prefs.gender || gender; level = LEVEL_K[prefs.level] ? prefs.level : (prefs.level === 'jr' ? 'jpn' : level); pname = prefs.pname || pname; ctrl = prefs.ctrl || ctrl; myNat = NAT[prefs.nat] ? prefs.nat : myNat; myGear = Object.assign({}, DEFAULT_GEAR, prefs.gear || {}); for (const c of Object.keys(DEFAULT_GEAR)) if (!GEAR[c].items.some(i => i.id === myGear[c])) myGear[c] = DEFAULT_GEAR[c]; setupDone = !!prefs.setupDone; disc = prefs.disc === 'GS' ? 'GS' : 'SL'; }
+function savePrefs(){ save('slalomwc-prefs', { disc, gender, level, pname, ctrl, nat: myNat, gear: myGear, setupDone }); }
 function applyCtrlLabels(){
   const outer = ctrl === 'outer';
   $('#padL').innerHTML = outer ? '<b>左足</b><small>右へ曲がる</small>' : '<b>◀</b><small>左へ曲がる</small>';
@@ -1070,7 +1123,8 @@ function toggleCtrl(){
   ctrl = ctrl === 'outer' ? 'dir' : 'outer'; savePrefs(); applyCtrlLabels();
   flash(ctrl === 'outer' ? '操作：外足に乗って曲がる' : '操作：押した方向へ曲がる', false);
 }
-function seasonKey(){ return `slalomwc-2627-${gender}-${level}`; }
+function seasonKey(){ return `slalomwc-2627-${gender}-${level}` + (disc === 'GS' ? '-gs' : ''); }
+const discJP = d => DISC[d || disc], discEN = d => (d || disc) === 'GS' ? 'Giant Slalom' : 'Slalom';
 const SHIMIZU_MAX = 3;
 function shimizuKey(){ return seasonKey() + '-shimizu'; }
 function shimizuUsed(){ return (load(shimizuKey()) || {}).n || 0; }
@@ -1078,7 +1132,7 @@ function shimizuLeft(){ return Math.max(0, SHIMIZU_MAX - shimizuUsed()); }
 function season(){ const s = load(seasonKey()) || {}; return { pts: s.pts || {}, done: s.done || {}, fis: s.fis || (START_RANK - .5), places: s.places || {}, form: s.form || {}, prev: s.prev || null, hist: s.hist || [] }; }
 // FIS tie-break for the standings: more wins, then more 2nd places, and so on
 function cmpPlaces(a, b){ for (let i = 0; i < 30; i++){ const d = (b[i] || 0) - (a[i] || 0); if (d) return d; } return 0; }
-function seasonSL(){ return slRaces(gender).filter(r => r.disc === 'SL'); }
+function seasonSL(){ return slRaces(gender).filter(r => r.disc === disc); }
 function nextRace(){ const s = season(); return seasonSL().find(r => !s.done[r.date]) || null; }
 function maxLeft(){ const s = season(); return seasonSL().filter(r => !s.done[r.date]).length * 100; }
 function slRaces(g){ return CAL[g].map((e, i) => ({ idx: i, date: e[0], venue: e[1], nat: e[2], disc: e[3], night: (e[4]||'').includes('n'), finals: (e[4]||'').includes('f'), tbc: (e[4]||'').includes('t') })); }
@@ -1324,8 +1378,8 @@ let race = null;
 function makeRace(ev, mode){
   const g = gender;
   const sd = courseSeed(g, ev.date);
-  const courses = [buildCourse(sd ^ 0x1111, g), buildCourse(sd ^ 0x2222, g)];   // two runs, two different sets
-  courses.forEach(c => { c.prof = makeProfile(ev.venue, c.finishY); c.vd = c.prof.drop; });
+  const courses = [buildCourse(sd ^ 0x1111, g, ev.disc), buildCourse(sd ^ 0x2222, g, ev.disc)];   // two runs, two different sets
+  courses.forEach(c => { c.prof = makeProfile(ev.venue, c.finishY, ev.disc); c.vd = c.prof.drop; });
   const refs = courses.map(refRun);
   const base = { ev, mode, courses, refs, run: 1, playerDsq: [false, false], finals: ev.finals, maxV: 0, wx: weatherFor(ev, g), wax: [lastWax, lastWax], edge: [Object.assign({}, lastEdge), Object.assign({}, lastEdge)] };
   if (mode === 'ta') return Object.assign(base, { key: taKey(g, ev.date), taTimes: [] });
@@ -1428,8 +1482,8 @@ function resetBody(demo){
   if (demo) sk.v = 40;
 }
 function startDemo(){
-  course = buildCourse(hashStr('demo' + gender + Math.random()), gender);
-  course.prof = makeProfile('', course.finishY);
+  course = buildCourse(hashStr('demo' + gender + Math.random()), gender, disc);
+  course.prof = makeProfile('', course.finishY, disc);
   resetBody(true); state = 'demo';
 }
 
@@ -1570,7 +1624,7 @@ function step(dt){
     sk.y = clamp(sk.y + move + insp.push, -14, course.finishY + 30); insp.push = 0;
     sk.ng = 0; while (sk.ng < gs.length && gs[sk.ng].y <= sk.y) sk.ng++;
     const g = gs[sk.ng];
-    const tx = g ? g.x + (g.x > 0 ? -GH - 14 : GH + 14) * .4 : 0;
+    const tx = g ? g.x + (g.x > 0 ? -ghOf(course) - 14 : ghOf(course) + 14) * .4 : 0;
     sk.x += (tx - sk.x) * Math.min(1, dt * 2.5);
     sk.th = 1.45 * inspSide; sk.v = 0; sk.lean = 0; sk.tuck = false;
     const lp = trail[trail.length - 1];
@@ -1672,7 +1726,7 @@ function step(dt){
     const gy = g.y - sk.y;
     if (gy < -12 || gy > 34) continue;
     for (let k = 0; k < 2; k++){
-      const px = g.x + (k ? GH : -GH), ddx = px - sk.x;
+      const px = g.x + (k ? ghOf(course) : -ghOf(course)), ddx = px - sk.x;
       // reach for a pole coming up close beside the line
       if (!sk.block && g.cool[k] <= 0 && gy > 3 && gy < 30 && Math.abs(ddx) > 2.5 && Math.abs(ddx) < 15 && sk.v > 40)
       {
@@ -1683,7 +1737,7 @@ function step(dt){
         const inside = Math.sign(ddx) === turnSide;
         const deep = Math.abs(sk.th) >= .3 || Math.abs(sk.lean) >= .55;
         const pCross = inside ? (deep ? 1 : clamp(.45 + Math.abs(sk.th) * 1.2 + Math.abs(sk.lean) * .4, 0, .85)) : .15;
-        const mode = Math.random() < pCross ? 'cross' : 'near';
+        const mode = !course.gh && Math.random() < pCross ? 'cross' : 'near';
         sk.block = { t: 0, dur: clamp(gy / Math.max(60, sk.v) + .18, .26, .5), side: Math.sign(ddx), gi: i, k, mode };
       }
       const mine = sk.block && sk.block.gi === i && sk.block.k === k;
@@ -1775,7 +1829,7 @@ function setupCard(){
   $('#cBib').hidden = ta || fr; if (!ta && !fr) $('#cBib').textContent = race.bib.get('you');
   setFlag($('#cFlag'), myNat); $('#cNat').textContent = myNat;
   $('#cRank').hidden = true; $('#cDiff').hidden = true; $('#cTime').hidden = false; $('#cTime').textContent = '0:00.0';
-  $('#evName').textContent = (gender === 'men' ? "Men's " : "Women's ") + (race.battle ? 'Slalom · Online Battle' : ta ? 'Slalom · Time Attack' : race.spectate ? 'Slalom · 観戦モード' : fr ? (race.free.gates === 'none' ? 'Free Ski' : race.free.gates === 'rhythm' ? 'Free Ski · Rhythm Gates' : 'Free Ski · Practice Gates') : 'Slalom');
+  $('#evName').textContent = (gender === 'men' ? "Men's " : "Women's ") + (race.battle ? discEN(race.ev.disc) + ' · Online Battle' : ta ? discEN(race.ev.disc) + ' · Time Attack' : race.spectate ? discEN(race.ev.disc) + ' · 観戦モード' : fr ? (race.free.gates === 'none' ? 'Free Ski' : race.free.gates === 'rhythm' ? 'Free Ski · Rhythm Gates' : 'Free Ski · Practice Gates') : 'Slalom');
   $('#btLive').hidden = !race.battle;
   document.body.classList.toggle('nightrace', !!race.ev.night);
   $('#evPlace').textContent = `${race.ev.venue} ${race.ev.nat}`;
@@ -1814,7 +1868,7 @@ function showIntro(){
   course = race.courses[race.run - 1]; resetCourseState(course); resetBody(false);
   const ev = race.ev;
   const ta = race.mode === 'ta';
-  let html = `<div><span class="badge red">回転 SL</span> ${ev.night ? '<span class="badge night">ナイター</span> ' : ''}${race.mode === 'exh' ? '<span class="badge">ポイント対象外</span>' : ''}${ta ? '<span class="badge">タイムアタック</span>' : ''}</div><dl class="rows">
+  let html = `<div><span class="badge red">${discJP(race.ev.disc)} ${race.ev.disc || 'SL'}</span> ${ev.night ? '<span class="badge night">ナイター</span> ' : ''}${race.mode === 'exh' ? '<span class="badge">ポイント対象外</span>' : ''}${ta ? '<span class="badge">タイムアタック</span>' : ''}</div><dl class="rows">
     <dt>${race.run}本目のコース</dt><dd>${course.nGates} 旗門</dd>
     <dt>高低差</dt><dd>${course.vd} m</dd>`;
   if (!ta){
@@ -1936,8 +1990,8 @@ function startSpectate(){
   const ev = Object.assign({}, v);
   const top = FIELDS[gender].slice(0, 20), who = top[Math.floor(Math.random() * top.length)];
   const wx = weatherFor(ev, gender)[0], rc = recoFor(wx);
-  const c = buildCourse(courseSeed(gender, ev.date) ^ 0x1111, gender);
-  c.prof = makeProfile(ev.venue, c.finishY); c.vd = c.prof.drop;
+  const c = buildCourse(courseSeed(gender, ev.date) ^ 0x1111, gender, ev.disc);
+  c.prof = makeProfile(ev.venue, c.finishY, ev.disc); c.vd = c.prof.drop;
   // the racer on show takes over the card and the race suit while you watch
   if (!SPECT.saved) SPECT.saved = { pname, myNat };
   pname = who.name; myNat = NAT[who.nat] ? who.nat : myNat;
@@ -2908,7 +2962,7 @@ function showCeremony(kind, top, ev){
   const venue = ev.venue;
   const host = NAT[ev.nat] || { suit: '#C8102E', trim: '#fff' };
   const wallCol = kind === 'globe' ? '#13235E' : host.suit === '#FFFFFF' ? '#C8102E' : host.suit;
-  const title = kind === 'globe' ? '回転 クリスタルグローブ 授賞式' : `${JP[venue] || venue} 回転 表彰式`;
+  const title = kind === 'globe' ? `${discJP(ev.disc)} クリスタルグローブ 授賞式` : `${JP[venue] || venue} ${discJP(ev.disc)} 表彰式`;
   const boards = Array.from({ length: 15 }, (_, i) => `<div class="wb">${i % 2 ? esc(venue) : kind === 'globe' ? 'CRYSTAL GLOBE' : 'WORLD CUP'}<small>${i % 2 ? 'FIS ALPINE' : 'SLALOM 2026/27'}</small></div>`).join('');
   const person = (x, place, pose) => {
     const me = x.id === 'you', nat = natOf(x.id);
@@ -2936,7 +2990,7 @@ function showCeremony(kind, top, ev){
         </div>
         <div class="ground-r">${side[1] || ''}</div>
       </div>
-      <div class="cer-title">${esc(title)}<small>FIS Alpine Ski World Cup · ${esc(venue)} (${ev.nat}) · ${gender === 'men' ? "Men's" : "Women's"} Slalom</small></div>
+      <div class="cer-title">${esc(title)}<small>FIS Alpine Ski World Cup · ${esc(venue)} (${ev.nat}) · ${gender === 'men' ? "Men's" : "Women's"} ${discEN(ev.disc)}</small></div>
       <div class="btns"><button class="btn primary" type="button" id="cerClose">閉じる</button></div>
     </div>`;
   el.hidden = false;
@@ -3106,7 +3160,7 @@ function movementHTML(mv){
   const st = mv.after, me = st.find(e => e.me), lead = st[0];
   const rows = st.slice(0, 10).map(e => `<tr class="${e.me ? 'me' : ''}"><td class="n">${e.rank}</td><td>${arrow(mv.before[e.id], e.rank)}</td><td>${esc(e.name)}</td><td class="nat3">${e.nat}</td><td class="n">${e.pts}</td></tr>`);
   if (me.rank > 10) rows.push(`<tr><td class="r">…</td><td></td><td></td><td></td><td></td></tr><tr class="me"><td class="n">${me.rank}</td><td>${arrow(mv.before.you, me.rank)}</td><td>${esc(me.name)}</td><td class="nat3">${myNat}</td><td class="n">${me.pts}</td></tr>`);
-  return `<h3>回転ランキングの変動</h3><dl class="rows"><dt>あなた</dt><dd>${mv.before.you}位 → ${me.rank}位 ${arrow(mv.before.you, me.rank)}</dd><dt>獲得 / 合計</dt><dd>+${mv.gained} pt / ${me.pts} pt</dd><dt>トップ（${esc(lead.name)}）との差</dt><dd>${me.rank === 1 ? (st[1] ? '2位に +' + (me.pts - st[1].pts) + ' pt' : '—') : '−' + (lead.pts - me.pts) + ' pt'}</dd></dl>` + table(['順位','変動','選手','国','Pt'], rows);
+  return `<h3>${discJP(race && race.ev.disc)}ランキングの変動</h3><dl class="rows"><dt>あなた</dt><dd>${mv.before.you}位 → ${me.rank}位 ${arrow(mv.before.you, me.rank)}</dd><dt>獲得 / 合計</dt><dd>+${mv.gained} pt / ${me.pts} pt</dd><dt>トップ（${esc(lead.name)}）との差</dt><dd>${me.rank === 1 ? (st[1] ? '2位に +' + (me.pts - st[1].pts) + ' pt' : '—') : '−' + (lead.pts - me.pts) + ' pt'}</dd></dl>` + table(['順位','変動','選手','国','Pt'], rows);
 }
 // Run a World Cup race without you (you did not start): the season moves on
 function runWithoutYou(ev){
@@ -3122,10 +3176,10 @@ function showSkipped(ev){
   const out = runWithoutYou(ev);
   const best = out.res[0];
   const pod = out.res.slice(0, 3).map(o => `${o.rank}位 ${esc(nameOf(o.id))}（${natOf(o.id)}）${fmt(o.t)}`).join('<br>');
-  let html = `<p>${JP[ev.venue]}の回転はあなた抜きで行われました。</p><dl class="rows"><dt>優勝</dt><dd style="font-family:var(--f-body);font-size:15px">${best ? esc(nameOf(best.id)) : '—'}</dd></dl><p class="note">${pod}</p>`;
+  let html = `<p>${JP[ev.venue]}の${discJP(ev.disc)}はあなた抜きで行われました。</p><dl class="rows"><dt>優勝</dt><dd style="font-family:var(--f-body);font-size:15px">${best ? esc(nameOf(best.id)) : '—'}</dd></dl><p class="note">${pod}</p>`;
   html += movementHTML(out.mv);
   html += `<div class="btns"><button class="btn primary" type="button" id="toCal">日程に戻る</button></div>`;
-  openSheet('Did Not Start', `${JP[ev.venue]} 回転 — 欠場`, html);
+  openSheet('Did Not Start', `${JP[ev.venue]} ${discJP(ev.disc)} — 欠場`, html);
   scrollMeIntoView();
   $('#toCal').onclick = () => showMenu('cal');
 }
@@ -3154,7 +3208,7 @@ function showFinal(){
   if (race.mode === 'career' && !saved) html += `<p class="note">このブラウザでは記録を保存できないため、シーズンの成績は残りません。</p>`;
   const seasonOver = race.mode === 'career' && race.ev.finals;
   html += `<div class="btns"><button class="btn primary" type="button" id="toCal">シーズンの日程に戻る</button>${res.length >= 3 ? '<button class="btn" type="button" id="toCer">表彰式を見る</button>' : ''}${seasonOver ? '<button class="btn" type="button" id="toGlobe">クリスタルグローブ授賞式</button>' : ''}<button class="btn" type="button" id="toStand">ランキングを見る</button></div>`;
-  openSheet('Official Results', `${JP[race.ev.venue]} 回転 最終結果`, html);
+  openSheet('Official Results', `${JP[race.ev.venue]} ${discJP(race.ev.disc)} 最終結果`, html);
   scrollMeIntoView();
   const r3 = res.slice(0, 6).map(o => ({ id: o.id, line: fmt(o.t) + (o.rank === 1 ? '' : '  ' + fmtDiff(o.t - best)) }));
   const ev = race.ev;
@@ -3215,7 +3269,7 @@ function taTableHTML(key){
 function sheetFinalsBlocked(ev){
   state = 'demo';
   const st = ranking(); const myRank = st.findIndex(e => e.me) + 1;
-  const html = `<p>ワールドカップ・ファイナルに出場できるのは、回転ランキング上位25名です。あなたは現在 <b>${myRank}位</b>（${st[myRank-1].pts} pt）。</p><p class="note">ファイナルはあなた抜きで行われ、シーズンが終わります。ポイントなしのエキシビションとして滑ることもできます。</p><div class="btns"><button class="btn primary" type="button" id="dns">ファイナルを観る（欠場）</button><button class="btn" type="button" id="exh">エキシビションで滑る</button><button class="btn" type="button" id="back">日程に戻る</button></div>`;
+  const html = `<p>ワールドカップ・ファイナルに出場できるのは、${discJP(ev.disc)}ランキング上位25名です。あなたは現在 <b>${myRank}位</b>（${st[myRank-1].pts} pt）。</p><p class="note">ファイナルはあなた抜きで行われ、シーズンが終わります。ポイントなしのエキシビションとして滑ることもできます。</p><div class="btns"><button class="btn primary" type="button" id="dns">ファイナルを観る（欠場）</button><button class="btn" type="button" id="exh">エキシビションで滑る</button><button class="btn" type="button" id="back">日程に戻る</button></div>`;
   openSheet('World Cup Finals', 'ファイナル出場資格がありません', html);
   $('#dns').onclick = () => showSkipped(ev);
   $('#exh').onclick = () => enterRace(ev, 'exh');
@@ -3274,6 +3328,7 @@ function showSetup(){
 function showMenu(which){
   if (which) tab = which;
   closeSheet(); leaveRunUI();
+  applyDisc();
   $('#gMen').setAttribute('aria-pressed', gender === 'men'); $('#gWomen').setAttribute('aria-pressed', gender === 'women');
   $('#level').value = level; $('#pname').value = pname;
   $('#level').hidden = tab === 'ta' || tab === 'free';
@@ -3301,19 +3356,19 @@ function renderTab(){
 function calendarHTML(){
   const races = slRaces(gender);
   const s = season();
-  const nextIdx = races.findIndex(r => r.disc === 'SL' && !s.done[r.date]);
+  const nextIdx = races.findIndex(r => r.disc === disc && !s.done[r.date]);
   const st = ranking(); const myRank = st.findIndex(e => e.me) + 1;
-  const nSL = races.filter(r => r.disc === 'SL').length;
+  const nSL = races.filter(r => r.disc === disc).length;
   let html = raceForHTML();
   html += `<dl class="rows"><dt>消化レース</dt><dd>${Object.keys(s.done).length} / ${nSL} 戦</dd></dl>`;
-  html += `<p class="note">ランキング${START_RANK}位からのスタート。回転（SL）の全${nSL}戦を転戦してポイントを稼ぎ、クリスタルグローブ（種目別総合優勝）を目指します。2026/27シーズン ${gender === 'men' ? '男子' : '女子'}の全${races.length}レースを掲載。</p><div class="cal">`;
+  html += `<p class="note">ランキング${START_RANK}位からのスタート。${discJP()}（${disc}）の全${nSL}戦を転戦してポイントを稼ぎ、クリスタルグローブ（種目別総合優勝）を目指します。2026/27シーズン ${gender === 'men' ? '男子' : '女子'}の全${races.length}レースを掲載。</p><div class="cal">`;
   let mon = '', todayShown = false, wchShown = false;
   races.forEach((r, i) => {
     const m = r.date.slice(0, 7);
     if (!wchShown && r.date > WCH.from){ wchShown = true; html += `<div class="mon">2027.02</div><div class="ev wch"><div class="d">2/1–14</div><div class="v"><b>世界選手権</b> ${JP[WCH.venue]}<span class="nat">${WCH.nat}</span><span class="real">FIS アルペンスキー世界選手権（ワールドカップポイント対象外）</span></div></div>`; mon = '2027-02'; }
     if (m !== mon){ mon = m; html += `<div class="mon">${m.replace('-', '.')}</div>`; }
     if (!todayShown && r.date >= TODAY){ todayShown = true; html += `<div class="today">▼ 今日 ${+TODAY.slice(5,7)}/${+TODAY.slice(8)}</div>`; }
-    const sl = r.disc === 'SL';
+    const sl = r.disc === disc;
     const real = REAL[gender + '-' + r.date];
     const done = s.done[r.date];
     let st2 = '', extra = '';
@@ -3341,13 +3396,13 @@ function raceForHTML(){
   const total = seasonSL().length;
   let status;
   if (!lead.pts) status = 'シーズン開幕前。全員0ポイントからのスタートです。';
-  else if (nLeft === 0) status = `シーズン終了。回転のクリスタルグローブは <b>${esc(lead.name)}</b>（${lead.pts} pt）${lead.me ? '— あなたの総合優勝です！' : ''}`;
+  else if (nLeft === 0) status = `シーズン終了。${discJP()}のクリスタルグローブは <b>${esc(lead.name)}</b>（${lead.pts} pt）${lead.me ? '— あなたの総合優勝です！' : ''}`;
   else if (lead.pts - second.pts > left) status = `<b>${esc(lead.name)}</b> がクリスタルグローブ獲得を確定（2位との差 ${lead.pts - second.pts} pt ＞ 残り最大 ${left} pt）`;
   else if (lead.me) status = `あなたが首位！ 2位との差 ${lead.pts - second.pts} pt。`;
   else if (lead.pts - me.pts > left) status = `首位との差 ${lead.pts - me.pts} pt は残り${nLeft}戦（最大 ${left} pt）では逆転できません。表彰台圏（3位以内）を目指しましょう。`;
   else status = `首位 ${esc(lead.name)} まで ${lead.pts - me.pts} pt。残り${nLeft}戦で最大 ${left} pt を獲得できます。`;
   const prev = s.prev ? s.prev.you : null;
-  return `<div class="globe"><div class="g-rank"><span class="g-num">${me.rank}</span><span class="g-unit">位</span>${prev ? arrow(prev, me.rank) : ''}</div><div class="g-txt"><div class="g-head">回転ランキング · ${me.pts} pt · 残り ${nLeft} / ${total} 戦</div><div class="g-status">${status}</div></div></div>`;
+  return `<div class="globe"><div class="g-rank"><span class="g-num">${me.rank}</span><span class="g-unit">位</span>${prev ? arrow(prev, me.rank) : ''}</div><div class="g-txt"><div class="g-head">${discJP()}ランキング · ${me.pts} pt · 残り ${nLeft} / ${total} 戦</div><div class="g-status">${status}</div></div></div>`;
 }
 function standingsHTML(){
   const st = ranking(), s = season();
@@ -3357,13 +3412,13 @@ function standingsHTML(){
   const rows = st.slice(0, 30).map(row);
   if (myIdx >= 30) rows.push(`<tr><td class="r">…</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>` + row(st[myIdx]));
   let html = raceForHTML()
-    + `<h3>回転 ワールドカップ・ランキング</h3>` + table(['順位','変動','選手','国','勝','Pt','差'], rows)
+    + `<h3>${discJP()} ワールドカップ・ランキング</h3>` + table(['順位','変動','選手','国','勝','Pt','差'], rows)
     + `<p class="note">変動は直前のレースからの順位の上下。黄色の線までの上位25名がファイナル（サンバレー）に出場できます。同点のときは勝利数、次に2位の回数…の多い順（0ポイントの選手は世界ランキング順）。</p>`;
   if (s.hist.length){
     const hr = s.hist.slice().sort((a, b) => a.date < b.date ? -1 : 1).map(h => `<tr><td class="r">${+h.date.slice(5,7)}/${+h.date.slice(8)}</td><td>${JP[h.venue] || h.venue}</td><td>${h.podium[0] ? esc(nameOf(h.podium[0])) : '—'}</td><td class="n">${h.status === 'dns' ? '欠場' : h.my ? h.my + '位' : h.status === 'nq' ? '進めず' : 'DSQ/DNF'}</td><td class="n">${h.pts || ''}</td></tr>`);
     html += `<h3>シーズンの成績</h3>` + table(['日付','会場','優勝','あなた','Pt'], hr);
   }
-  return html + `<p class="note">ライバルの強さ：${LEVEL_NAME[level]}。男子／女子、ライバルの強さごとに別々のシーズンとして記録されます。</p><div class="btns"><button class="btn small" type="button" id="bReset">このシーズンをリセット</button></div>`;
+  return html + `<p class="note">ライバルの強さ：${LEVEL_NAME[level]}。回転／大回転、男子／女子、ライバルの強さごとに別々のシーズンとして記録されます。</p><div class="btns"><button class="btn small" type="button" id="bReset">このシーズンをリセット</button></div>`;
 }
 // =====================================================================
 // Free ski: pick a venue, the weather and the set, then just ski. No DSQ, no points
@@ -3378,7 +3433,7 @@ function freeGateName(f){ return f.gates === 'none' ? '旗門なし' : f.gates =
 const FREE_LEN = { short: 'ショート（約400 m）', long: 'ロング（約1 km）' };
 function freeVenues(){
   const seen = new Set(), out = [];
-  for (const r of slRaces(gender)) if (r.disc === 'SL' && !seen.has(r.venue)){ seen.add(r.venue); out.push(r); }
+  for (const r of slRaces(gender)) if (r.disc === disc && !seen.has(r.venue)){ seen.add(r.venue); out.push(r); }
   return out;
 }
 function freeBests(){ return load(FREE_KEY + '-best') || {}; }
@@ -3508,33 +3563,33 @@ function bindFreeTab(root){
 }
 function freeCourse(seed){
   const r = rng(seed);
-  const target = FREE.len === 'long' ? 10000 : 4000;            // 10 units = 1 m
+  const target = (FREE.len === 'long' ? 10000 : 4000) * (disc === 'GS' && FREE.gates !== 'none' ? 1.6 : 1);            // 10 units = 1 m
   if (FREE.gates === 'none'){
     const vd = Math.round(target / 10 * .32);
     return { gates: [], finishY: target, checks: [], vd, nGates: 0 };
   }
   if (FREE.gates === 'rhythm'){
     // the same distance and the same offset every gate, left–right–left…
-    const R = RHYTHM[FREE.gap] || RHYTHM.mid, dx = R.off * 2;
-    const dy = Math.max(92, dx * 1.15, Math.sqrt(Math.max(0, R.dist * R.dist - dx * dx)));
+    const R0 = RHYTHM[FREE.gap] || RHYTHM.mid, gsK = disc === 'GS' ? 2.3 : 1, R = { off: R0.off * gsK, dist: R0.dist * gsK }, dx = R.off * 2;
+    const dy = Math.max(92 * gsK, dx * 1.15, Math.sqrt(Math.max(0, R.dist * R.dist - dx * dx)));
     const side0 = r() < .5 ? -1 : 1, gates = [];
     for (let y = 150, i = 0; y < target - 130; y += dy, i++){
       gates.push({ x: (i % 2 ? -side0 : side0) * R.off, y, tag: '', col: i % 2 ? 'blue' : 'red', bend: [0,0], bv: [0,0], cool: [0,0], res: 0, i });
     }
     const n = gates.length;
-    return { gates, finishY: gates[n - 1].y + 130, checks: [Math.floor(n * .25), Math.floor(n * .5), Math.floor(n * .75)], vd: Math.round(target / 10 * .32), nGates: n };
+    return { gates, finishY: gates[n - 1].y + 130, checks: [Math.floor(n * .25), Math.floor(n * .5), Math.floor(n * .75)], vd: Math.round(target / 10 * .32), nGates: n, gh: disc === 'GS' ? GS_GH : 0 };
   }
   // practice set: chain slalom sets until the run is long enough
   const gates = [];
   let off = 0, vd = 0, k = 0;
   while (off < target - 1500){
-    const c = buildCourse(seed ^ (0x3131 * (k + 1)), gender);
+    const c = buildCourse(seed ^ (0x3131 * (k + 1)), gender, disc);
     for (const g of c.gates) gates.push(Object.assign(g, { y: g.y + off, tag: off && g === c.gates[0] ? '' : g.tag }));
     off += c.gates[c.gates.length - 1].y + 140; vd += c.vd; k++;
   }
   gates.forEach((g, i) => { g.i = i; g.col = i % 2 ? 'blue' : 'red'; });
   const n = gates.length;
-  return { gates, finishY: gates[n - 1].y + 130, checks: [Math.floor(n * .25), Math.floor(n * .5), Math.floor(n * .75)], vd, nGates: n };
+  return { gates, finishY: gates[n - 1].y + 130, checks: [Math.floor(n * .25), Math.floor(n * .5), Math.floor(n * .75)], vd, nGates: n, gh: disc === 'GS' ? GS_GH : 0 };
 }
 function freeWeather(ev){
   const base = weatherFor(ev, gender)[0];
@@ -3550,7 +3605,7 @@ function startFree(){
   const ev = Object.assign({}, v, { night: FREE.wx === 'night', finals: false });
   const wx = freeWeather(ev), rc = recoFor(wx);
   const c = freeCourse(hashStr('free|' + Math.random()));
-  c.prof = makeProfile(ev.venue, c.finishY);
+  c.prof = makeProfile(ev.venue, c.finishY, disc);
   race = { ev, mode: 'free', free: Object.assign({}, FREE), courses: [c], refs: [{ time: 0, frac: [] }], run: 1, playerDsq: [false, false], finals: false, maxV: 0,
     wx: [wx, wx], wax: [rc.wax, rc.wax], edge: [{ side: rc.side, base: rc.base }, { side: rc.side, base: rc.base }], misses: 0, freeTime: null };
   $('#menu').hidden = true;
@@ -3583,9 +3638,9 @@ function showFreeResult(){
   $('#frSet').onclick = () => { race = null; showMenu('free'); };
 }
 function taListHTML(){
-  const races = slRaces(gender).filter(r => r.disc === 'SL');
+  const races = seasonSL();
   const conn = { connecting: '共有ランキングに接続中…', slow: '共有ランキングにまだつながりません。表示が古い可能性があります。', ok: '共有ランキングに接続しています。', off: '共有ランキングはこの表示では使えません。この端末の自己ベストだけを記録します。', error: '共有ランキングとの接続が切れました。' }[TA.status];
-  let html = `<p class="note">ワールドカップ回転の${races.length}会場のコースで、このゲームを遊ぶ人どうしが2本合計の最速タイムを競います。コースはシーズンモードの同じ大会と同じセットです。</p><p class="conn ${TA.status === 'ok' ? 'ok' : ''}">${conn}</p><div class="cal">`;
+  let html = `<p class="note">ワールドカップ${discJP()}の${races.length}会場のコースで、このゲームを遊ぶ人どうしが2本合計の最速タイムを競います。コースはシーズンモードの同じ大会と同じセットです。</p><p class="conn ${TA.status === 'ok' ? 'ok' : ''}">${conn}</p><div class="cal">`;
   for (const r of races){
     const key = taKey(gender, r.date);
     const b = taBoard(key);
@@ -3622,6 +3677,18 @@ function rulesHTML(){
   </ul>
   <p class="note">FIS国際競技規則（ICR）の要点をゲーム向けに簡略化しています。実際は外した旗門へ登り返すこともできますが、ゲームではその場で失格になります。コースの高低差や旗門の配置はゲーム用に作ったもので、実際の各会場のコースとは異なります。</p><p class="note" style="text-align:right">Ver. ${APP_VERSION}（${APP_DATE}）</p>`;
 }
+function applyDisc(){
+  const gs = disc === 'GS';
+  for (const [a, b] of [['#dSL', '#dGS'], ['#tdSL', '#tdGS']]){ $(a).setAttribute('aria-pressed', !gs); $(b).setAttribute('aria-pressed', gs); }
+  $('#menuTitle').innerHTML = gs ? 'GIANT SLALOM<small>大回転（ジャイアントスラローム）ワールドカップ</small>' : 'SLALOM<small>回転（スラローム）ワールドカップ</small>';
+  $('#topTitle').innerHTML = (gs ? 'GIANT SLALOM' : 'SLALOM') + '<span>WORLD CUP</span>';
+  $('#topSub').textContent = gs ? '大回転（ジャイアントスラローム）ワールドカップ' : '回転（スラローム）ワールドカップ';
+}
+function setDisc(d){ if (disc === d) return; disc = d; savePrefs(); applyDisc(); startDemo(); }
+$('#dSL').onclick = () => { setDisc('SL'); showMenu(); };
+$('#dGS').onclick = () => { setDisc('GS'); showMenu(); };
+$('#tdSL').onclick = () => setDisc('SL');
+$('#tdGS').onclick = () => setDisc('GS');
 $('#gMen').onclick = () => { gender = 'men'; savePrefs(); showMenu(); };
 $('#gWomen').onclick = () => { gender = 'women'; savePrefs(); showMenu(); };
 $('#level').onchange = e => { level = e.target.value; savePrefs(); renderTab(); };
@@ -3850,7 +3917,7 @@ function aiLine(course, j){
   const pts = [];
   for (let i = 0; i < 120 * 240; i++){
     let g = course.gates[b.ng];
-    if (g && g.y - b.y < 8 + b.v * early && Math.abs(b.x - g.x) < GH - 6) g = course.gates[b.ng + 1];
+    if (g && g.y - b.y < 8 + b.v * early * (course.gh ? 1.5 : 1) && Math.abs(b.x - g.x) < ghOf(course) - 6) g = course.gates[b.ng + 1];
     let tx = 0, ty = course.finishY;
     if (g){ const sd = Math.sign(g.x) || 1; tx = g.x - sd * tight; ty = g.y; }
     const d = Math.atan2(tx - b.x, Math.max(30, ty - b.y)) - b.th;
@@ -4199,12 +4266,13 @@ function drawGate(g){
   }
   if (g.tag){
     const right = g.x < 0;
-    const p = proj(g.x + (right ? GH + 14 : -GH - 14), g.y);
+    const p = proj(g.x + (right ? ghOf(course) + 14 : -ghOf(course) - 14), g.y);
     if (p){
       ctx.fillStyle = 'rgba(19,33,58,.6)'; ctx.font = `700 ${Math.max(9, 9*p.k)}px 'Noto Sans JP', sans-serif`; ctx.textBaseline = 'middle';
       ctx.textAlign = right ? 'left' : 'right'; ctx.fillText(g.tag, p.X, p.Y - 4*p.k);
     }
   }
+  if (course.gh){ drawPanels(g, c); return drawMiss(g); }
   for (let i = 0; i < 2; i++){
     const p = proj(g.x + (i ? GH : -GH), g.y); if (!p) continue;
     const k = p.k, b = clamp(g.bend[i], -1.05, 1.05), h = 26*k;
@@ -4217,11 +4285,37 @@ function drawGate(g){
     ctx.beginPath(); ctx.moveTo(p.X - .7*k, p.Y - 2*k); ctx.lineTo(tx - .7*k, ty + 1); ctx.stroke();
     ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(tx, ty, 1.3*k, 0, 7); ctx.fill();
   }
+  drawMiss(g);
+}
+function drawMiss(g){
   if (g.res === -1){
     const p = proj(g.x, g.y); if (!p) return;
     const r = 6*p.k;
     ctx.strokeStyle = COL.red; ctx.lineWidth = 2*p.k;
     ctx.beginPath(); ctx.moveTo(p.X - r, p.Y - r*.4); ctx.lineTo(p.X + r, p.Y + r*.4); ctx.moveTo(p.X + r, p.Y - r*.4); ctx.lineTo(p.X - r, p.Y + r*.4); ctx.stroke();
+  }
+}
+// giant slalom gate: an inner and an outer panel, each a cloth stretched between two poles
+function drawPanels(g, c){
+  const gh = ghOf(course);
+  for (let i = 0; i < 2; i++){
+    const sd = i ? 1 : -1, b = clamp(g.bend[i], -1.05, 1.05);
+    const p1 = proj(g.x + sd * gh, g.y), p2 = proj(g.x + sd * (gh + 10), g.y); if (!p1 || !p2) continue;
+    const k = p1.k, h = 32 * k;
+    const tops = [[p1.X + b * h * .7, p1.Y - h * (1 - Math.min(.5, Math.abs(b) * .3))], [p2.X + b * h * .45, p2.Y - h * (1 - Math.min(.4, Math.abs(b) * .2))]];
+    ctx.fillStyle = COL.shadow; ctx.beginPath(); ctx.moveTo(p1.X, p1.Y); ctx.lineTo(p2.X, p2.Y); ctx.lineTo(p2.X + 15 * k, p2.Y + 3 * k); ctx.lineTo(p1.X + 15 * k, p1.Y + 3 * k); ctx.closePath(); ctx.fill();
+    // the cloth hangs over the upper part of the poles
+    const lo = .5;
+    const q = t => [t[0], t[1]];
+    const a1 = q(tops[0]), a2 = q(tops[1]);
+    const b1 = [p1.X + (a1[0] - p1.X) * (1 - lo), p1.Y + (a1[1] - p1.Y) * (1 - lo)], b2 = [p2.X + (a2[0] - p2.X) * (1 - lo), p2.Y + (a2[1] - p2.Y) * (1 - lo)];
+    ctx.strokeStyle = '#4A5568'; ctx.lineWidth = Math.max(1.3, 2.6 * k); ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(p1.X, p1.Y); ctx.lineTo(a1[0], a1[1]); ctx.moveTo(p2.X, p2.Y); ctx.lineTo(a2[0], a2[1]); ctx.stroke();
+    ctx.fillStyle = c; ctx.beginPath(); ctx.moveTo(a1[0], a1[1] + 1.5 * k); ctx.lineTo(a2[0], a2[1] + 1.5 * k); ctx.lineTo(b2[0], b2[1]); ctx.lineTo(b1[0], b1[1]); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,.75)'; ctx.lineWidth = Math.max(.6, 1 * k);
+    const m1 = [(a1[0] + b1[0]) / 2, (a1[1] + b1[1]) / 2], m2 = [(a2[0] + b2[0]) / 2, (a2[1] + b2[1]) / 2];
+    ctx.beginPath(); ctx.moveTo(m1[0], m1[1]); ctx.lineTo(m2[0], m2[1]); ctx.stroke();
+    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(a1[0], a1[1], 1.2 * k, 0, 7); ctx.arc(a2[0], a2[1], 1.2 * k, 0, 7); ctx.fill();
   }
 }
 function drawParts(){
@@ -4506,6 +4600,7 @@ const APP_VERSION = '1.2.0', APP_DATE = '2026.11.20';
 function showTop(){
   $('#menu').hidden = true; $('#sheet').hidden = true; $('#lock').hidden = true;
   $('#topVer').textContent = `Ver. ${APP_VERSION}（${APP_DATE}）`;
+  applyDisc();
   $('#topWho').textContent = setupDone ? `${pname}（${(NAT[myNat] || {}).jp || myNat}）でプレー` : 'はじめに国と用具を選びます';
   $('#top').hidden = false;
   $('#topGo').onclick = () => { $('#top').hidden = true; ac(); bootGame(); };
