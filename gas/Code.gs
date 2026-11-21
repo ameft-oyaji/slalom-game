@@ -147,31 +147,50 @@ function board_() {
   return { ok: true, rows: rows };
 }
 
-// Player ranking: each player's career summary for every season they have played (no personal data beyond the name)
+// Player ranking: each player's career summary for every season they have played (no personal data beyond the name).
+// Seasons a player reset are kept in "<season key>-arch" and still count toward the all-time figures
+function seasonStat_(d) {
+  const done = (d && d.done) || {}, places = (d && d.places && d.places.you) || [];
+  const o = { races: 0, best: 0, vmax: 0, top10: 0, rankSum: 0, ranked: 0,
+              wins: Number(places[0] || 0), podiums: Number(places[0] || 0) + Number(places[1] || 0) + Number(places[2] || 0) };
+  Object.keys(done).forEach(function (k) {
+    const r = done[k]; if (!r) return;
+    if (r.status !== 'dns') o.races++;
+    if (r.rank) { if (!o.best || r.rank < o.best) o.best = r.rank; if (r.rank <= 10) o.top10++; o.rankSum += r.rank; o.ranked++; }
+    if (r.v && r.v > o.vmax) o.vmax = r.v;
+  });
+  return o;
+}
 function players_() {
-  const v = data_().getDataRange().getValues(), rows = [], who = {};
+  const v = data_().getDataRange().getValues(), who = {}, cur = {}, arch = {};
   for (let i = 1; i < v.length; i++) {
-    const key = String(v[i][1]);
+    const key = String(v[i][1]), name = String(v[i][0]);
     if (key === 'slalomwc-prefs') {
-      try { const pf = JSON.parse(v[i][2] || '{}'); who[String(v[i][0])] = { nat: String(pf.nat || ''), gear: pf.gear || {} }; } catch (e) {}
+      try { const pf = JSON.parse(v[i][2] || '{}'); who[name] = { nat: String(pf.nat || ''), gear: pf.gear || {} }; } catch (e) {}
       continue;
     }
-    if (!/^slalomwc-2627-(men|women)-[a-z]+(-gs)?$/.test(key)) continue;   // slalom, and giant slalom (-gs)
+    const m = /^slalomwc-2627-((?:men|women)-[a-z]+(?:-gs)?)(-arch)?$/.exec(key);   // slalom, giant slalom (-gs), kept seasons (-arch)
+    if (!m) continue;
     try {
-      const d = JSON.parse(v[i][2] || '{}');
-      const done = d.done || {}, places = (d.places && d.places.you) || [];
-      let races = 0, best = 0, vmax = 0, top10 = 0, rankSum = 0, ranked = 0;
-      Object.keys(done).forEach(function (k) {
-        const r = done[k]; if (!r) return;
-        if (r.status !== 'dns') races++;
-        if (r.rank){ if (!best || r.rank < best) best = r.rank; if (r.rank <= 10) top10++; rankSum += r.rank; ranked++; }
-        if (r.v && r.v > vmax) vmax = r.v;
-      });
-      rows.push({ name: String(v[i][0]), key: key.replace('slalomwc-2627-', ''), pts: Number((d.pts && d.pts.you) || 0), races: races,
-                  wins: Number(places[0] || 0), podiums: Number(places[0] || 0) + Number(places[1] || 0) + Number(places[2] || 0), best: best,
-                  vmax: vmax, top10: top10, avg: ranked ? Math.round(rankSum / ranked * 10) / 10 : 0 });
+      const d = JSON.parse(v[i][2] || (m[2] ? '[]' : '{}')), id = name + '\u0001' + m[1];
+      if (m[2]) arch[id] = Array.isArray(d) ? d : []; else cur[id] = d;
     } catch (e) {}
   }
+  const ids = {}; Object.keys(cur).forEach(function (k) { ids[k] = 1; }); Object.keys(arch).forEach(function (k) { ids[k] = 1; });
+  const rows = Object.keys(ids).map(function (id) {
+    const parts = id.split('\u0001'), d = cur[id] || {}, now = seasonStat_(d);
+    const all = [now].concat((arch[id] || []).map(seasonStat_));
+    const sum = function (f) { return all.reduce(function (a, o) { return a + o[f]; }, 0); };
+    const bests = all.map(function (o) { return o.best; }).filter(function (b) { return b > 0; });
+    const ranked = sum('ranked');
+    return { name: parts[0], key: parts[1], pts: Number((d.pts && d.pts.you) || 0),
+             races: sum('races'), wins: sum('wins'), podiums: sum('podiums'), top10: sum('top10'),
+             best: bests.length ? Math.min.apply(null, bests) : 0,
+             vmax: Math.max.apply(null, all.map(function (o) { return o.vmax; })),
+             avg: ranked ? Math.round(sum('rankSum') / ranked * 10) / 10 : 0,
+             seasons: all.length - (cur[id] ? 0 : 1),
+             now: { races: now.races, wins: now.wins, podiums: now.podiums, best: now.best } };
+  });
   return { ok: true, rows: rows, who: who };
 }
 

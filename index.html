@@ -1140,6 +1140,14 @@ function shimizuLeft(){ return Math.max(0, SHIMIZU_MAX - shimizuUsed()); }
 function season(){ const s = load(seasonKey()) || {}; return { pts: s.pts || {}, done: s.done || {}, fis: s.fis || (START_RANK - .5), places: s.places || {}, form: s.form || {}, prev: s.prev || null, hist: s.hist || [] }; }
 // FIS tie-break for the standings: more wins, then more 2nd places, and so on
 function cmpPlaces(a, b){ for (let i = 0; i < 30; i++){ const d = (b[i] || 0) - (a[i] || 0); if (d) return d; } return 0; }
+// before a season is reset, its results are kept (yours only) so the player rankings still count them
+function archiveSeason(){
+  const old = load(seasonKey()) || {};
+  if (!old.done || !Object.keys(old.done).length) return;
+  const arch = load(seasonKey() + '-arch') || [];
+  arch.push({ at: TODAY, done: old.done, places: { you: (old.places && old.places.you) || [] }, pts: { you: (old.pts && old.pts.you) || 0 } });
+  save(seasonKey() + '-arch', arch.slice(-30));
+}
 function seasonInProgress(){ const n = Object.keys(season().done).length; return n > 0 && n < seasonSL().length; }
 function seasonSL(){ return slRaces(gender).filter(r => r.disc === disc); }
 function nextRace(){ const s = season(); return seasonSL().find(r => !s.done[r.date]) || null; }
@@ -2176,6 +2184,7 @@ function playersHTML(){
     const w = needCloud(); if (w){ html += w; return; }
     const xs = ranked(seasonRows(), val, desc);
     if (!xs.length){ html += `<p class="note">まだ記録がありません。</p>`; return; }
+    html += `<p class="note">リセットする前のシーズンの記録も含めた通算です（Ptはいまのシーズン）。</p>`;
     html += table(['順位', 'プレーヤー', unit, 'レース', 'Pt'], xs.slice(0, 100).map(r => `<tr class="${rowCls(r.name)}"><td class="n">${r._rk}</td><td>${esc(r.name)}${you(r.name)}</td><td class="n">${fmtV(val(r))}</td><td class="r">${r.races}</td><td class="r">${r.pts}</td></tr>`));
   };
   if (RK === 'pts'){
@@ -2183,7 +2192,7 @@ function playersHTML(){
     const w = needCloud();
     if (w) html += w;
     else {
-      const list = seasonRows().sort((a, b) => b.pts - a.pts || b.wins - a.wins || b.podiums - a.podiums);
+      const list = seasonRows().map(r => Object.assign({}, r, r.now || {})).sort((a, b) => b.pts - a.pts || b.wins - a.wins || b.podiums - a.podiums);
       list.forEach(r => { r.rank = 1 + list.filter(x => x.pts > r.pts || (x.pts === r.pts && (x.wins > r.wins || (x.wins === r.wins && x.podiums > r.podiums)))).length; });
       if (!list.length) html += `<p class="note">この組み合わせで遊んでいる登録プレーヤーはまだいません。</p>`;
       else html += table(['順位','プレーヤー','Pt','レース','優勝','表彰台','最高'], list.slice(0, 100).map(r => `<tr class="${rowCls(r.name)}"><td class="n">${r.rank}</td><td>${esc(r.name)}${you(r.name)}</td><td class="n">${r.pts}</td><td class="r">${r.races}</td><td class="r">${r.wins || ''}</td><td class="r">${r.podiums || ''}</td><td class="r">${r.best ? r.best + '位' : '—'}</td></tr>`));
@@ -3420,7 +3429,7 @@ function renderTab(){
   else body.innerHTML = rulesHTML();
   body.querySelectorAll('[data-race]').forEach(b => b.onclick = () => enterRace(slRaces(gender)[+b.dataset.race], b.dataset.mode || 'career'));
   body.querySelectorAll('[data-skip]').forEach(b => b.onclick = () => { if (b.dataset.armed){ showSkipped(slRaces(gender)[+b.dataset.skip]); } else { b.dataset.armed = '1'; b.textContent = '欠場を確定'; } });
-  if ($('#bReset')) $('#bReset').onclick = () => { const b = $('#bReset'); if (b.dataset.armed){ save(seasonKey(), {}); save(shimizuKey(), { n: 0 }); showMenu(); } else { b.dataset.armed = '1'; b.textContent = 'もう一度押すとリセット'; } };
+  if ($('#bReset')) $('#bReset').onclick = () => { const b = $('#bReset'); if (b.dataset.armed){ archiveSeason(); save(seasonKey(), {}); save(shimizuKey(), { n: 0 }); showMenu(); } else { b.dataset.armed = '1'; b.textContent = 'もう一度押すとリセット'; } };
 }
 function calendarHTML(){
   const races = slRaces(gender);
