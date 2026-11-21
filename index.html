@@ -1880,8 +1880,8 @@ function setupCard(){
   $('#cBib').hidden = ta || fr; if (!ta && !fr) $('#cBib').textContent = race.bib.get('you');
   setFlag($('#cFlag'), myNat); $('#cNat').textContent = myNat;
   $('#cRank').hidden = true; $('#cDiff').hidden = true; $('#cTime').hidden = false; $('#cTime').textContent = '0:00.0';
-  $('#evName').textContent = (gender === 'men' ? "Men's " : "Women's ") + (race.dual ? discEN(race.ev.disc) + ' · Dual Race' : race.battle ? discEN(race.ev.disc) + ' · Online Battle' : ta ? discEN(race.ev.disc) + ' · Time Attack' : race.spectate ? discEN(race.ev.disc) + ' · 観戦モード' : fr ? (race.free.gates === 'none' ? 'Free Ski' : race.free.gates === 'rhythm' ? 'Free Ski · Rhythm Gates' : 'Free Ski · Practice Gates') : 'Slalom');
-  $('#btLive').hidden = !race.battle;
+  $('#evName').textContent = (gender === 'men' ? "Men's " : "Women's ") + (race.cpu ? discEN(race.ev.disc) + ' · Dual Race vs CP' : race.dual ? discEN(race.ev.disc) + ' · Dual Race' : race.battle ? discEN(race.ev.disc) + ' · Online Battle' : ta ? discEN(race.ev.disc) + ' · Time Attack' : race.spectate ? discEN(race.ev.disc) + ' · 観戦モード' : fr ? (race.free.gates === 'none' ? 'Free Ski' : race.free.gates === 'rhythm' ? 'Free Ski · Rhythm Gates' : 'Free Ski · Practice Gates') : 'Slalom');
+  $('#btLive').hidden = !(race.battle || race.cpu);
   document.body.classList.toggle('nightrace', !!race.ev.night);
   $('#evPlace').textContent = `${race.ev.venue} ${race.ev.nat}`;
   setFlag($('#evFlag'), race.ev.nat);
@@ -2019,6 +2019,7 @@ function afterFinish(){
   if (race.watchQueue && race.watchQueue.length) return startWatch();
   leaveRunUI();
   if (race.battle) return showBattleResult();
+  if (race.cpu) return showCpuResult();
   if (race.spectate) return showSpectateEnd();
   if (race.mode === 'free') return showFreeResult();
   if (race.mode === 'ta') return showTaResult();
@@ -2323,33 +2324,129 @@ function bindBattleTab(root){
 // ---------------------------------------------------------------------
 function dualKeyParse(key){ const m = /^(men|women)_dual-(SL|GS)-(\d{1,6})$/.exec(key || ''); return m ? { g: m[1], d: m[2], seed: +m[3] } : null; }
 function newDualKey(g, d){ return `${g}_dual-${d}-${1 + Math.floor(Math.random() * 999998)}`; }
-let DUAL_GATES = (load('slalomwc-dual') || {}).gates === 'GS' ? 'GS' : 'SL';
+const DUAL_PREF = Object.assign({ gates: 'SL', cpu: 'mid' }, load('slalomwc-dual') || {});
+let DUAL_GATES = DUAL_PREF.gates === 'GS' ? 'GS' : 'SL';
+const CPU_LV = { easy: ['やさしい', 1.10], mid: ['ふつう', 1.05], hard: ['つよい', 1.015], wc: ['ワールドカップ級', .985] };
 function dualTabHTML(){
   const rules = `<h3>デュアルレースのルール</h3><ul class="note">
     <li>同じ間隔・同じ振り幅の旗門が続く、約20秒のリズムコースです。</li>
-    <li>ホストがスタートを押すと、9秒後に「3・2・1・GO!」。GO! でスタートゲートが自動で倒れ、全員同時に飛び出します（ボタンを押してのスタートはありません）。</li>
-    <li>1本目が全員ゴールしたら、ホストが「2本目スタート」。2本目は旗門の左右が逆のコースです。</li>
-    <li>2本の合計タイムが速い人の勝ち。どちらかで旗門不通過（DSQ）や途中棄権（DNF）になると順位なしです。</li>
-    <li>相手は半透明の姿で表示されます（1秒ほど遅れます）。</li></ul>`;
-  if (!CLOUD.url) return '<p class="note">デュアルレースは公開サイト（https://ameft-oyaji.github.io/slalom-game/）で、ユーザー登録して遊べます。</p>' + rules;
-  if (!CLOUD.token) return '<p class="note">デュアルレースにはユーザー登録（無料）が必要です。「選手・用具」タブで名前と暗証番号を登録してください。</p>' + rules;
-  return `<p class="note">友だちと同じリズムの旗門コースを同時スタートで2本滑り、2本の合計タイムで勝負します。部屋を作ると4桁の番号が出るので、相手に伝えてください（最大8人）。</p>
-    <h3>部屋を作る（${gender === 'men' ? '男子' : '女子'}）</h3>
-    <div class="g-who"><select id="dualGates" aria-label="旗門"><option value="SL"${DUAL_GATES === 'SL' ? ' selected' : ''}>回転のリズム旗門</option><option value="GS"${DUAL_GATES === 'GS' ? ' selected' : ''}>大回転のリズム旗門</option></select><button class="btn small hot" type="button" id="dualCreate">部屋を作る</button></div>
-    <h3>部屋に入る</h3>
+    <li>「3・2・1・GO!」の GO! でスタートゲートが自動で倒れ、全員同時に飛び出します（ボタンを押してのスタートはありません）。</li>
+    <li>2本目は旗門の左右が逆のコースです。2本の合計タイムが速い人の勝ち。どちらかで旗門不通過（DSQ）や途中棄権（DNF）になると順位なしです。</li>
+    <li>相手は半透明の姿で表示されます（オンラインでは1秒ほど遅れます）。</li></ul>`;
+  let html = `<h3>旗門</h3><div class="g-who"><select id="dualGates" aria-label="旗門"><option value="SL"${DUAL_GATES === 'SL' ? ' selected' : ''}>回転のリズム旗門</option><option value="GS"${DUAL_GATES === 'GS' ? ' selected' : ''}>大回転のリズム旗門</option></select></div>`;
+  html += `<h3>CPライバルと対戦</h3><p class="note">コンピューターの選手と1対1で2本勝負。ユーザー登録なしで遊べます。</p>
+    <div class="g-who"><select id="cpuLv" aria-label="CPライバルの強さ">${Object.entries(CPU_LV).map(([k, v]) => `<option value="${k}"${DUAL_PREF.cpu === k ? ' selected' : ''}>CPライバル：${v[0]}</option>`).join('')}</select><button class="btn small hot" type="button" id="cpuGo">対戦スタート</button></div>`;
+  html += `<h3>オンライン対戦</h3>`;
+  if (!CLOUD.url) html += '<p class="note">友だちとのオンライン対戦は公開サイト（https://ameft-oyaji.github.io/slalom-game/）で、ユーザー登録して遊べます。</p>';
+  else if (!CLOUD.token) html += '<p class="note">友だちとのオンライン対戦にはユーザー登録（無料）が必要です。「選手・用具」タブで名前と暗証番号を登録してください。</p>';
+  else html += `<p class="note">友だちと同じコースを同時スタートで2本滑り、合計タイムで勝負します。部屋を作ると4桁の番号が出るので、相手に伝えてください（最大8人）。</p>
+    <div class="g-who"><button class="btn small hot" type="button" id="dualCreate">部屋を作る（${gender === 'men' ? '男子' : '女子'}）</button></div>
     <div class="g-who"><input type="text" id="btCode" inputmode="numeric" maxlength="4" placeholder="部屋番号（4桁）" autocomplete="off"><button class="btn small" type="button" id="btJoin">入る</button></div>
-    <p class="lock-err" id="btErr" hidden></p>` + rules;
+    <p class="lock-err" id="btErr" hidden></p>`;
+  return html + rules;
 }
 function bindDualTab(root){
   bindBattleTab(root);                                   // joining a room works the same way
-  const c = root.querySelector('#dualCreate'), sel = root.querySelector('#dualGates');
-  if (sel) sel.onchange = () => { DUAL_GATES = sel.value; save('slalomwc-dual', { gates: DUAL_GATES }); };
+  const c = root.querySelector('#dualCreate'), sel = root.querySelector('#dualGates'), lv = root.querySelector('#cpuLv');
+  const keep = () => { DUAL_GATES = sel.value; DUAL_PREF.gates = sel.value; DUAL_PREF.cpu = lv.value; save('slalomwc-dual', DUAL_PREF); };
+  sel.onchange = keep; lv.onchange = keep;
+  root.querySelector('#cpuGo').onclick = () => { keep(); startCpuDual(); };
   if (c) c.onclick = async () => {
     c.disabled = true;
     const err = m => { const e = root.querySelector('#btErr'); e.textContent = m; e.hidden = false; };
     try { const r = await btCall('room_create', { course: newDualKey(gender, sel.value) }); if (!r.ok) throw new Error(BT_ERR[r.error] || '部屋を作れませんでした。'); BT.code = r.room.code; showLobby(); }
     catch(e){ err(e.message); } c.disabled = false;
   };
+}
+// ---- dual race against a computer rival: its two runs are skied in advance and played back as a ghost
+function cpuTrack(c, mod){
+  // the same release as yours at GO, on the same skis and wax: out of the gate, pole pushes and three skating steps,
+  // down the ramp, then the robot's line
+  const b = newBody(); b.prof = c.prof; b.mod = mod; b.v = 45 + (mod.push || 0) + 6;
+  const pts = []; let t = 0, kick = 0, pushCd = PUSH_DUR + .06;
+  for (let i = 0; i < 120 * 60; i++){
+    if (kick < 3 && t >= .35 * (kick + 1)){ b.v += 7 * clamp(1 - b.v / 160, 0, 1); kick++; }
+    pushCd -= STEP;
+    if (b.y < 0 && b.v < 60 && pushCd <= 0){ b.v += (22 + (mod.push || 0) * 1.6) * clamp(1 - b.v / 140, 0, 1); pushCd = PUSH_DUR + .06; }
+    if (b.y > 0 && b.y < RAMP_END) b.v += 55 * (1 - b.y / RAMP_END) * STEP;
+    physStep(b, aiCtl(b, c), STEP, false);
+    crossGates(b, c, () => {});
+    t += STEP;
+    if (i % 4 === 0) pts.push([b.x, b.y, b.th]);
+    if (b.y >= c.finishY){ t -= (b.y - c.finishY) / Math.max(1, (b.y - b.py) / STEP); break; }
+  }
+  return { pts, T: t };
+}
+function startCpuDual(){
+  ac();
+  const key = newDualKey(gender, DUAL_GATES);
+  race = makeDualRace(key);
+  const field = FIELDS[gender].slice(0, 40), who = field[Math.floor(Math.random() * field.length)];
+  const k = CPU_LV[DUAL_PREF.cpu] || CPU_LV.mid, r = Math.random;
+  const runs = race.courses.map((c, i) => {
+    race.run = i + 1; const tr = cpuTrack(c, runMods()); race.run = 1;
+    const f = k[1] * (1 + gauss(r) * .008);                    // this run's pace against the robot's clean line
+    const fall = r() < .05 ? .3 + r() * .55 : null;             // now and then the rival goes out
+    return { pts: tr.pts, f, T: trunc(tr.T * f), fall };
+  });
+  race.cpu = { name: who.name, nat: who.nat, lv: k[0], runs, times: runs.map(x => x.fall ? null : x.T) };
+  $('#menu').hidden = true;
+  beginRun();
+  cdT = 5;
+}
+function cpuNow(){
+  // where the rival is now: its recorded line, played back at its own pace
+  const run = race.cpu.runs[race.run - 1];
+  if (state === 'countdown') return { x: run.pts[0][0], y: -14, th: 0, done: false };
+  const tau = Math.max(0, t) / run.f, i = Math.min(run.pts.length - 1, Math.floor(tau / (STEP * 4)));
+  const p = run.pts[i], frac = i / (run.pts.length - 1);
+  if (run.fall && frac >= run.fall) return { out: true };
+  if (t >= run.T) return { done: true };
+  return { x: p[0], y: p[1], th: p[2] };
+}
+function cpuGhost(sprites, yNear, yFar){
+  if (!(state === 'countdown' || state === 'run' || state === 'finished')) return;
+  const g = cpuNow(); if (g.done || g.out || g.y == null) return;
+  if (g.y < yNear - 30 || g.y > yFar + 30) return;
+  sprites.push({ y: g.y, d: () => drawGhost(g.x, g.y, g.th || 0, race.cpu.name, '#7048E8') });
+}
+let cpuLiveAt = 0;
+function cpuTick(){
+  const now = performance.now(); if (now - cpuLiveAt < 300) return; cpuLiveAt = now;
+  const box = $('#btLive'); if (!box || box.hidden) return;
+  const ri = race.run - 1, g = cpuNow();
+  const meDone = race.taTimes[ri] != null, meOut = race.playerDsq[ri];
+  const meLab = meOut ? meOut : meDone ? fmt(race.taTimes[ri]) : timing ? `第${Math.min(sk.ng + 1, course.gates.length)}旗門` : 'スタート前';
+  const cpLab = g.out ? 'DNF' : g.done ? fmt(race.cpu.runs[ri].T) : state === 'countdown' ? 'スタート前' : `${Math.round(Math.max(0, g.y) / 10)} m`;
+  const meK = meOut ? 1e9 : meDone ? race.taTimes[ri] : 1e6 - sk.y, cpK = g.out ? 1e9 : g.done ? race.cpu.runs[ri].T : 1e6 - (g.y || 0);
+  const rows = [{ me: true, n: pname, c: '#FFC93C', l: meLab, k: meK }, { me: false, n: race.cpu.name, c: '#7048E8', l: cpLab, k: cpK }].sort((a, b) => a.k - b.k);
+  box.innerHTML = rows.map((x, i) => `<div class="${x.me ? 'me' : ''}"><b>${i + 1}</b><span class="dot" style="background:${x.c}"></span><span class="nm">${esc(x.n)}</span><span class="st">${x.l}</span></div>`).join('');
+}
+function showCpuResult(){
+  const run = race.run, cp = race.cpu;
+  const mine = [race.taTimes[0] != null ? race.taTimes[0] : null, race.taTimes[1] != null ? race.taTimes[1] : null];
+  const myOut = race.playerDsq[0] || (run === 2 ? race.playerDsq[1] : '') || '';
+  const cpOut = cp.times[0] == null || (run === 2 && cp.times[1] == null) ? 'DNF' : '';
+  const tot = (a, i) => run === 1 ? a[0] : (a[0] != null && a[1] != null ? trunc(a[0] + a[1]) : null);
+  const me = myOut ? null : tot(mine), them = cpOut ? null : tot(cp.times);
+  let verdict, win = false;
+  if (me != null && them != null){ win = me < them; verdict = me === them ? '同タイム' : win ? (run === 1 ? 'リード！' : '勝利！') : (run === 1 ? '追う展開' : '負け'); }
+  else if (me != null){ win = true; verdict = run === 1 ? 'リード！（相手が途中棄権）' : '勝利！（相手が途中棄権）'; }
+  else if (them != null) verdict = run === 1 ? '1本目 失格・途中棄権' : '負け（失格・途中棄権）';
+  else verdict = '両者 途中棄権';
+  const diff = me != null && them != null ? fmtDiff(me - them) : '';
+  const cell = v => v != null ? fmt(v) : '—';
+  let html = `<div><span class="badge">${run === 1 ? '1本目' : '2本合計'}</span> <span class="badge">CPライバル：${esc(cp.lv)}</span></div>
+    <div><span class="big" style="font-size:44px">${verdict}</span></div>${diff ? `<p class="note">相手との差 ${diff}</p>` : ''}`;
+  const row = (name, nat, a, out, isMe) => `<tr class="${isMe ? 'me' : ''}"><td>${esc(name)}${isMe && name !== 'あなた' ? '（あなた）' : ''} <span class="nat3">${nat}</span></td><td class="r">${out && a[0] == null ? out : cell(a[0])}</td>${run === 2 ? `<td class="r">${out && a[0] != null && a[1] == null ? out : cell(a[1])}</td><td class="n">${out ? out : cell(tot(a))}</td>` : ''}</tr>`;
+  html += table(run === 1 ? ['選手', '1本目'] : ['選手', '1本目', '2本目', '合計'], [row(pname, myNat, mine, myOut, true), row(cp.name, cp.nat, cp.times, cpOut, false)]);
+  html += `<div class="btns">${run === 1 ? '<button class="btn primary" type="button" id="cpNext">2本目へ（左右が逆のコース）</button>' : '<button class="btn primary" type="button" id="cpAgain">もう一度（新しいコース）</button>'}<button class="btn" type="button" id="cpMenu">メニューに戻る</button></div>`;
+  state = 'sheet';
+  openSheet('Dual Race · vs CP', run === 1 ? 'デュアルレース 1本目の結果' : 'デュアルレース 最終結果', html);
+  if (run === 2 && win) crowdCheer(.9);
+  const nx = $('#cpNext'); if (nx) nx.onclick = () => { race.run = 2; beginRun(); cdT = 5; };
+  const ag = $('#cpAgain'); if (ag) ag.onclick = () => startCpuDual();
+  $('#cpMenu').onclick = () => { race = null; showMenu('dual'); };
 }
 // a dead-regular rhythm set, cut where a clean run reaches about 19 s, so the whole run takes about 20 s
 function dualCourse(seed, d, mirror){
@@ -4349,6 +4446,7 @@ function render(){
   collectCrew(sprites, yNear, yFar);
   sprites.push({ y: sk.y, d: () => { drawSkier(); drawParts(); } });
   if (race && race.battle) battleGhosts(sprites, yNear, yFar);
+  if (race && race.cpu) cpuGhost(sprites, yNear, yFar);
   collectCrowd(sprites, yNear, yFar);
   collectArena(sprites, yNear, yFar);
   if (state === 'watch' && WATCH.cur) sprites.push({ y: WATCH.cur.y, d: () => drawGhost(WATCH.cur.x, WATCH.cur.y, WATCH.cur.th, WATCH.cur.label, '#7048E8') });
@@ -4835,6 +4933,7 @@ function frame(now){
   crowdTick(dt); if (state === 'watch'){ watchStep(dt); if (sk.act){ sk.act.t += dt; if (sk.act.t > (sk.act.type === 'skisup' ? 2.6 : 1.8)) sk.act = null; } }
   hud(); render(); if (actx) updateWind();
   if (race && race.battle) battleTick();
+  else if (race && race.cpu) cpuTick();
   requestAnimationFrame(frame);
 }
 document.addEventListener('visibilitychange', () => { last = performance.now(); keys.left = keys.right = keys.down = false; });
