@@ -2618,7 +2618,7 @@ function splitRival(){
 function paneLabel(text, col, half){
   ctx.setTransform(dpr, 0, 0, dpr, SPLIT.ox * dpr, 0);
   ctx.font = "800 15px 'Noto Sans JP', sans-serif"; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  const w = ctx.measureText(text).width + 22, y = Math.round(ch * .44);
+  const w = ctx.measureText(text).width + 22, y = Math.round(ch * .39);
   ctx.fillStyle = 'rgba(14,26,46,.78)'; rrect(half / 2 - w / 2, y - 14, w, 28, 6); ctx.fill();
   ctx.fillStyle = col; ctx.fillRect(half / 2 - w / 2 + 6, y + 10, w - 12, 2.5);
   ctx.fillStyle = '#fff'; ctx.fillText(text, half / 2, y);
@@ -2655,26 +2655,12 @@ function renderView(){
   ctx.fillStyle = '#FFC93C'; ctx.fillRect(half - .75, 0, 1.5, ch);
 }
 function drawGhost(x, y, th, name, col){
+  // the other racer is shown as a coloured dot on the snow (no figure, no name)
   const p = proj(x, y); if (!p) return;
-  const u = p.k * 1.75;
-  ctx.save();
-  ctx.globalAlpha = .55;
-  const tipA = proj(x - Math.sin(th) * 7, y - Math.cos(th) * 7), tipB = proj(x + Math.sin(th) * 12, y + Math.cos(th) * 12);
-  if (tipA && tipB){ ctx.strokeStyle = col; ctx.lineWidth = Math.max(1.5, 1.8 * u); ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(tipA.X, tipA.Y); ctx.lineTo(tipB.X, tipB.Y); ctx.stroke(); }
-  ctx.translate(p.X, p.Y); ctx.scale(u, u);
-  ctx.fillStyle = col;
-  ctx.beginPath(); ctx.ellipse(0, -5, 2.6, 5, 0, 0, 7); ctx.fill();
-  rrect(-3.1, -14.5, 6.2, 7, 2); ctx.fill();
-  ctx.beginPath(); ctx.arc(0, -16.8, 2.5, 0, 7); ctx.fill();
-  ctx.restore();
-  // name tag
-  ctx.save();
-  ctx.font = "700 12px 'Noto Sans JP', sans-serif"; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  const w = ctx.measureText(name).width + 12, ty = p.Y - 21 * u - 10;
-  ctx.fillStyle = 'rgba(14,26,46,.8)'; ctx.fillRect(p.X - w / 2, ty - 9, w, 18);
-  ctx.fillStyle = col; ctx.fillRect(p.X - w / 2, ty + 7, w, 2);
-  ctx.fillStyle = '#fff'; ctx.fillText(name, p.X, ty);
-  ctx.restore();
+  const r = Math.max(4, 4.2 * p.k);
+  ctx.fillStyle = 'rgba(19,33,58,.25)'; ctx.beginPath(); ctx.ellipse(p.X + r * .3, p.Y + r * .35, r * 1.1, r * .5, 0, 0, 7); ctx.fill();
+  ctx.fillStyle = col; ctx.strokeStyle = '#fff'; ctx.lineWidth = Math.max(1.5, 1.4 * p.k);
+  ctx.beginPath(); ctx.arc(p.X, p.Y - r * .4, r, 0, 7); ctx.fill(); ctx.stroke();
 }
 async function showBattleResult(){
   state = 'sheet';
