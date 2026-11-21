@@ -1727,6 +1727,20 @@ function step(dt){
     if (gy < -12 || gy > 34) continue;
     for (let k = 0; k < 2; k++){
       const px = g.x + (k ? ghOf(course) : -ghOf(course)), ddx = px - sk.x;
+      if (course.gh){
+        // giant slalom: no cross-block. Laid over in the turn, the inside shoulder and shin brush the panel pole —
+        // it flexes around the body and springs back up, it is never knocked flat
+        const turnSide = Math.abs(sk.lean) > .15 ? Math.sign(sk.lean) : 0;
+        const inside = turnSide && Math.sign(ddx) === turnSide;
+        const reachG = POLE_R + SK_R + (inside ? 4 + Math.abs(sk.lean) * 5 : 0);
+        if (Math.abs(gy) < 7 && Math.abs(ddx) < reachG && g.cool[k] <= 0){
+          g.cool[k] = .45;
+          g.bv[k] += (Math.sign(ddx) || 1) * (3.5 + sk.v * .018);
+          if (state !== 'finished') sk.v *= sk.mod && sk.mod.shimizu ? 1.03 : 1 - .006 * (sk.mod ? sk.mod.pole : 1);
+          if (!quiet) thwack(.14);
+        }
+        continue;
+      }
       // reach for a pole coming up close beside the line
       if (!sk.block && g.cool[k] <= 0 && gy > 3 && gy < 30 && Math.abs(ddx) > 2.5 && Math.abs(ddx) < 15 && sk.v > 40)
       {
@@ -4299,7 +4313,7 @@ function drawMiss(g){
 function drawPanels(g, c){
   const gh = ghOf(course);
   for (let i = 0; i < 2; i++){
-    const sd = i ? 1 : -1, b = clamp(g.bend[i], -1.05, 1.05);
+    const sd = i ? 1 : -1, b = clamp(g.bend[i], -.7, .7);
     const p1 = proj(g.x + sd * gh, g.y), p2 = proj(g.x + sd * (gh + 10), g.y); if (!p1 || !p2) continue;
     const k = p1.k, h = 32 * k;
     const tops = [[p1.X + b * h * .7, p1.Y - h * (1 - Math.min(.5, Math.abs(b) * .3))], [p2.X + b * h * .45, p2.Y - h * (1 - Math.min(.4, Math.abs(b) * .2))]];
@@ -4310,7 +4324,8 @@ function drawPanels(g, c){
     const a1 = q(tops[0]), a2 = q(tops[1]);
     const b1 = [p1.X + (a1[0] - p1.X) * (1 - lo), p1.Y + (a1[1] - p1.Y) * (1 - lo)], b2 = [p2.X + (a2[0] - p2.X) * (1 - lo), p2.Y + (a2[1] - p2.Y) * (1 - lo)];
     ctx.strokeStyle = '#4A5568'; ctx.lineWidth = Math.max(1.3, 2.6 * k); ctx.lineCap = 'round';
-    ctx.beginPath(); ctx.moveTo(p1.X, p1.Y); ctx.lineTo(a1[0], a1[1]); ctx.moveTo(p2.X, p2.Y); ctx.lineTo(a2[0], a2[1]); ctx.stroke();
+    // flexible poles: straight at the base, curving over toward the top
+    ctx.beginPath(); ctx.moveTo(p1.X, p1.Y); ctx.quadraticCurveTo(p1.X, p1.Y - h * .55, a1[0], a1[1]); ctx.moveTo(p2.X, p2.Y); ctx.quadraticCurveTo(p2.X, p2.Y - h * .55, a2[0], a2[1]); ctx.stroke();
     ctx.fillStyle = c; ctx.beginPath(); ctx.moveTo(a1[0], a1[1] + 1.5 * k); ctx.lineTo(a2[0], a2[1] + 1.5 * k); ctx.lineTo(b2[0], b2[1]); ctx.lineTo(b1[0], b1[1]); ctx.closePath(); ctx.fill();
     ctx.strokeStyle = 'rgba(255,255,255,.75)'; ctx.lineWidth = Math.max(.6, 1 * k);
     const m1 = [(a1[0] + b1[0]) / 2, (a1[1] + b1[1]) / 2], m2 = [(a2[0] + b2[0]) / 2, (a2[1] + b2[1]) / 2];
@@ -4372,20 +4387,21 @@ function drawSkier(){
 
   // --- skeleton (y up is negative). Angulation: knees and hips into the turn, upper body stays over the outside ski
   // How far the racer is laid over: grows with the turn and with speed (World Cup slalom: legs past 60° at full speed)
-  const incl = tuck ? a * .35 : clamp(Math.pow(a, .8) * (.45 + sk.v / 130), 0, 1.2);
+  const gsT = !!(course && course.gh) && !tuck;
+  const incl = tuck ? a * .35 : gsT ? clamp(Math.pow(a, .7) * (.5 + sk.v / 120), 0, 1.12) : clamp(Math.pow(a, .8) * (.45 + sk.v / 130), 0, 1.2);
   const wI = clamp(incl / .9, 0, 1);                                                      // 0 = upright stance, 1 = fully laid over
   const footO = { x: -s*2.8 - s*incl*2.6, y: 0 }, footI = { x: s*2.2 - s*incl*2.6, y: 0 };
   const pushing = sk.pushT > 0 && !tuck;
   const pp = pushing ? 1 - sk.pushT / PUSH_DUR : 0;
   const reach = pushing ? (pp < .35 ? pp / .35 : 1 - (pp - .35) / .65) : 0;     // 0 = arms pushed back, 1 = reaching forward
   // legs incline as one long line from the outside ski: the hips drop toward the snow on the inside of the turn
-  const legL = tuck ? 6.4 : 9 - incl * .8;
+  const legL = tuck ? 6.4 : 9 - incl * (gsT ? 1.25 : .8);
   const fc = (footO.x + footI.x) / 2;
   const hip = { x: fc + s * Math.sin(incl) * legL, y: -Math.cos(incl) * legL + (pushing ? (1 - reach) * 1.4 : 0) + rock * 2.2 + (skating ? skLift * .6 : 0) };
   const kneeO = { x: (footO.x + hip.x) / 2 + s * .5 * wI, y: (footO.y + hip.y) / 2 - .4 };                       // outside leg long and straight
   const kneeI = { x: footI.x + s * Math.sin(incl) * legL * .62 + s * 1.2 * wI, y: -Math.cos(incl) * legL * .42 + .6 * wI };  // inside leg folded under the body
-  const torsoLen = (tuck ? 3.8 : 6.2 - wI * 1.4) - rock * 1.3;     // bending forward over the poles when coiled                                           // upper body bends forward over the skis
-  let ang = s * incl * .55;                                                              // upper body leans in, but less than the legs (angulation)
+  const torsoLen = (tuck ? 3.8 : gsT ? 6 - wI * 1.9 : 6.2 - wI * 1.4) - rock * 1.3;     // bending forward over the poles when coiled                                           // upper body bends forward over the skis
+  let ang = s * incl * (gsT ? .42 : .55);                                                              // upper body leans in, but less than the legs (angulation)
   // cross-block: the outside hand punches across the body to clear the pole
   const bl = sk.block, bp = bl ? clamp(bl.t / bl.dur, 0, 1) : 0, be = bl ? Math.sin(Math.PI * bp) : 0, bs = bl ? bl.side : 0;
   ang += bs * be * .12;
@@ -4397,6 +4413,11 @@ function drawSkier(){
   const lerpP = (p0, p1, f) => ({ x: p0.x + (p1.x - p0.x) * f, y: p0.y + (p1.y - p0.y) * f });
   let handI = tuck ? { x: sh.x + s*2.4, y: sh.y + 3.2 } : lerpP({ x: shI.x + s*2.6, y: shI.y + 4.4 }, { x: hip.x + s*(3.4 + incl*2.2), y: -1.2 }, wI);
   let handO = tuck ? { x: sh.x - s*2.4, y: sh.y + 3.2 } : lerpP({ x: shO.x - s*2.6, y: shO.y + 4.6 }, { x: sh.x + s*1.4, y: sh.y + 2.2 }, wI);
+  const gsPose = gsT && !inGate && !skating && !(sk.pushT > 0) && wI > .05;
+  if (gsPose){
+    handI = lerpP(handI, { x: hip.x + s * (3 + incl * 2.4), y: hip.y + 2.2 }, wI);       // inside hand low, reaching toward the snow ahead of the knee
+    handO = lerpP(handO, { x: sh.x + s * .4, y: sh.y + 2.6 }, wI);                       // outside hand across in front of the chest
+  }
   if (inGate){
     handI = { x: sh.x + s * 2.9, y: sh.y + 2.4 - rock * .6 };
     handO = { x: sh.x - s * 2.9, y: sh.y + 2.4 - rock * .6 };
@@ -4443,6 +4464,11 @@ function drawSkier(){
     const ty = reach > .5 ? -1.4 : 2.6 - reach * 3, tx = 1 + (1 - reach) * 1.2;
     ctx.moveTo(handI.x, handI.y); ctx.lineTo(handI.x + s*tx, ty);
     ctx.moveTo(handO.x, handO.y); ctx.lineTo(handO.x - s*tx, ty);
+  }
+  else if (gsPose){
+    // outside pole held out level toward the outside of the turn, inside pole trailing up behind the low hand
+    ctx.moveTo(handO.x, handO.y); ctx.lineTo(handO.x - s * (4 + 4 * wI), handO.y + 1.2 - wI * .6);
+    ctx.moveTo(handI.x, handI.y); ctx.lineTo(handI.x - s * 1.2 * wI, handI.y - 5.5 * wI + (1 - wI) * 4);
   }
   else {
     ctx.moveTo(handI.x, handI.y); ctx.lineTo(handI.x + s*(1.6 + a), .4);              // inside pole swinging toward the plant
