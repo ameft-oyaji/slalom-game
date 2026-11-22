@@ -345,6 +345,8 @@ body.nightrace .ev-gear .up,body.nightrace .ev-gear .dn{color:#fff!important}
 .edgerow>span{font-size:13px;color:#C9D2E3;min-width:7.5em}
 .edgerow .seg button{font-family:var(--f-num);font-size:16px;padding:6px 12px}
 .cutboard{position:absolute;left:max(16px,env(safe-area-inset-left,0px));top:128px;display:flex;flex-direction:column;gap:2px;font-family:var(--f-body);font-size:12px;pointer-events:none;min-width:min(300px,calc(100% - 32px))}
+.cutboard .bib{font-style:normal;font-family:var(--f-num);font-size:11px;min-width:2.2em;text-align:center;background:#fff;color:var(--board);border-radius:2px;padding:0 3px}
+.cutboard .cb-h small{float:right;font-weight:400;opacity:.75;margin-left:8px}
 .cutboard .cb-h{background:var(--amber);color:var(--board);font-weight:700;padding:3px 8px;border-radius:3px 3px 0 0}
 .cutboard div:not(.cb-h){display:flex;align-items:center;gap:8px;background:rgba(14,26,46,.82);color:#fff;padding:3px 8px}
 .cutboard div.cut{border-bottom:2px solid var(--amber)}
@@ -3455,7 +3457,7 @@ function nextWatcher(){
   // the card shows the racer coming down
   const nm = splitName(nameOf(id));
   $('#cFirst').textContent = nm.first; $('#cFirst').hidden = !nm.first; $('#cLast').textContent = nm.last;
-  $('#cBib').hidden = false; $('#cBib').textContent = race.run === 1 ? race.bib.get(id) : (race.order2.indexOf(id) + 1);
+  $('#cBib').hidden = false; $('#cBib').textContent = race.bib.get(id);
   setFlag($('#cFlag'), natOf(id)); $('#cNat').textContent = natOf(id);
   $('#cRank').hidden = true; $('#cDiff').hidden = true; $('#cTime').hidden = false; $('#cTime').textContent = '…';
 }
@@ -3503,10 +3505,10 @@ function renderCutBoard(){
   const cut = race.run === 1 && WATCH.cut;
   const rows = rl.filter(x => x.rank <= 5 || (cut && x.rank >= 28 && x.rank <= 30) || x.id === 'you');
   const lastIn = cut ? Math.max(...rl.filter(x => x.rank <= 30).map(x => x.rank)) : -1;
-  let html = `<div class="cb-h">${race.run === 1 ? '1本目' : '2本合計'} 暫定順位 TOP5${cut ? '（30位まで2本目進出）' : ''}</div>`, prev = 0;
+  let html = `<div class="cb-h">${race.run === 1 ? '1本目' : '2本合計'} 暫定順位 TOP5${cut ? '（30位まで2本目進出）' : ''}<small>順位・ゼッケン</small></div>`, prev = 0;
   for (const x of rows){
     if (prev && x.rank > prev + 1) html += '<div class="gap">⋯</div>';
-    html += `<div class="${x.id === 'you' ? 'me' : ''}${x.rank === lastIn && x.id !== 'you' ? ' cut' : ''}"><b>${x.rank}</b><span class="nm">${esc(nameOf(x.id))}</span><span class="tm">${fmt(x.t)}</span><span class="df">${x.rank === 1 ? '' : fmtDiff(trunc(x.t - best))}</span></div>`;
+    html += `<div class="${x.id === 'you' ? 'me' : ''}${x.rank === lastIn && x.id !== 'you' ? ' cut' : ''}"><b>${x.rank}</b><i class="bib">${race.bib.get(x.id) || ''}</i><span class="nm">${esc(nameOf(x.id))}</span><span class="tm">${fmt(x.t)}</span><span class="df">${x.rank === 1 ? '' : fmtDiff(trunc(x.t - best))}</span></div>`;
     prev = x.rank;
   }
   $('#cutBoard').innerHTML = html;
@@ -4141,7 +4143,7 @@ function showFinal(){
     const out = commitResults(race.ev, res, me ? 'ok' : (race.run1.you == null ? 'r1' : race.qualified ? 'r2' : 'nq'));
     saved = out.saved; mv = out;
   }
-  const rows = res.map(o => `<tr class="${o.id === 'you' ? 'me' : ''}"><td class="n">${o.rank}</td><td>${esc(nameOf(o.id))}</td><td class="nat3">${flagH(natOf(o.id))}${natOf(o.id)}</td><td class="r">${fmt(o.r1)}</td><td class="r">${fmt(o.r2)}</td><td class="n">${fmt(o.t)}</td><td class="r">${o.rank === 1 ? '' : fmtDiff(o.t - best)}</td><td class="n">${o.pts || ''}</td></tr>`);
+  const rows = res.map(o => `<tr class="${o.id === 'you' ? 'me' : ''}"><td class="n">${o.rank}</td><td class="r">${race.bib.get(o.id) || ''}</td><td>${esc(nameOf(o.id))}</td><td class="nat3">${flagH(natOf(o.id))}${natOf(o.id)}</td><td class="r">${fmt(o.r1)}</td><td class="r">${fmt(o.r2)}</td><td class="n">${fmt(o.t)}</td><td class="r">${o.rank === 1 ? '' : fmtDiff(o.t - best)}</td><td class="n">${o.pts || ''}</td></tr>`);
   let html = '';
   if (me){
     html += `<div><span class="big">${me.rank}位</span> ${me.rank === 1 ? '<span class="badge">優勝</span>' : me.rank <= 3 ? '<span class="badge">表彰台</span>' : ''}</div>`;
@@ -4151,7 +4153,7 @@ function showFinal(){
     html += `<div><span class="big" style="font-size:40px">${why.includes('DSQ') ? 'DSQ' : why.includes('DNF') ? 'DNF' : '2本目進めず'}</span></div><p class="note">${why}。ポイントは0です。</p>`;
   }
   if (mv) html += movementHTML(mv);
-  html += `<h3>最終結果${race.finals ? '（ファイナル：15位までポイント）' : '（30位までWCポイント）'}</h3>` + table(['順位','選手','国','1本目','2本目','合計','差','Pt'], rows);
+  html += `<h3>最終結果${race.finals ? '（ファイナル：15位までポイント）' : '（30位までWCポイント）'}</h3>` + table(['順位','Bib','選手','国','1本目','2本目','合計','差','Pt'], rows);
   if (race.mode === 'career' && !saved) html += `<p class="note">このブラウザでは記録を保存できないため、シーズンの成績は残りません。</p>`;
   const seasonOver = race.mode === 'career' && race.ev.finals;
   html += `<div class="btns"><button class="btn primary" type="button" id="toCal">シーズンの日程に戻る</button>${res.length >= 3 ? '<button class="btn" type="button" id="toCer">表彰式を見る</button>' : ''}${seasonOver ? '<button class="btn" type="button" id="toGlobe">クリスタルグローブ授賞式</button>' : ''}<button class="btn" type="button" id="toStand">ランキングを見る</button></div>`;
@@ -5462,10 +5464,7 @@ function bibNumber(){
   if (race.battle) return memNo(CLOUD.name);
   if (race.cpu) return 1;
   if (race.spectate && race.who){ const i = FIELDS[gender].findIndex(a => a.id === race.who.id); return i >= 0 ? i + 1 : 1; }
-  if (race.bib){
-    if (race.run === 2 && race.order2 && race.order2.includes('you')) return race.order2.indexOf('you') + 1;
-    return race.bib.get('you') || 1;
-  }
+  if (race.bib) return race.bib.get('you') || 1;                                  // the same bib in both runs
   return 1;
 }
 function drawSkier(){
