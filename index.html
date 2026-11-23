@@ -1234,15 +1234,17 @@ function profileHTML(prof){
     <small>${prof.name ? esc(prof.name) + '・' : ''}高低差 ${prof.drop} m・最大斜度 ${prof.max}%・平均斜度 ${prof.avg}%（${prof.src === 'gs' ? '大回転コースの数値は推定' : prof.src === 'fis' ? '公式データ' : prof.src === 'drop' ? '高低差は公式データ・斜度は推定' : '公式データが見つからないため推定'}）</small></div>`;
 }
 
-function buildCourse(seedN, gender, d){
+// opt (学連 slalom): { frac: share of the usual gates and drop, open: true = no closed gates }
+function buildCourse(seedN, gender, d, opt){
   if (d === 'GS') return buildGS(seedN, gender);
-  const r = rng(seedN);
-  const vd = gender === 'men' ? 180 + Math.round(r()*40) : 150 + Math.round(r()*45);   // vertical drop (m)
-  const N = Math.round(vd * (0.30 + r()*0.04));                                       // ≈ 30–34 % of vertical drop
+  const r = rng(seedN), fr = (opt && opt.frac) || 1;
+  const vd0 = gender === 'men' ? 180 + Math.round(r()*40) : 150 + Math.round(r()*45), vd = Math.round(vd0 * fr);   // vertical drop (m)
+  const N = Math.round(vd0 * (0.30 + r()*0.04) * fr);                                // ≈ 30–34 % of vertical drop
   // one closed gate on its own (not a row of them), around the middle of the course
   const combo = { n: 1, tag: 'クローズド' };
-  const seq = Array(Math.max(8, N - combo.n)).fill(null);
-  seq.splice(Math.floor(seq.length * (.42 + r() * .16)), 0, combo);
+  const open = !!(opt && opt.open);
+  const seq = Array(Math.max(8, N - (open ? 0 : combo.n))).fill(null);
+  if (!open) seq.splice(Math.floor(seq.length * (.42 + r() * .16)), 0, combo);
   const gates = [];
   let y = 150, side = r() < .5 ? -1 : 1, prevT = 0, first = true;
   for (const it of seq){
@@ -2229,6 +2231,7 @@ function finishCard(total, ref, rank){
 // 学連 mode: the All-Japan Intercollegiate Championships (インカレ) — slalom and giant slalom once each,
 // 2 runs, points for the top 30 that add up for each university, and dual races against student rivals
 // =====================================================================
+const IK_SL = { frac: 2 / 3, open: true };            // 学連 slalom: two thirds of the gates, no closed gates
 const IK_CPU = { top: ['学生トップクラス', 1, 10], mid: ['学生中位クラス', 11, 30], low: ['学生下位クラス', 31, 99] };
 const studentPace = (rank, a, n) => a && a.rel != null ? 1.13 * (1 + a.rel) : 1.13 + .11 * (rank - 1) / Math.max(1, (n || 72) - 1);      // against the robot's clean line: the best student about as quick as rank ~70 in the world
 const STU_SUR = ['SATO','SUZUKI','TAKAHASHI','TANAKA','WATANABE','ITO','YAMAMOTO','NAKAMURA','KOBAYASHI','KATO','YOSHIDA','YAMADA','YAMAGUCHI','MATSUMOTO','INOUE','KIMURA','HAYASHI','YAMAZAKI','MORI','ABE','IKEDA','HASHIMOTO','ISHIKAWA','MAEDA','FUJITA','OKADA','GOTO','HASEGAWA','MURAKAMI','KONDO','ISHII','SAKAMOTO','ENDO','AOKI','FUJII','NISHIMURA','FUKUDA','OTA','MIURA','OKAMOTO','MATSUDA','NAKAGAWA','HARADA','ONO','TAMURA','TAKEUCHI','KANEKO','WADA','NAKANO','FUJIWARA','MURATA','UENO','SAKAI','KUDO','MIYAZAKI','CHIBA','NOGUCHI','ARAI','SUGIYAMA','KIKUCHI'];
@@ -2291,8 +2294,8 @@ function incolLeave(){
 function makeIncolRace(d){
   const g = gender, st = incolState(), ev = incolEv(d);
   const sd = hashStr(`incol-${g}-${d}-${st.n}`);
-  const courses = [buildCourse(sd ^ 0x1111, g, d), buildCourse(sd ^ 0x2222, g, d)];
-  courses.forEach(c => { c.prof = makeProfile(ev.venue, c.finishY, d); c.vd = c.prof.drop; });
+  const courses = [buildCourse(sd ^ 0x1111, g, d, IK_SL), buildCourse(sd ^ 0x2222, g, d, IK_SL)];
+  courses.forEach(c => { c.prof = makeProfile(ev.venue, c.finishY, d); c.vd = Math.round(c.prof.drop * (d === 'SL' ? IK_SL.frac : 1)); });
   const refs = courses.map(refRun);
   const field = FIELDS[g], r = rng(sd ^ 0x5EED);
   const rivals = field.map(a => ({ id: a.id, name: a.name, nat: a.nat, me: false }));
@@ -3017,6 +3020,7 @@ function startCpuDual(opt){
   const ik = !!(opt && opt.incol);
   const key = newDualKey(gender, DUAL_PREF.d);
   race = makeDualRace(key);
+  if (ik && race.ev.disc === 'SL'){ const dk = dualKeyParse(key), o = { n: Math.round(20 * IK_SL.frac), open: true }; race.courses = [dualCourse(dk.seed, 'SL', false, o), dualCourse(dk.seed, 'SL', true, o)]; }
   const field = ik ? studentField(gender, race.ev.disc) : buildField(gender, race.ev.disc), k = ik ? (IK_CPU[GK.cpu] || IK_CPU.mid) : CPU_LV[DUAL_PREF.cpu] || CPU_LV.mid, r = Math.random;
   const lo = Math.min(k[1], field.length), hi = Math.min(k[2], field.length);
   const rank = lo + Math.floor(r() * (hi - lo + 1));          // where in the ranking this rival stands
@@ -3093,7 +3097,7 @@ function showCpuResult(){
   $('#cpMenu').onclick = () => { race = null; if (cp.incol) showIncol('DUAL'); else showMenu('dual'); };
 }
 // a dead-regular rhythm set, cut where a clean run reaches about 19 s, so the whole run takes about 20 s
-function dualCourse(seed, d, mirror){
+function dualCourse(seed, d, mirror, opt){
   const r = rng(seed ^ 0xD0A1), gs = d === 'GS';
   const off = gs ? 58 + r() * 12 : 25 + r() * 7, dist = gs ? 248 + r() * 20 : 106 + r() * 12;
   const dx = off * 2, dy = Math.max(gs ? 200 : 92, Math.sqrt(Math.max(0, dist * dist - dx * dx)));
@@ -3101,8 +3105,8 @@ function dualCourse(seed, d, mirror){
   const make = n => {
     const gates = [];
     if (!gs){
-      // slalom: one straight flush of four closed gates in the middle; the rest is the steady rhythm
-      const f0 = 8, fn = 4;
+      // slalom: one straight flush of four closed gates in the middle; the rest is the steady rhythm (学連: no flush)
+      const f0 = opt && opt.open ? 999 : 8, fn = 4;
       let y = 150;
       for (let i = 0; i < n; i++){
         const fl = i >= f0 && i < f0 + fn, k = i - f0;
@@ -3119,7 +3123,7 @@ function dualCourse(seed, d, mirror){
     c.prof = makeProfile('', c.finishY, d); c.vd = c.prof.drop;
     return c;
   };
-  return make(20);                                     // always 20 gates
+  return make(opt && opt.n || 20);                     // 20 gates (学連 slalom: two thirds of that)
 }
 function makeDualRace(key){
   const k = dualKeyParse(key);
