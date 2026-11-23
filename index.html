@@ -2010,6 +2010,7 @@ function step(dt){
     // dual race: "3, 2, 1, GO!" — at GO the gate in front of every racer drops and all are away together
     const before = cdT;
     cdT -= dt;
+    if (sk.tap) for (let i = 0; i < sk.tap.n; i++){ const ti = sk.tap.at - i * TAP_GAP; if (before > ti && cdT <= ti && startSfx) kanKan(); }
     for (const b of [3, 2, 1]) if (startSfx && before > b && cdT <= b) tone(780, .14, 'square', .08);
     if (cdT <= 0){
       if (startSfx){ tone(1320, .55, 'square', .09); thwack(.3); }
@@ -2510,7 +2511,8 @@ function beginRun(){
   race.leader = leaderBefore();
   race.run1Me = race.mode === 'ta' ? (race.taTimes[0] || 0) : (race.run1 && race.run1.you) || 0;
   course = race.courses[race.run - 1]; resetCourseState(course); resetBody(false);
-  sk.tap = Math.random() < .55 ? { at: 6.6 + Math.random() * 2.4, n: Math.random() < .5 ? 2 : 3 } : null;   // knock the boots before settling in (not always)
+  // knock the boots before settling in (not always) — the dual's countdown is short, so there it comes just before "3, 2, 1"
+  sk.tap = Math.random() < .55 ? (race.dual ? { at: 4.75 - Math.random() * .2, n: 2 } : { at: 6.6 + Math.random() * 2.4, n: Math.random() < .5 ? 2 : 3 }) : null;
   if (race.shimizu && race.shimizu[race.run - 1]){
     race.shimizuPaid = race.shimizuPaid || [false, false];
     if (!race.shimizuPaid[race.run - 1]){ race.shimizuPaid[race.run - 1] = true; save(shimizuKey(), { n: shimizuUsed() + 1 }); }
