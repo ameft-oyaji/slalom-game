@@ -1722,6 +1722,16 @@ function setupRun2(){
   race.qualified = race.order2.includes('you');
   for (const id of race.order2) if (id !== 'you') race.run2[id] = race.sim(id, 2);
 }
+// インカレ (division 1): 11 points for 1st, 9 for 2nd, then one less each place down to 1 for 10th.
+// Racers tied on a place share the points of the places they fill (two tied 3rd: (8 + 7) / 2 = 7.5 each)
+const INCOL_PTS = [11, 9, 8, 7, 6, 5, 4, 3, 2, 1];
+function incolPoints(out){
+  for (const o of out){
+    const n = out.filter(x => x.rank === o.rank).length;
+    let sum = 0; for (let i = 0; i < n; i++) sum += INCOL_PTS[o.rank - 1 + i] || 0;
+    o.pts = Math.round(sum / n * 100) / 100;
+  }
+}
 function combined(){
   const out = [];
   for (const id of race.order2){
@@ -1731,7 +1741,8 @@ function combined(){
   out.sort((x, y) => x.t - y.t);
   out.forEach(o => { o.rank = 1 + out.filter(x => x.t < o.t).length; });
   const maxPts = race.finals ? 15 : 30;
-  out.forEach(o => { o.pts = race.incol ? Math.max(0, 31 - o.rank) : o.rank <= maxPts ? WC_POINTS[o.rank - 1] : 0; });   // インカレ: 30 points for 1st … 1 for 30th
+  if (race.incol) incolPoints(out);
+  else out.forEach(o => { o.pts = o.rank <= maxPts ? WC_POINTS[o.rank - 1] : 0; });
   return out;
 }
 
@@ -2262,8 +2273,8 @@ function incolTeams(st){
 }
 function incolTeamsHTML(st){
   const T = incolTeams(st), done = ['SL', 'GS'].filter(d => st.res[d]).map(d => discJP(d)).join('・');
-  const rows = T.map(([c, p], i) => `<tr class="${c === GK.uni ? 'me' : ''}"><td class="n">${1 + T.filter(x => x[1] > p).length}</td><td>${flagH(c)}${esc(uniName(c))}${c === GK.uni ? '（あなたの大学）' : ''}</td><td class="n">${p}</td></tr>`);
-  return `<h3>学校対抗（${done || 'まだ競技なし'}）</h3>` + table(['順位', '大学', '得点'], rows) + '<p class="note">各種目30位まで得点（1位30点、2位29点…30位1点）。大学ごとに選手全員の得点を合計します。</p>';
+  const rows = T.map(([c, p], i) => `<tr class="${c === GK.uni ? 'me' : ''}"><td class="n">${1 + T.filter(x => x[1] > p).length}</td><td>${flagH(c)}${esc(uniName(c))}${c === GK.uni ? '（あなたの大学）' : ''}</td><td class="n">${Math.round(p * 100) / 100}</td></tr>`);
+  return `<h3>学校対抗（${done || 'まだ競技なし'}）</h3>` + table(['順位', '大学', '得点'], rows) + '<p class="note">各種目10位まで得点（1位11点、2位9点、3位8点…10位1点）。同じ順位が並んだときは、その人数分の順位の点数を足して人数で割ります。大学ごとに選手全員の得点を合計します。</p>';
 }
 // while racing as a student: your university stands in for your country and the students make up the field
 function incolEnter(d){
