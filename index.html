@@ -2330,7 +2330,7 @@ function tapeReset(){
 }
 function tapeSnap(){
   return { c: TAPE.clock, sk: Object.assign({}, sk, { act: sk.act ? Object.assign({}, sk.act) : sk.act }), t, timing, maxV, goT, state, dsq,
-           trailN: trail.length, g: course.gates.map(g => [g.bend[0], g.bend[1], g.bv[0], g.bv[1], g.res]) };
+           trailN: trail.length, g: course.gates.map(g => [g.bend[0], g.bend[1], g.bv[0], g.bv[1], g.res]), lit: Object.assign({}, SPECT.lit) };
 }
 function tapeApply(f){
   for (const k of Object.keys(sk)) if (!(k in f.sk)) delete sk[k];
@@ -2338,6 +2338,7 @@ function tapeApply(f){
   t = f.t; timing = f.timing; maxV = f.maxV; goT = f.goT; state = f.state; dsq = f.dsq;
   trail = f.trailN >= TAPE.liveTrail.length ? TAPE.liveTrail : TAPE.liveTrail.slice(0, f.trailN);
   course.gates.forEach((g, i) => { const a = f.g[i]; if (!a) return; g.bend[0] = a[0]; g.bend[1] = a[1]; g.bv[0] = a[2]; g.bv[1] = a[3]; g.res = a[4]; });
+  if (f.lit){ Object.assign(SPECT.lit, f.lit); spPadPaint(); }          // the buttons the racer was pressing at that moment
 }
 const spActive = () => !!(race && race.spectate && (state === 'run' || state === 'finished' || state === 'gate' || state === 'countdown'));
 function tapeRecord(){
@@ -2462,6 +2463,10 @@ function spectatePad(dt){
   if (c.push || sk.pushT > 0){ L.push = .15; }
   else { if (dir < 0) L.l = .14; if (dir > 0) L.r = .14; }
   if (c.tuck || sk.tuck) L.d = .14;
+  spPadPaint();
+}
+function spPadPaint(){
+  const L = SPECT.lit;
   for (const el of document.querySelectorAll('#spPad [data-b]')){ const on = L[el.dataset.b] > 0; if (el.classList.contains('on') !== on) el.classList.toggle('on', on); }
 }
 function showSpectateEnd(){
