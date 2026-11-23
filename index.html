@@ -83,6 +83,8 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
 /* the start: READY, the countdown and GO stand to the left of the racer in the gate, not on top of them */
 .cd.side{align-items:flex-end;justify-content:center;padding-left:max(3vw,10px);padding-right:59%;box-sizing:border-box;font-size:min(13vw,104px);text-align:right}
 .cd.side small{font-size:clamp(12px,2.6vw,18px);white-space:nowrap}
+.cd.above{justify-content:flex-start;align-items:center;padding-top:16vh;font-size:min(14vw,110px)}   /* GO: in the middle, above the start hut */
+.cd.above small{font-size:clamp(12px,2.6vw,18px);white-space:nowrap}
 .cd.side.r{align-items:flex-start;padding-left:59%;padding-right:max(11vw,72px);text-align:left}   /* the countdown digits: on the other side of the start hut */
 .cd{flex-direction:column;gap:6px}
 .cd small{display:block;font-family:var(--f-body);font-style:normal;font-weight:700;font-size:clamp(14px,3.4vw,22px);color:var(--board);background:rgba(255,255,255,.85);padding:4px 12px;border-radius:4px;text-shadow:none}
@@ -5750,12 +5752,12 @@ function render(){
     else cd.innerHTML = `<em class="beep${cdT <= 2 ? ' hi' : ''}">${Math.max(1, Math.ceil(cdT))}</em>`;
   }
   else if (state === 'gate'){
-    cd.className = 'cd go side' + (gateT <= 1.5 && !(race && race.mode === 'free') ? ' hurry' : '');
+    cd.className = 'cd go above' + (gateT <= 1.5 && !(race && race.mode === 'free') ? ' hurry' : '');
     const hint = document.body.classList.contains('touch') ? '左足＋右足を同時に押してスタート' : '← と → を同時に押してスタート';
     cd.innerHTML = `GO<small>${hint}</small>${race && race.mode === 'free' ? '' : `<em>${Math.max(0, gateT).toFixed(1)}</em>`}`;
   }
   else if (state === 'celebrate'){ /* banner set by celebrate() */ }
-  else if (goT > 0){ cd.className = 'cd go side'; cd.textContent = race && race.dual ? 'GO!' : 'GO'; }
+  else if (goT > 0){ cd.className = 'cd go above'; cd.textContent = race && race.dual ? 'GO!' : 'GO'; }
   else if (!dsq) cd.textContent = '';
 }
 function drawNets(yNear, yFar){
