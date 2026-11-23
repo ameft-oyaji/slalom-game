@@ -853,9 +853,25 @@ function itemSVG(cat, b){
       <path d="M72 61Q80 50 88 61Z" fill="${b.c1}"/><path d="M44 34Q60 30 70 34" stroke="#fff" stroke-opacity=".6" stroke-width="2" fill="none"/>
       <text x="80" y="84" text-anchor="middle" font-family="Barlow Condensed,sans-serif" font-size="9" fill="#56657F">${b.model}</text>`;
   } else {
-    art = `<path d="M30 62Q28 22 76 18Q122 16 128 54L130 62Z" fill="${b.c1}"/><path d="M40 30Q74 12 118 34L120 40Q76 22 40 38Z" fill="${b.c2}"/>
-      <path d="M118 52Q132 54 134 62H118Z" fill="#2A2F38"/>${b.chin ? `<path d="M110 62Q118 84 92 84H74V78H90Q108 78 104 62Z" fill="${b.c2}"/>` : ''}
-      ${logoSVG(b, 48, 50, 9, b.c3, b.c2)}<text x="152" y="88" text-anchor="end" font-family="Barlow Condensed,sans-serif" font-size="9" fill="#56657F">${b.model}</text>`;
+    // a ski helmet: three-quarter view from the front left, and a small view from behind (as on the slope)
+    const dk = shade(b.c1, .72), rim = '#1C1F26';
+    art = `<path d="M22 57C20 28 44 11 70 11C97 11 113 28 113 50L111 58Z" fill="${b.c1}"/>
+      <path d="M28 30C40 17 58 13 72 13C94 13 108 25 111 42" fill="none" stroke="${b.c2}" stroke-width="2.4" stroke-linecap="round"/>
+      <path d="M40 26l6-4M54 19l7-2M70 16h8M86 18l7 3M99 25l5 5" stroke="${dk}" stroke-width="3.2" stroke-linecap="round"/>
+      <path d="M58 57H98L100 70Q88 82 72 76L62 66Z" fill="${shade(b.c1, .86)}"/>
+      <ellipse cx="81" cy="67" rx="10" ry="7" fill="#22252C"/>
+      <path d="M22 57L111 58" stroke="${rim}" stroke-width="2.6" stroke-linecap="round"/>
+      <path d="M70 75L80 88L91 74" fill="none" stroke="#2A2F38" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/><rect x="77" y="85" width="6" height="4" rx="1" fill="#4A505C"/>
+      <rect x="108" y="34" width="4" height="12" rx="2" fill="${b.c2}"/>
+      ${b.chin ? `<path d="M28 57Q22 78 44 82H60V76H46Q34 74 36 57Z" fill="${b.c2}"/>` : ''}
+      ${logoSVG(b, 60, 42, 7, b.c3 === b.c1 ? '#fff' : b.c3, b.c2)}
+      <g transform="translate(138 40) scale(4.6 5.6)">
+        <path d="M-2.5 1.55L-2.78-.15C-2.85-3.25 2.85-3.25 2.78-.15L2.5 1.55Q1.7 1.95 1.15 1.3Q0 .85-1.15 1.3Q-1.7 1.95-2.5 1.55Z" fill="${b.c1}"/>
+        <path d="M-2.5 1.55Q-1.7 1.95-1.15 1.3Q0 .85 1.15 1.3Q1.7 1.95 2.5 1.55" fill="none" stroke="${rim}" stroke-width=".3"/>
+        <rect x="-1.63" y="-1.52" width=".76" height=".34" rx=".15" fill="${dk}"/><rect x="-.38" y="-1.92" width=".76" height=".34" rx=".15" fill="${dk}"/><rect x=".87" y="-1.52" width=".76" height=".34" rx=".15" fill="${dk}"/>
+        <rect x="-.35" y="-.75" width=".7" height="1.25" rx=".25" fill="${b.c2}"/>
+      </g>
+      <text x="152" y="88" text-anchor="end" font-family="Barlow Condensed,sans-serif" font-size="9" fill="#56657F">${b.model}</text>`;
   }
   return `<svg ${vb} xmlns="http://www.w3.org/2000/svg">${bg}${art}</svg>`;
 }
