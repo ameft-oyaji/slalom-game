@@ -113,6 +113,10 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
 .sp-keys b{font:800 20px var(--f-num);line-height:1}.sp-keys small{font:700 10px var(--f-body);margin-top:2px;white-space:nowrap}
 .sp-keys span.on{background:#FFC93C;color:#1A1300;border-color:#fff;transform:translateY(2px) scale(.96)}
 .sp-keys span[data-b=push].on{background:#4C8DFF;color:#fff}.sp-keys span[data-b=d].on{background:#2FB36A;color:#fff}
+.top-org{margin:0 auto 12px;display:inline-grid;grid-template-columns:repeat(2,1fr)}.top-org button{font-size:13px;padding:6px 14px;min-width:7.5em;white-space:nowrap;text-align:center}   /* World Cup or 学連 (student federation) */
+.ik-ev{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;background:rgba(19,35,94,.06);margin:6px 0}
+.ik-ev b{font-size:16px}.ik-ev .st{margin-left:auto;text-align:right;font-size:14px}
+.ik-uni{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .top-disc{margin:0 auto 14px;display:inline-grid;grid-template-columns:repeat(3,1fr)}.top-disc button{font-size:16px;padding:9px 0;width:6.2em;text-align:center}   /* three modes, all the same width */
 .clog{margin:6px 0;padding:6px 10px;background:rgba(255,255,255,.06);border-radius:6px}.clog summary{cursor:pointer;font-weight:700}.clog ul{margin:6px 0 2px 18px;padding:0}.clog li{margin:3px 0;font-size:13px}
 .top-watch{min-width:220px;font-size:16px;background:rgba(255,255,255,.12);color:#fff;border:1px solid rgba(255,255,255,.4)}
@@ -544,7 +548,8 @@ body.nightrace .ev-label,body.nightrace .ev-label *,body.nightrace #keys,body.ni
   </section>
   <section class="topscr" id="top" hidden>
     <div class="top-in">
-      <div class="top-eyebrow">FIS ALPINE SKI WORLD CUP 2026/27</div>
+      <div class="seg top-org" role="group" aria-label="大会の種類"><button type="button" id="orgWC" aria-pressed="true">ワールドカップ</button><button type="button" id="orgGK" aria-pressed="false">学連</button></div>
+      <div class="top-eyebrow" id="topEyebrow">FIS ALPINE SKI WORLD CUP 2026/27</div>
       <h1 class="top-title" id="topTitle">SLALOM<span>WORLD CUP</span></h1>
       <p class="top-sub" id="topSub">回転（スラローム）ワールドカップ</p>
       <div class="top-stripe"><i></i><i></i></div>
@@ -729,7 +734,45 @@ const NATIONS = [
   ['DEN','デンマーク','#C8102E','#FFFFFF'], ['LTU','リトアニア','#006A44','#FDB913'], ['EST','エストニア','#0072CE','#FFFFFF'], ['AIN','個人中立選手','#5B6578','#FFFFFF'],
 ];
 const NAT = Object.fromEntries(NATIONS.map(n => [n[0], { jp: n[1], suit: n[2], trim: n[3] }]));
-NAT.KSD = { jp: 'KSD', suit: '#1B3C8C', trim: '#FFFFFF' };        // the インカレクラス rival's team (not a country you can pick)
+NAT.KSD = { jp: 'KSD', suit: '#1B3C8C', trim: '#FFFFFF' };
+// ---- 学連 (the student ski federation): universities take the place of countries ----
+// [code, name, colour, second colour, the character on the flag]. The flags are original designs: the school colour and one character of its name
+const UNIS = [
+  ['WSD', '早稲田大学', '#8E1B2A', '#F2C14E', '稲'],
+  ['CHU', '中央大学', '#1A4D8F', '#F2C14E', '中'],
+  ['TOY', '東洋大学', '#162B4A', '#F2C14E', '洋'],
+  ['TOK', '東海大学', '#FFFFFF', '#1A1A1A', '海'],
+  ['NIH', '日本大学', '#FFFFFF', '#E60012', '日'],
+  ['NIT', '日本体育大学', '#FFFFFF', '#1A1A1A', '体'],
+  ['SEN', '専修大学', '#FFFFFF', '#2A2A2A', '専'],
+  ['MEI', '明治大学', '#FFFFFF', '#2B2F86', '明'],
+  ['KEI', '慶應義塾大学', '#234B70', '#FFFFFF', '慶'],
+  ['KIN', '近畿大学', '#0C4F7C', '#FFFFFF', '近'],
+  ['NOD', '東京農業大学', '#1E6B45', '#F2C14E', '農'],
+  ['HOS', '法政大学', '#1F3A5F', '#F2A33A', '法'],
+  ['KSD', '京都産業大学', '#1B3C8C', '#FFFFFF', null],
+  ['AOM', '青森大学', '#26774A', '#F2C14E', '青'],
+  ['RIK', '立教大学', '#4E2A6E', '#FFFFFF', '教'],
+  ['KAN', '関西大学', '#33127A', '#FFFFFF', '関'],
+  ['RIT', '立命館大学', '#9E1B32', '#F2C14E', '命'],
+  ['KGU', '関西学院大学', '#1B4A7A', '#F2C14E', '院'],
+  ['OSD', '大阪産業大学', '#1F4E6B', '#FFFFFF', '産'],
+  ['KYO', '京都大学', '#FFFFFF', '#1E2F5E', '京'],
+  ['KOB', '神戸大学', '#9E3A2F', '#F2C14E', '神'],
+  ['OSA', '大阪大学', '#FFFFFF', '#2B3990', '阪'],
+  ['KYU', '九州大学', '#8A0B3F', '#FFFFFF', '九'],
+  ['RYU', '龍谷大学', '#4A2A6E', '#FFFFFF', '龍'],
+];
+function uniFlag(bg, fg, ch){
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 16"><rect width="24" height="16" fill="${bg}"${bg === '#FFFFFF' ? ' stroke="#C9D2E3" stroke-width=".8"' : ''}/><path d="M0 13L24 4V7L0 16Z" fill="${fg}" opacity="${bg === '#FFFFFF' ? .12 : .3}"/><text x="12" y="12" text-anchor="middle" font-size="10.5" font-weight="700" fill="${fg}">${ch}</text></svg>`;
+  return 'url(data:image/svg+xml,' + encodeURIComponent(svg) + ')';
+}
+for (const [c, jp, suit, trim, ch] of UNIS){ if (ch) FLAG[c] = uniFlag(suit, trim, ch); NAT[c] = { jp, suit, trim }; }
+const uniName = c => (NAT[c] || {}).jp || c;
+const GK = Object.assign({ on: false, uni: 'KSD', cpu: 'mid' }, load('slalomwc-gk') || {});
+if (!NAT[GK.uni]) GK.uni = 'KSD';
+const saveGK = () => save('slalomwc-gk', GK);
+let INCOL_SWAP = null;          // while racing as a student: what your country and the field were before        // the インカレクラス rival's team (not a country you can pick)
 
 // Equipment. All brands and logos are fictional, original designs made for this game.
 // mod: turn (turn rate), drag (air/snow drag), carve (speed lost while turning), push (start push, km/h-ish),
@@ -1329,7 +1372,7 @@ if (prefs){ gender = prefs.gender || gender; level = LEVEL_K[prefs.level] ? pref
 FIELDS.men = buildField('men', disc);
 // what the title screen and menu are set to: slalom, giant slalom, or the online dual race (which keeps disc as it was)
 let playMode = prefs && ['SL', 'GS', 'DUAL'].includes(prefs.pmode) ? prefs.pmode : disc;
-function savePrefs(){ save('slalomwc-prefs', { disc, pmode: playMode, gender, level, pname, ctrl, nat: myNat, gear: myGear, setupDone }); }
+function savePrefs(){ save('slalomwc-prefs', { disc, pmode: playMode, gender, level, pname, ctrl, nat: INCOL_SWAP ? INCOL_SWAP.nat : myNat, gear: myGear, setupDone }); }
 function applyCtrlLabels(){
   const outer = ctrl === 'outer';
   $('#padL').innerHTML = outer ? '<b>左足</b><small>右へ曲がる</small>' : '<b>◀</b><small>左へ曲がる</small>';
@@ -1688,7 +1731,7 @@ function combined(){
   out.sort((x, y) => x.t - y.t);
   out.forEach(o => { o.rank = 1 + out.filter(x => x.t < o.t).length; });
   const maxPts = race.finals ? 15 : 30;
-  out.forEach(o => { o.pts = o.rank <= maxPts ? WC_POINTS[o.rank - 1] : 0; });
+  out.forEach(o => { o.pts = race.incol ? Math.max(0, 31 - o.rank) : o.rank <= maxPts ? WC_POINTS[o.rank - 1] : 0; });   // インカレ: 30 points for 1st … 1 for 30th
   return out;
 }
 
@@ -2169,6 +2212,155 @@ function finishCard(total, ref, rank){
 // =====================================================================
 // Run flow
 // =====================================================================
+// =====================================================================
+// 学連 mode: the All-Japan Intercollegiate Championships (インカレ) — slalom and giant slalom once each,
+// 2 runs, points for the top 30 that add up for each university, and dual races against student rivals
+// =====================================================================
+const IK_CPU = { top: ['学生トップクラス', 1, 10], mid: ['学生中位クラス', 11, 30], low: ['学生下位クラス', 31, 72] };
+const studentPace = rank => 1.13 + .11 * (rank - 1) / 71;      // against the robot's clean line: the best student about as quick as rank ~70 in the world
+const STU_SUR = ['SATO','SUZUKI','TAKAHASHI','TANAKA','WATANABE','ITO','YAMAMOTO','NAKAMURA','KOBAYASHI','KATO','YOSHIDA','YAMADA','YAMAGUCHI','MATSUMOTO','INOUE','KIMURA','HAYASHI','YAMAZAKI','MORI','ABE','IKEDA','HASHIMOTO','ISHIKAWA','MAEDA','FUJITA','OKADA','GOTO','HASEGAWA','MURAKAMI','KONDO','ISHII','SAKAMOTO','ENDO','AOKI','FUJII','NISHIMURA','FUKUDA','OTA','MIURA','OKAMOTO','MATSUDA','NAKAGAWA','HARADA','ONO','TAMURA','TAKEUCHI','KANEKO','WADA','NAKANO','FUJIWARA','MURATA','UENO','SAKAI','KUDO','MIYAZAKI','CHIBA','NOGUCHI','ARAI','SUGIYAMA','KIKUCHI'];
+const STU_M = ['Haruto','Sota','Yuto','Riku','Kaito','Ren','Takumi','Hayato','Daiki','Shota','Kenta','Yuki','Ryota','Naoki','Kosuke','Shun','Taiga','Kazuki','Yamato','Sho','Tsubasa','Ryusei'];
+const STU_F = ['Yui','Hina','Sakura','Mei','Aoi','Rin','Miyu','Nanami','Haruka','Yuna','Saki','Mio','Akari','Kokona','Riko','Ayaka','Natsumi','Momoka','Honoka','Kaede','Misaki','Chihiro'];
+// 72 students (made-up names) from the universities, ordered by their ability in this discipline
+function studentField(g, d){
+  const r = rng(g === 'men' ? 7101 : 7202), n = 72, out = [], used = new Set();
+  while (out.length < n){
+    const sur = STU_SUR[Math.floor(r() * STU_SUR.length)], fl = g === 'men' ? STU_M : STU_F, first = fl[Math.floor(r() * fl.length)];
+    if (used.has(sur + first)) continue; used.add(sur + first);
+    const i = out.length;
+    out.push({ id: (g === 'men' ? 'cm' : 'cw') + i, name: sur + ' ' + first, nat: UNIS[Math.floor(r() * UNIS.length)][0], base: 1 - Math.pow(i / (n - 1), .8), aggr: r() });
+  }
+  const rd = rng(hashStr(g + d + 'stu'));
+  out.forEach(a => { a.skill = clamp(a.base + (rd() - .5) * .2, 0, 1); });
+  out.sort((a, b) => b.skill - a.skill);
+  out.forEach((a, i) => { a.fis = i + 1; });
+  return out;
+}
+JP.Intercollegiate = 'インカレ';
+const incolEv = d => ({ date: d === 'GS' ? '2027-03-02' : '2027-03-04', venue: 'Intercollegiate', nat: 'JPN', disc: d, night: false, finals: false });
+function incolState(){ const all = load('slalomwc-incol') || {}; return all[gender] || { n: 1, res: {} }; }
+function incolSave(st){ const all = load('slalomwc-incol') || {}; all[gender] = st; save('slalomwc-incol', all); }
+function incolTeams(st){
+  const tot = {}; for (const [c] of UNIS) tot[c] = 0;
+  for (const d of ['SL', 'GS']){ const R = st.res[d]; if (R) for (const o of R.rows) tot[o.nat] = (tot[o.nat] || 0) + o.pts; }
+  return Object.entries(tot).sort((a, b) => b[1] - a[1]);
+}
+function incolTeamsHTML(st){
+  const T = incolTeams(st), done = ['SL', 'GS'].filter(d => st.res[d]).map(d => discJP(d)).join('・');
+  const rows = T.map(([c, p], i) => `<tr class="${c === GK.uni ? 'me' : ''}"><td class="n">${1 + T.filter(x => x[1] > p).length}</td><td>${flagH(c)}${esc(uniName(c))}${c === GK.uni ? '（あなたの大学）' : ''}</td><td class="n">${p}</td></tr>`);
+  return `<h3>学校対抗（${done || 'まだ競技なし'}）</h3>` + table(['順位', '大学', '得点'], rows) + '<p class="note">各種目30位まで得点（1位30点、2位29点…30位1点）。大学ごとに選手全員の得点を合計します。</p>';
+}
+// while racing as a student: your university stands in for your country and the students make up the field
+function incolEnter(d){
+  if (!INCOL_SWAP) INCOL_SWAP = { nat: myNat, field: FIELDS[gender], gender };
+  myNat = GK.uni;
+  if (d) FIELDS[gender] = studentField(gender, d);
+}
+function incolLeave(){
+  if (!INCOL_SWAP) return;
+  myNat = INCOL_SWAP.nat; FIELDS[INCOL_SWAP.gender] = INCOL_SWAP.field; INCOL_SWAP = null;
+}
+function makeIncolRace(d){
+  const g = gender, st = incolState(), ev = incolEv(d);
+  const sd = hashStr(`incol-${g}-${d}-${st.n}`);
+  const courses = [buildCourse(sd ^ 0x1111, g, d), buildCourse(sd ^ 0x2222, g, d)];
+  courses.forEach(c => { c.prof = makeProfile(ev.venue, c.finishY, d); c.vd = c.prof.drop; });
+  const refs = courses.map(refRun);
+  const field = FIELDS[g], r = rng(sd ^ 0x5EED);
+  const rivals = field.map(a => ({ id: a.id, name: a.name, nat: a.nat, me: false }));
+  const order = [...shuffle(rivals.slice(0, 7), r), ...shuffle(rivals.slice(7, 15), r), ...rivals.slice(15)];
+  order.splice(15 + Math.floor(r() * 30), 0, { id: 'you', name: pname, nat: myNat, me: true });   // your bib: drawn between 16 and 45
+  const bib = new Map(order.map((e, i) => [e.id, i + 1]));
+  const k = LEVEL_K.incol, byId = new Map(field.map(a => [a.id, a]));
+  const sim = (id, run) => {
+    const a = byId.get(id);
+    const pDnf = (run === 1 ? .1 : .07) + .08 * (1 - a.skill) + .05 * a.aggr;
+    if (r() < pDnf) return null;
+    const t0 = refs[run - 1].time * k * (1 + .065 * Math.pow(1 - a.skill, 1.1) + gauss(r) * .0085 - a.aggr * .002);
+    return trunc(t0 + (run === 1 ? (bib.get(id) - 1) * .005 : 0));
+  };
+  const run1 = {};
+  for (const e of order) if (!e.me) run1[e.id] = sim(e.id, 1);
+  return { ev, mode: 'incol', incol: true, courses, refs, run: 1, playerDsq: [false, false], finals: false, maxV: 0, wx: weatherFor(ev, g),
+    wax: [lastWax, lastWax], edge: [Object.assign({}, lastEdge), Object.assign({}, lastEdge)], blocked: false, entrants: order, bib, run1, run2: {}, order2: null, sim };
+}
+function enterIncolRace(d){ ac(); incolEnter(d); race = makeIncolRace(d); showIntro(); }
+function startIncolDual(){ incolEnter(null); startCpuDual({ incol: true }); }
+// the インカレ menu
+function showIncol(focus){
+  incolLeave(); race = null;
+  leaveRunUI(); if (state !== 'demo') startDemo();
+  const st = incolState();
+  const card = d => {
+    const R = st.res[d];
+    const stt = !R ? `<button class="btn small hot" type="button" data-ik="${d}">出走</button>`
+      : `${R.me.rank ? `<b>${R.me.rank}位</b> ${R.me.pts}点` : R.me.status === 'nq' ? '2本目進めず' : R.me.status === 'r1' ? '1本目 DSQ/DNF' : '2本目 DSQ/DNF'}<br><button class="btn small" type="button" data-ikres="${d}">結果を見る</button>`;
+    return `<div class="ik-ev"><span class="chip ${d}">${d}</span><b>${discJP(d)}</b><span class="note">2本合計・2本目は上位30名</span><div class="st">${stt}</div></div>`;
+  };
+  let html = `<div class="seg" id="ikG" role="group" aria-label="男子・女子">${['men', 'women'].map(k => `<button type="button" data-g="${k}" aria-pressed="${gender === k}">${k === 'men' ? '男子' : '女子'}</button>`).join('')}</div>
+    <h3>あなたの所属と名前</h3>
+    <div class="ik-uni"><span class="flag" id="ikFlag"></span><select id="ikUni" aria-label="所属する大学">${UNIS.map(([c, jp]) => `<option value="${c}"${c === GK.uni ? ' selected' : ''}>${esc(jp)}</option>`).join('')}</select>
+      <input type="text" id="ikName" maxlength="14" value="${esc(pname)}" aria-label="名前" autocomplete="off"></div>
+    <h3>第${st.n}回 全日本学生スキー選手権（${gender === 'men' ? '男子' : '女子'}）</h3>
+    <p class="note">24大学・学生72名（名前は架空）と、回転・大回転を1回ずつ滑ります。どちらも2本合計で、1本目の上位30名が2本目に進みます。</p>
+    ${card('SL')}${card('GS')}
+    ${incolTeamsHTML(st)}
+    <h3 id="ikDual">デュアル（学生のCPライバルと1対1）</h3>
+    <div class="seg" id="ikDD" role="group" aria-label="デュアルの種目">${['SL', 'GS'].map(d => `<button type="button" data-d="${d}" aria-pressed="${DUAL_PREF.d === d}">${DISC[d]}</button>`).join('')}</div>
+    <div class="g-who"><select id="ikCpu" aria-label="CPライバルの強さ">${Object.entries(IK_CPU).map(([k, v]) => `<option value="${k}"${GK.cpu === k ? ' selected' : ''}>CPライバル：${v[0]}（学生${v[1]}〜${v[2]}位）</option>`).join('')}</select><button class="btn small hot" type="button" id="ikDualGo">対戦スタート</button></div>
+    <div class="btns"><button class="btn" type="button" id="ikReset">新しい大会（第${st.n + 1}回）を始める</button><button class="btn" type="button" id="ikTop">トップに戻る</button></div>`;
+  openSheet('Intercollegiate', '全日本学生スキー選手権（インカレ）', html);
+  setFlag($('#ikFlag'), GK.uni);
+  document.querySelectorAll('#ikG button').forEach(b => b.onclick = () => { gender = b.dataset.g; savePrefs(); showIncol(); });
+  $('#ikUni').onchange = e => { GK.uni = e.target.value; saveGK(); setFlag($('#ikFlag'), GK.uni); $('#shBody').querySelectorAll('tr').length && showIncol(); };
+  $('#ikName').oninput = e => { pname = e.target.value.trim().slice(0, 14) || 'あなた'; savePrefs(); };
+  document.querySelectorAll('[data-ik]').forEach(b => b.onclick = () => enterIncolRace(b.dataset.ik));
+  document.querySelectorAll('[data-ikres]').forEach(b => b.onclick = () => showIncolStored(b.dataset.ikres));
+  document.querySelectorAll('#ikDD button').forEach(b => b.onclick = () => { DUAL_PREF.d = b.dataset.d; save('slalomwc-dual', DUAL_PREF); document.querySelectorAll('#ikDD button').forEach(x => x.setAttribute('aria-pressed', x === b)); });
+  $('#ikCpu').onchange = e => { GK.cpu = e.target.value; saveGK(); };
+  $('#ikDualGo').onclick = () => { closeSheet(); startIncolDual(); };
+  $('#ikReset').onclick = () => { const b = $('#ikReset'); if (b.dataset.armed){ incolSave({ n: st.n + 1, res: {} }); showIncol(); } else { b.dataset.armed = '1'; b.textContent = 'もう一度押すと、今の大会の記録を消して始めます'; } };
+  $('#ikTop').onclick = goTop;
+  if (focus === 'DUAL'){ const h = $('#ikDual'); if (h) setTimeout(() => { try { h.scrollIntoView({ block: 'start' }); } catch(e){} }, 50); }
+}
+function incolRowsHTML(rows, best){
+  return table(['順位', '選手', '大学', '合計', '差', '得点'], rows.map(o => `<tr class="${o.id === 'you' ? 'me' : ''}"><td class="n">${o.rank}</td><td>${esc(o.id === 'you' ? pname : nameOf(o.id) || o.name || '')}</td><td class="nat3">${flagH(o.nat)}${esc(uniName(o.nat))}</td><td class="n">${fmt(o.t)}</td><td class="r">${o.rank === 1 ? '' : fmtDiff(o.t - best)}</td><td class="n">${o.pts || ''}</td></tr>`));
+}
+function showIncolFinal(){
+  state = 'sheet';
+  if (!race.order2) setupRun2();
+  const res = combined(), best = res.length ? res[0].t : null, me = res.find(x => x.id === 'you'), d = race.ev.disc;
+  const st = incolState();
+  const status = me ? 'ok' : race.run1.you == null ? 'r1' : race.qualified ? 'r2' : 'nq';
+  st.res[d] = { rows: res.map(o => ({ id: o.id, name: o.id === 'you' ? pname : nameOf(o.id), nat: natOf(o.id), pts: o.pts, rank: o.rank, t: o.t })), me: { rank: me ? me.rank : null, pts: me ? me.pts : 0, t: me ? me.t : null, status } };
+  incolSave(st);
+  let html = '';
+  if (me){
+    html += `<div><span class="big">${me.rank}位</span> ${me.rank === 1 ? '<span class="badge">優勝</span>' : me.rank <= 3 ? '<span class="badge">表彰台</span>' : ''}</div>`;
+    html += `<dl class="rows"><dt>合計タイム</dt><dd>${fmt(me.t)}</dd><dt>1本目 / 2本目</dt><dd>${fmt(me.r1)} / ${fmt(me.r2)}</dd><dt>優勝との差</dt><dd>${me.rank === 1 ? '優勝' : fmtDiff(me.t - best)}</dd><dt>学校対抗の得点</dt><dd>${me.pts} 点（${esc(uniName(GK.uni))}）</dd><dt>最高速度</dt><dd>${Math.round(race.maxV * .36)} km/h</dd></dl>`;
+  } else {
+    const why = race.run1.you == null ? `1本目 ${race.playerDsq[0] === 'DNF' ? '途中棄権（DNF）' : '失格（DSQ）'}` : !race.qualified ? `1本目 ${rankOf(race.run1, 'you')}位で2本目に進めず` : `2本目 ${race.playerDsq[1] === 'DNF' ? '途中棄権（DNF）' : '失格（DSQ）'}`;
+    html += `<div><span class="big" style="font-size:40px">${why.includes('DSQ') ? 'DSQ' : why.includes('DNF') ? 'DNF' : '2本目進めず'}</span></div><p class="note">${why}。得点は0です。</p>`;
+  }
+  html += incolTeamsHTML(st);
+  html += `<h3>${discJP(d)} 最終結果</h3>` + incolRowsHTML(st.res[d].rows, best);
+  html += `<div class="btns"><button class="btn primary" type="button" id="ikBack">インカレのメニューに戻る</button>${res.length >= 3 ? '<button class="btn" type="button" id="toCer">表彰式を見る</button>' : ''}</div>`;
+  openSheet('Intercollegiate · Results', `インカレ ${discJP(d)} 最終結果`, html);
+  scrollMeIntoView();
+  const r3 = res.slice(0, 6).map(o => ({ id: o.id, line: fmt(o.t) + (o.rank === 1 ? '' : '  ' + fmtDiff(o.t - best)) }));
+  const ev = race.ev;
+  if ($('#toCer')) $('#toCer').onclick = () => showCeremony('race', r3, ev);
+  $('#ikBack').onclick = () => showIncol();
+  if (me && me.rank <= 3 && res.length >= 3 && !race.ceremonyShown){ race.ceremonyShown = true; setTimeout(() => showCeremony('race', r3, ev), 400); }
+}
+function showIncolStored(d){
+  const st = incolState(), R = st.res[d]; if (!R) return showIncol();
+  const best = R.rows.length ? R.rows[0].t : null;
+  const html = incolRowsHTML(R.rows, best) + `<div class="btns"><button class="btn primary" type="button" id="ikBack">インカレのメニューに戻る</button></div>`;
+  openSheet('Intercollegiate · Results', `第${st.n}回インカレ ${discJP(d)} 最終結果`, html);
+  scrollMeIntoView();
+  $('#ikBack').onclick = () => showIncol();
+}
 function enterRace(ev, mode){
   ac();
   const r = makeRace(ev, mode);
@@ -2208,7 +2400,7 @@ function showIntro(){
   $('#goInspect').onclick = startInspection;
   $('#goBack').onclick = () => {
     if (race.run === 2){ race.playerDsq[1] = 'DNF'; recordPlayerTime(null); afterRun2(); }
-    else { race = null; showMenu(); }
+    else { const ik = race.incol; race = null; if (ik) showIncol(); else showMenu(); }
   };
 }
 function waxRow(run){ if (!race.wx) return ''; const w = waxById(race.wax[run - 1]), wx = race.wx[run - 1]; return `<dt>${run}本目のワックス（雪温 ${wx.snowT.toFixed(1)}℃）</dt><dd style="font-family:var(--f-body);font-size:14px">${w.name} ${waxGrade(waxMatch(w, wx))}</dd>` + (race.edge ? `<dt>${run}本目のエッジ（${wx.surface}）</dt><dd style="font-family:var(--f-body);font-size:14px">${race.edge[run - 1].side}° / ${race.edge[run - 1].base.toFixed(1)}° ${waxGrade(edgeMatch(race.edge[run - 1], wx))}</dd>` : ''); }
@@ -2792,24 +2984,25 @@ function cpuTrack(c, mod){
   }
   return { pts, T: t };
 }
-function startCpuDual(){
+function startCpuDual(opt){
   ac();
+  const ik = !!(opt && opt.incol);
   const key = newDualKey(gender, DUAL_PREF.d);
   race = makeDualRace(key);
-  const field = buildField(gender, race.ev.disc), k = CPU_LV[DUAL_PREF.cpu] || CPU_LV.mid, r = Math.random;
+  const field = ik ? studentField(gender, race.ev.disc) : buildField(gender, race.ev.disc), k = ik ? (IK_CPU[GK.cpu] || IK_CPU.mid) : CPU_LV[DUAL_PREF.cpu] || CPU_LV.mid, r = Math.random;
   const lo = Math.min(k[1], field.length), hi = Math.min(k[2], field.length);
   const rank = lo + Math.floor(r() * (hi - lo + 1));          // where in the ranking this rival stands
   let who = field[rank - 1];
-  const named = CPU_NAMED[DUAL_PREF.cpu];
+  const named = ik ? null : CPU_NAMED[DUAL_PREF.cpu];
   if (named){ const c = named[Math.floor(r() * named.length)]; who = { name: c[0], nat: c[1] }; }
-  const pace = cpuPace(rank);
+  const pace = ik ? studentPace(rank) : cpuPace(rank);
   const runs = race.courses.map((c, i) => {
     race.run = i + 1; const tr = cpuTrack(c, runMods()); race.run = 1;
     const f = pace * (1 + gauss(r) * .008);                    // this run's pace against the robot's clean line
     const fall = r() < .05 ? .3 + r() * .55 : null;             // now and then the rival goes out
     return { pts: tr.pts, f, T: trunc(tr.T * f), fall };
   });
-  race.cpu = { name: who.name, nat: who.nat, lv: k[0], rank, college: !!CPU_NAMED[DUAL_PREF.cpu], runs, times: runs.map(x => x.fall ? null : x.T) };
+  race.cpu = { name: who.name, nat: who.nat, lv: k[0], rank, college: !ik && !!CPU_NAMED[DUAL_PREF.cpu], incol: ik, runs, times: runs.map(x => x.fall ? null : x.T) };
   $('#menu').hidden = true;
   beginRun();
   cdT = 5;
@@ -2858,7 +3051,7 @@ function showCpuResult(){
   else verdict = '両者 途中棄権';
   const diff = me != null && them != null ? fmtDiff(me - them) : '';
   const cell = v => v != null ? fmt(v) : '—';
-  let html = `<div><span class="badge">${run === 1 ? (over ? '1本目で決着' : '1本目') : '2本合計'}</span> <span class="badge">CPライバル：${esc(cp.lv)}${cp.rank ? `・ランキング${cp.rank}位${cp.college ? '相当' : ''}` : ''}</span></div>
+  let html = `<div><span class="badge">${run === 1 ? (over ? '1本目で決着' : '1本目') : '2本合計'}</span> <span class="badge">CPライバル：${esc(cp.lv)}${cp.incol ? `・${esc(uniName(cp.nat))}（学生${cp.rank}位）` : cp.rank ? `・ランキング${cp.rank}位${cp.college ? '相当' : ''}` : ''}</span></div>
     <div><span class="big" style="font-size:44px">${verdict}</span></div>${diff ? `<p class="note">相手との差 ${diff}</p>` : ''}`;
   const row = (name, nat, a, out, isMe) => `<tr class="${isMe ? 'me' : ''}"><td>${esc(name)}${isMe && name !== 'あなた' ? '（あなた）' : ''} <span class="nat3">${flagH(nat)}${nat}</span></td><td class="r">${out && a[0] == null ? out : cell(a[0])}</td>${run === 2 ? `<td class="r">${out && a[0] != null && a[1] == null ? out : cell(a[1])}</td><td class="n">${out ? out : cell(tot(a))}</td>` : ''}</tr>`;
   html += table(run === 1 ? ['選手', '1本目'] : ['選手', '1本目', '2本目', '合計'], [row(pname, myNat, mine, myOut, true), row(cp.name, cp.nat, cp.times, cpOut, false)]);
@@ -2868,8 +3061,8 @@ function showCpuResult(){
   openSheet('Dual Race · vs CP', !over ? 'デュアルレース 1本目の結果' : 'デュアルレース 最終結果', html);
   if (over && win) crowdCheer(.9);
   const nx = $('#cpNext'); if (nx) nx.onclick = () => { race.run = 2; beginRun(); cdT = 5; };
-  const ag = $('#cpAgain'); if (ag) ag.onclick = () => startCpuDual();
-  $('#cpMenu').onclick = () => { race = null; showMenu('dual'); };
+  const ag = $('#cpAgain'); if (ag) ag.onclick = () => cp.incol ? startIncolDual() : startCpuDual();
+  $('#cpMenu').onclick = () => { race = null; if (cp.incol) showIncol('DUAL'); else showMenu('dual'); };
 }
 // a dead-regular rhythm set, cut where a clean run reaches about 19 s, so the whole run takes about 20 s
 function dualCourse(seed, d, mirror){
@@ -4068,7 +4261,8 @@ function showCeremony(kind, top, ev){
   const host = NAT[ev.nat] || { suit: '#C8102E', trim: '#fff' };
   const wallCol = kind === 'globe' ? '#13235E' : host.suit === '#FFFFFF' ? '#C8102E' : host.suit;
   const title = kind === 'globe' ? `${discJP(ev.disc)} クリスタルグローブ 授賞式` : `${JP[venue] || venue} ${discJP(ev.disc)} 表彰式`;
-  const boards = Array.from({ length: 15 }, (_, i) => `<div class="wb">${i % 2 ? esc(venue) : kind === 'globe' ? 'CRYSTAL GLOBE' : 'WORLD CUP'}<small>${i % 2 ? 'FIS ALPINE' : 'SLALOM 2026/27'}</small></div>`).join('');
+  const ik = race && race.incol;
+  const boards = Array.from({ length: 15 }, (_, i) => `<div class="wb">${i % 2 ? esc(ik ? 'INCOL' : venue) : kind === 'globe' ? 'CRYSTAL GLOBE' : ik ? 'INTERCOLLEGIATE' : 'WORLD CUP'}<small>${i % 2 ? (ik ? 'ALL JAPAN' : 'FIS ALPINE') : ik ? 'SKI 2027' : 'SLALOM 2026/27'}</small></div>`).join('');
   const person = (x, place, pose) => {
     const me = x.id === 'you', nat = natOf(x.id);
     const plate = `<div class="plate${me ? ' me' : ''}"><span class="flag" style="background:${FLAG[nat] || '#C9D2E3'}"></span><b>${place}</b> ${esc(nameOf(x.id))}${me && nameOf(x.id) !== 'あなた' ? '（あなた）' : ''}<small>${x.line}</small></div>`;
@@ -4285,12 +4479,12 @@ function showRun1Result(){
   const rows = rl.map((x, i) => {
     const next = rl[i + 1];
     const cls = (x.id === 'you' ? 'me' : '') + (x.rank <= cut && next && next.rank > cut ? ' cut' : '');
-    return `<tr class="${cls}"><td class="n">${x.rank}</td><td class="r">${race.bib.get(x.id)}</td><td>${esc(nameOf(x.id))}</td><td class="nat3">${flagH(natOf(x.id))}${natOf(x.id)}</td><td class="n">${fmt(x.t)}</td><td class="r">${x.rank === 1 ? '' : fmtDiff(x.t - best)}</td></tr>`;
+    return `<tr class="${cls}"><td class="n">${x.rank}</td><td class="r">${race.bib.get(x.id)}</td><td>${esc(nameOf(x.id))}</td><td class="nat3">${flagH(natOf(x.id))}${race.incol ? uniName(natOf(x.id)) : natOf(x.id)}</td><td class="n">${fmt(x.t)}</td><td class="r">${x.rank === 1 ? '' : fmtDiff(x.t - best)}</td></tr>`;
   });
   let html = '';
   if (me) html += `<div><span class="big">${fmt(me.t)}</span></div><dl class="rows"><dt>1本目の順位</dt><dd>${me.rank}位 / ${rl.length}名完走</dd><dt>トップとの差</dt><dd>${me.rank === 1 ? 'トップ' : fmtDiff(me.t - best)}</dd>${waxRow(1)}</dl>`;
   else html += `<div><span class="big">${race.playerDsq[0] || 'DSQ'}</span></div><p class="note">${race.playerDsq[0] === 'DNF' ? '途中棄権' : ((race.dsqWhy && race.dsqWhy[0]) || '旗門不通過による失格')}のため2本目には進めません。</p>`;
-  html += `<h3>1本目 結果（途中棄権・失格 ${dnf}名）</h3>` + table(['順位','Bib','選手','国','タイム','差'], rows);
+  html += `<h3>1本目 結果（途中棄権・失格 ${dnf}名）</h3>` + table(['順位','Bib','選手', race.incol ? '大学' : '国','タイム','差'], rows);
   html += `<p class="note">${race.finals ? 'ファイナルは1本目の完走者全員が2本目に進みます。' : '黄色の線までが2本目に進む上位30名（同タイムは全員進出）。'}</p><div class="btns">`;
   html += race.qualified ? `<button class="btn primary" type="button" id="toRun2">2本目へ（${race.order2.indexOf('you') + 1}番目スタート）</button>` : `<button class="btn primary" type="button" id="toFinal">最終結果を見る</button>`;
   html += '</div>';
@@ -4357,6 +4551,7 @@ function showSkipped(ev){
   $('#toCal').onclick = () => showMenu('cal');
 }
 function showFinal(){
+  if (race.incol) return showIncolFinal();
   state = 'sheet';
   if (!race.order2) setupRun2();
   const res = combined();
@@ -4499,6 +4694,7 @@ function showSetup(){
   $('#gDone').onclick = () => { setupDone = true; savePrefs(); showMenu(playMode === 'DUAL' ? 'dual' : 'cal'); };
 }
 function showMenu(which){
+  incolLeave();
   if (which) tab = which;
   closeSheet(); leaveRunUI();
   applyDisc();
@@ -4883,9 +5079,13 @@ function applyDisc(){
   const m = playMode;
   for (const [id, k] of [['SL', 'SL'], ['GS', 'GS'], ['Dual', 'DUAL']]){ $('#d' + id).setAttribute('aria-pressed', m === k); $('#td' + id).setAttribute('aria-pressed', m === k); }
   const T = { SL: ['SLALOM', 'WORLD CUP', '回転（スラローム）ワールドカップ'], GS: ['GIANT SLALOM', 'WORLD CUP', '大回転（ジャイアントスラローム）ワールドカップ'], DUAL: ['DUAL RACE', 'ONLINE', 'デュアルレース（オンラインで同時スタート・2本合計）'] }[m];
+  const TG = { SL: ['SLALOM', 'INTERCOLLEGIATE', '回転 — 全日本学生スキー選手権（インカレ）'], GS: ['GIANT SLALOM', 'INTERCOLLEGIATE', '大回転 — 全日本学生スキー選手権（インカレ）'], DUAL: ['DUAL RACE', 'INTERCOLLEGIATE', 'デュアル — 学生のCPライバルと1対1・2本合計'] }[m];
+  const Tt = GK.on ? TG : T;
   $('#menuTitle').innerHTML = `${T[0]}<small>${T[2]}</small>`;
-  $('#topTitle').innerHTML = `${T[0]}<span>${T[1]}</span>`;
-  $('#topSub').textContent = T[2];
+  $('#topTitle').innerHTML = `${Tt[0]}<span>${Tt[1]}</span>`;
+  $('#topSub').textContent = Tt[2];
+  $('#topEyebrow').textContent = GK.on ? 'ALL JAPAN INTERCOLLEGIATE SKI CHAMPIONSHIPS 2027' : 'FIS ALPINE SKI WORLD CUP 2026/27';
+  $('#orgWC').setAttribute('aria-pressed', !GK.on); $('#orgGK').setAttribute('aria-pressed', GK.on);
 }
 function setDisc(d){ if (playMode === d) return; playMode = d; if (d !== 'DUAL'){ disc = d; FIELDS.men = buildField('men', disc); } savePrefs(); applyDisc(); startDemo(); }
 $('#dSL').onclick = () => { setDisc('SL'); showMenu(tab === 'dual' ? 'cal' : null); };
@@ -6136,13 +6336,18 @@ const CHANGELOG = [
 ];
 const APP_VERSION = '3.10.1', APP_DATE = '2026.11.23';
 function showTop(){
+  incolLeave();
   $('#menu').hidden = true; $('#sheet').hidden = true; $('#lock').hidden = true;
   $('#topVer').textContent = `Ver. ${APP_VERSION}（${APP_DATE}）`;
   applyDisc();
-  $('#topWho').innerHTML = setupDone ? `${esc(pname)}（${flagH(myNat)}${esc((NAT[myNat] || {}).jp || myNat)}）でプレー` : 'はじめに国と用具を選びます';
+  $('#topWho').innerHTML = GK.on ? `${esc(pname)}（${flagH(GK.uni)}${esc(uniName(GK.uni))}）でインカレに出場`
+    : setupDone ? `${esc(pname)}（${flagH(myNat)}${esc((NAT[myNat] || {}).jp || myNat)}）でプレー` : 'はじめに国と用具を選びます';
   $('#top').hidden = false;
-  $('#topGo').onclick = () => { $('#top').hidden = true; ac(); bootGame(); };
+  $('#topWatch').hidden = GK.on;
+  $('#topGo').onclick = () => { $('#top').hidden = true; ac(); if (GK.on) showIncol(playMode); else bootGame(); };
   $('#topWatch').onclick = () => { $('#top').hidden = true; ac(); showSpectPick(); };
+  $('#orgWC').onclick = () => { if (!GK.on) return; GK.on = false; saveGK(); showTop(); };
+  $('#orgGK').onclick = () => { if (GK.on) return; GK.on = true; saveGK(); showTop(); };
 }
 // the TOP button on every menu and result screen: leave any online room, stop whatever was showing, back to the title
 function goTop(){
@@ -6152,6 +6357,7 @@ function goTop(){
     cloudCall({ action: 'room_leave', token: CLOUD.token, code }).catch(() => {});
   }
   if (race && race.spectate) endSpectate();
+  incolLeave();
   race = null; closeSheet(); leaveRunUI(); startDemo(); showTop();
 }
 document.querySelectorAll('.to-top').forEach(b => b.onclick = goTop);
