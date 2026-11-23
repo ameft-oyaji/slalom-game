@@ -853,23 +853,31 @@ function itemSVG(cat, b){
       <path d="M72 61Q80 50 88 61Z" fill="${b.c1}"/><path d="M44 34Q60 30 70 34" stroke="#fff" stroke-opacity=".6" stroke-width="2" fill="none"/>
       <text x="80" y="84" text-anchor="middle" font-family="Barlow Condensed,sans-serif" font-size="9" fill="#56657F">${b.model}</text>`;
   } else {
-    // a ski helmet: three-quarter view from the front left, and a small view from behind (as on the slope)
-    const dk = shade(b.c1, .72), rim = '#1C1F26';
-    art = `<path d="M22 57C20 28 44 11 70 11C97 11 113 28 113 50L111 58Z" fill="${b.c1}"/>
-      <path d="M28 30C40 17 58 13 72 13C94 13 108 25 111 42" fill="none" stroke="${b.c2}" stroke-width="2.4" stroke-linecap="round"/>
-      <path d="M40 26l6-4M54 19l7-2M70 16h8M86 18l7 3M99 25l5 5" stroke="${dk}" stroke-width="3.2" stroke-linecap="round"/>
-      <path d="M58 57H98L100 70Q88 82 72 76L62 66Z" fill="${shade(b.c1, .86)}"/>
-      <ellipse cx="81" cy="67" rx="10" ry="7" fill="#22252C"/>
-      <path d="M22 57L111 58" stroke="${rim}" stroke-width="2.6" stroke-linecap="round"/>
-      <path d="M70 75L80 88L91 74" fill="none" stroke="#2A2F38" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/><rect x="77" y="85" width="6" height="4" rx="1" fill="#4A505C"/>
-      <rect x="108" y="34" width="4" height="12" rx="2" fill="${b.c2}"/>
-      ${b.chin ? `<path d="M28 57Q22 78 44 82H60V76H46Q34 74 36 57Z" fill="${b.c2}"/>` : ''}
-      ${logoSVG(b, 60, 42, 7, b.c3 === b.c1 ? '#fff' : b.c3, b.c2)}
-      <g transform="translate(138 40) scale(4.6 5.6)">
+    // a ski helmet seen from the front left (brim to the left), and a small view from behind (as on the slope)
+    const dk = shade(b.c1, .62), lo = shade(b.c1, .82), rim = '#1C1F26';
+    const vent = (x, y, w, h, k) => `<path d="M${x} ${y}l${w} ${-k}l${k * .6} ${h}l${-w} ${k * .5}Z" fill="${dk}"/>`;
+    art = `<path d="M30 51Q24 70 38 81Q52 86 61 72Q65 61 58 53Z" fill="#23262D"/>
+      <path d="M34 60q3 3 1 6M41 56q3 4 0 7M48 62q3 3 0 6M40 72q3 2 1 5M52 70q2 3 0 5M57 60q2 3 0 5" fill="none" stroke="#3A3E48" stroke-width="1.2" stroke-linecap="round"/>
+      ${b.chin ? `<path d="M44 60Q40 79 18 80L14 73Q32 72 36 57Z" fill="${b.c2}"/><path d="M14 73L18 80" stroke="${rim}" stroke-width="1.4"/>` : ''}
+      <path d="M8 45C6 21 30 5 56 5C82 5 100 20 100 42Q100 58 95 67L67 67Q63 57 55 53L13 50Q8 49 8 45Z" fill="${b.c1}"/>
+      <path d="M11 43Q10 49 14 50L55 53Q63 57 67 67L95 67Q99 60 100 50Q80 54 58 48Q32 44 11 43Z" fill="${lo}"/>
+      <ellipse cx="36" cy="17" rx="20" ry="7" transform="rotate(-18 36 17)" fill="#fff" opacity=".2"/>
+      <path d="M10 49L55 52.5Q63 57 67 67L95 67" fill="none" stroke="${rim}" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/>
+      <path d="M13 38L28 36" stroke="${dk}" stroke-width="3.4" stroke-linecap="round"/>
+      ${vent(40, 13, 8, 4, 1.5)}${vent(54, 10, 8, 4, 0)}${vent(68, 11, 8, 4, -1.5)}
+      ${vent(44, 24, 8, 4, 1)}${vent(58, 21, 8, 4, 0)}${vent(72, 22, 8, 4, -1.5)}
+      <path d="M12 36C14 20 32 8 54 8" fill="none" stroke="${b.c2}" stroke-width="2" stroke-linecap="round"/>
+      <rect x="95" y="30" width="4" height="13" rx="2" fill="${b.c2}"/>
+      ${logoSVG(b, 74, 40, 7, b.c3 === b.c1 ? '#fff' : b.c3, b.c2)}
+      <path d="M37 76L45 87L62 70" fill="none" stroke="#6A7180" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/><rect x="41" y="83" width="8" height="5" rx="1.2" fill="#4A505C"/>
+      <g transform="translate(130 46) scale(6.6 8)">
+        <path d="M-2.3 1.4Q-2.4 2.7-1.4 2.9Q-.9 1.6-1.15 1.3ZM2.3 1.4Q2.4 2.7 1.4 2.9Q.9 1.6 1.15 1.3Z" fill="#23262D"/>
         <path d="M-2.5 1.55L-2.78-.15C-2.85-3.25 2.85-3.25 2.78-.15L2.5 1.55Q1.7 1.95 1.15 1.3Q0 .85-1.15 1.3Q-1.7 1.95-2.5 1.55Z" fill="${b.c1}"/>
-        <path d="M-2.5 1.55Q-1.7 1.95-1.15 1.3Q0 .85 1.15 1.3Q1.7 1.95 2.5 1.55" fill="none" stroke="${rim}" stroke-width=".3"/>
-        <rect x="-1.63" y="-1.52" width=".76" height=".34" rx=".15" fill="${dk}"/><rect x="-.38" y="-1.92" width=".76" height=".34" rx=".15" fill="${dk}"/><rect x=".87" y="-1.52" width=".76" height=".34" rx=".15" fill="${dk}"/>
-        <rect x="-.35" y="-.75" width=".7" height="1.25" rx=".25" fill="${b.c2}"/>
+        <path d="M-2.7.3Q0 .95 2.7.3L2.5 1.55Q1.7 1.95 1.15 1.3Q0 .85-1.15 1.3Q-1.7 1.95-2.5 1.55Z" fill="${lo}"/>
+        <path d="M-2.5 1.55Q-1.7 1.95-1.15 1.3Q0 .85 1.15 1.3Q1.7 1.95 2.5 1.55" fill="none" stroke="${rim}" stroke-width=".25"/>
+        <rect x="-1.63" y="-1.62" width=".76" height=".34" rx=".12" fill="${dk}"/><rect x="-.38" y="-2.02" width=".76" height=".34" rx=".12" fill="${dk}"/><rect x=".87" y="-1.62" width=".76" height=".34" rx=".12" fill="${dk}"/>
+        <rect x="-1.5" y=".15" width=".6" height=".28" rx=".1" fill="${dk}"/><rect x=".9" y=".15" width=".6" height=".28" rx=".1" fill="${dk}"/>
+        <rect x="-.3" y="-.9" width=".6" height="1.35" rx=".22" fill="${b.c2}"/>
       </g>
       <text x="152" y="88" text-anchor="end" font-family="Barlow Condensed,sans-serif" font-size="9" fill="#56657F">${b.model}</text>`;
   }
