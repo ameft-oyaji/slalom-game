@@ -90,6 +90,16 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
 
 .sp-toggle{position:absolute;right:max(12px,env(safe-area-inset-right,0px));bottom:max(12px,env(safe-area-inset-bottom,0px));z-index:4;border:0;border-radius:16px;background:rgba(14,26,46,.8);color:#fff;font:700 12px var(--f-body);padding:7px 12px;cursor:pointer}
 .spectating #bCtrl{display:none}
+/* spectator replay: an invisible handle over the course bar, and the rewind / pause / fast-forward panel beside it */
+.sp-bar{position:fixed;z-index:5;width:48px;cursor:pointer;touch-action:none;border-radius:24px;background:transparent}
+.sp-bar:focus-visible{outline:2px solid #FFC93C}
+.sp-ctl{position:fixed;z-index:6;display:flex;flex-direction:column;gap:6px;background:rgba(14,26,46,.9);border-radius:14px;padding:9px;color:#fff;font:700 12px var(--f-body);box-shadow:0 6px 20px rgba(0,0,0,.3)}
+.sp-ctl .row{display:flex;gap:6px}
+.sp-ctl button{flex:1;border:0;border-radius:9px;background:rgba(255,255,255,.15);color:#fff;font:800 15px var(--f-body);padding:8px 0;min-width:46px;cursor:pointer;line-height:1}
+.sp-ctl button.small{font-size:12px}
+.sp-ctl button[aria-pressed="true"]{background:#FF8A1F}
+.sp-ctl .lab{text-align:center;font-size:12px;white-space:nowrap;min-height:15px}
+.sp-ctl .hint{text-align:center;font-size:10.5px;opacity:.75;font-weight:600}
 #spG{margin-bottom:6px}
 .spchk{display:flex;align-items:center;gap:8px;font-size:14px;margin:4px 0 10px}
 .sppick{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:6px;max-height:46vh;overflow:auto}
@@ -500,6 +510,13 @@ body.nightrace .ev-label,body.nightrace .ev-label *,body.nightrace #keys,body.ni
   <div class="msg" id="msg"></div>
   <div class="cd" id="cd"></div>
   <button type="button" class="sp-toggle" id="spToggle" hidden aria-pressed="true">操作表示：ON</button>
+  <div class="sp-bar" id="spBar" hidden role="button" tabindex="0" aria-label="コースの現在地。押すと巻き戻し・一時停止・早送りができます"></div>
+  <div class="sp-ctl" id="spCtl" hidden role="group" aria-label="リプレイの操作">
+    <div class="lab" id="spLab">ライブ</div>
+    <div class="row"><button type="button" data-c="back" aria-label="巻き戻し" aria-pressed="false">◀◀</button><button type="button" data-c="play" id="spPlay" aria-label="一時停止">❚❚</button><button type="button" data-c="ff" aria-label="早送り" aria-pressed="false">▶▶</button></div>
+    <div class="row"><button type="button" class="small" data-c="m5">5秒戻る</button><button type="button" class="small" data-c="live">ライブ</button><button type="button" class="small" data-c="close" aria-label="閉じる">閉じる</button></div>
+    <div class="hint">バーを上下になぞると、その場所へ</div>
+  </div>
   <div class="sp-pad" id="spPad" hidden aria-hidden="true">
     <div class="sp-cap">観戦モード・選手の操作</div>
     <div class="sp-keys"><span data-b="l"><b>◀</b><small id="spL">左足</small></span><span data-b="push"><b>◀▶</b><small>左右同時（漕ぐ）</small></span><span data-b="d"><b>▼</b><small>クローチ</small></span><span data-b="r"><b>▶</b><small id="spR">右足</small></span></div>
@@ -2286,6 +2303,104 @@ function setSpectShow(on){
   $('#spPad').hidden = !on;
   $('#spToggle').textContent = on ? '操作表示：ON' : '操作表示：OFF'; $('#spToggle').setAttribute('aria-pressed', on);
 }
+// ---- spectator replay: every moment of the run is kept, so it can be rewound, paused and fast-forwarded ----
+const TAPE = { frames: [], clock: 0, lastRec: -1, mode: 'live', paused: false, speed: 1, dir: 1, rc: 0, live: null, liveTrail: null, bar: null };
+function tapeReset(){
+  Object.assign(TAPE, { frames: [], clock: 0, lastRec: -1, mode: 'live', paused: false, speed: 1, dir: 1, rc: 0, live: null, liveTrail: null });
+  $('#spCtl').hidden = true; $('#spBar').hidden = true;
+}
+function tapeSnap(){
+  return { c: TAPE.clock, sk: Object.assign({}, sk, { act: sk.act ? Object.assign({}, sk.act) : sk.act }), t, timing, maxV, goT, state, dsq,
+           trailN: trail.length, g: course.gates.map(g => [g.bend[0], g.bend[1], g.bv[0], g.bv[1], g.res]) };
+}
+function tapeApply(f){
+  for (const k of Object.keys(sk)) if (!(k in f.sk)) delete sk[k];
+  Object.assign(sk, f.sk); if (f.sk.act) sk.act = Object.assign({}, f.sk.act);
+  t = f.t; timing = f.timing; maxV = f.maxV; goT = f.goT; state = f.state; dsq = f.dsq;
+  trail = f.trailN >= TAPE.liveTrail.length ? TAPE.liveTrail : TAPE.liveTrail.slice(0, f.trailN);
+  course.gates.forEach((g, i) => { const a = f.g[i]; if (!a) return; g.bend[0] = a[0]; g.bend[1] = a[1]; g.bv[0] = a[2]; g.bv[1] = a[3]; g.res = a[4]; });
+}
+const spActive = () => !!(race && race.spectate && (state === 'run' || state === 'finished' || state === 'gate' || state === 'countdown'));
+function tapeRecord(){
+  if (TAPE.mode !== 'live' || !(state === 'run' || state === 'finished')) return;
+  if (TAPE.clock - TAPE.lastRec < 1 / 30) return;
+  TAPE.lastRec = TAPE.clock; TAPE.frames.push(tapeSnap());
+}
+function tapeEnter(){
+  if (TAPE.mode === 'replay' || !TAPE.frames.length) return TAPE.mode === 'replay';
+  TAPE.live = tapeSnap(); TAPE.liveTrail = trail; TAPE.mode = 'replay'; TAPE.rc = TAPE.clock; parts.length = 0;
+  return true;
+}
+function tapeLive(){
+  if (TAPE.mode !== 'replay') return;
+  tapeApply(TAPE.live); TAPE.mode = 'live'; TAPE.dir = 1; TAPE.live = null; TAPE.liveTrail = null; parts.length = 0;
+}
+function tapeShow(){
+  const F = TAPE.frames; let lo = 0, hi = F.length - 1;
+  while (lo < hi){ const m = (lo + hi + 1) >> 1; if (F[m].c <= TAPE.rc) lo = m; else hi = m - 1; }
+  tapeApply(F[lo]);
+}
+function tapeTick(dt){
+  const F = TAPE.frames;
+  TAPE.rc += dt * TAPE.speed * TAPE.dir;
+  if (TAPE.rc <= F[0].c){ TAPE.rc = F[0].c; TAPE.paused = true; TAPE.dir = 1; TAPE.speed = 1; }   // back at the start: stop there
+  if (TAPE.rc >= TAPE.live.c){ tapeLive(); return; }                                          // caught up: live again
+  tapeShow();
+}
+function tapeCmd(c){
+  if (c === 'back'){ if (!tapeEnter()) return; TAPE.dir = -1; TAPE.speed = 2; TAPE.paused = false; }
+  else if (c === 'play'){ if (TAPE.paused || TAPE.dir < 0 || TAPE.speed !== 1){ TAPE.paused = false; TAPE.dir = 1; TAPE.speed = 1; } else TAPE.paused = true; }
+  else if (c === 'ff'){ const on = TAPE.dir > 0 && TAPE.speed > 1 && !TAPE.paused; TAPE.dir = 1; TAPE.speed = on ? 1 : 3; TAPE.paused = false; }
+  else if (c === 'm5'){ if (!tapeEnter()) return; TAPE.rc = Math.max(TAPE.frames[0].c, TAPE.rc - 5); tapeShow(); }
+  else if (c === 'live'){ tapeLive(); TAPE.paused = false; TAPE.speed = 1; TAPE.dir = 1; }
+  else if (c === 'close'){ $('#spCtl').hidden = true; }
+  tapeUI();
+}
+// tap or drag along the bar: jump to that point of the run (as far as it has been skied)
+function tapeSeek(clientY){
+  const B = TAPE.bar; if (!B || !TAPE.frames.length) return;
+  const r = cv.getBoundingClientRect(), p = clamp((B.bot - (clientY - r.top)) / (B.bot - B.top), 0, 1), y = p * course.finishY;
+  const liveY = TAPE.mode === 'replay' ? TAPE.live.sk.y : sk.y;
+  if (y >= liveY){ tapeLive(); tapeUI(); return; }
+  tapeEnter();
+  const F = TAPE.frames; let i = 0; while (i < F.length - 1 && F[i].sk.y < y) i++;
+  TAPE.rc = F[i].c; tapeShow(); tapeUI();
+}
+function tapeUI(){
+  const on = spActive(), bar = $('#spBar'), ctl = $('#spCtl');
+  if (!on || !TAPE.bar){ if (!bar.hidden) bar.hidden = true; if (!ctl.hidden) ctl.hidden = true; return; }
+  const r = cv.getBoundingClientRect(), B = TAPE.bar;
+  bar.hidden = false;
+  bar.style.left = (r.left + B.x - 24) + 'px'; bar.style.top = (r.top + B.top - 30) + 'px'; bar.style.height = (B.bot - B.top + 60) + 'px';
+  if (ctl.hidden) return;
+  ctl.style.right = (window.innerWidth - (r.left + B.x) + 30) + 'px';
+  ctl.style.top = Math.max(70, r.top + (B.top + B.bot) / 2 - 70) + 'px';
+  const rep = TAPE.mode === 'replay';
+  const how = TAPE.paused ? '一時停止' : TAPE.dir < 0 ? '巻き戻し' : TAPE.speed > 1 ? `早送り ×${TAPE.speed}` : rep ? '再生' : '';
+  const tt = Math.floor(Math.max(0, t) * 10) / 10;
+  const lab = (rep ? `リプレイ ${Math.floor(tt / 60)}:${(tt % 60 < 10 ? '0' : '') + (tt % 60).toFixed(1)}` : 'ライブ') + (how ? '・' + how : '');
+  if ($('#spLab').textContent !== lab) $('#spLab').textContent = lab;
+  const play = $('#spPlay'), pl = TAPE.paused || TAPE.dir < 0 || TAPE.speed !== 1 ? '▶' : '❚❚';
+  if (play.textContent !== pl){ play.textContent = pl; play.setAttribute('aria-label', pl === '▶' ? '再生' : '一時停止'); }
+  ctl.querySelector('[data-c="back"]').setAttribute('aria-pressed', rep && TAPE.dir < 0 && !TAPE.paused);
+  ctl.querySelector('[data-c="ff"]').setAttribute('aria-pressed', TAPE.dir > 0 && TAPE.speed > 1 && !TAPE.paused);
+}
+(function(){
+  const bar = $('#spBar'), ctl = $('#spCtl');
+  let drag = false;
+  bar.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    if (ctl.hidden){ ctl.hidden = false; tapeUI(); return; }          // the first press opens the controls
+    drag = true; try { bar.setPointerCapture(e.pointerId); } catch(err){}
+    tapeSeek(e.clientY);
+  });
+  bar.addEventListener('pointermove', e => { if (drag) tapeSeek(e.clientY); });
+  const up = () => { drag = false; };
+  bar.addEventListener('pointerup', up); bar.addEventListener('pointercancel', up);
+  bar.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); ctl.hidden = !ctl.hidden; tapeUI(); } });
+  ctl.addEventListener('click', e => { const b = e.target.closest('button[data-c]'); if (b) tapeCmd(b.dataset.c); });
+  ctl.addEventListener('pointerdown', e => e.stopPropagation());
+})();
 function startSpectate(whoId){
   // watch the men's or women's race chosen on the picker; your own setting comes back afterwards
   if (!SPECT.saved) SPECT.saved = { pname, myNat, gender };
@@ -2304,6 +2419,7 @@ function startSpectate(whoId){
   race = { ev, mode: 'free', spectate: true, who, free: { gates: 'practice', wx: 'sun', venue: ev.venue, len: 'short' }, courses: [c], refs: [{ time: 0, frac: [] }], run: 1, playerDsq: [false, false], finals: false, maxV: 0,
     wx: [wx, wx], wax: [rc.wax, rc.wax], edge: [{ side: rc.side, base: rc.base }, { side: rc.side, base: rc.base }], misses: 0, freeTime: null };
   $('#menu').hidden = true; $('#sheet').hidden = true;
+  tapeReset();
   beginRun();
   $('#pad').classList.remove('live');
   $('#keys').hidden = true;
@@ -2313,6 +2429,7 @@ function startSpectate(whoId){
   document.body.classList.add('spectating');
 }
 function endSpectate(){
+  tapeReset();
   $('#spPad').hidden = true; $('#spToggle').hidden = true; document.body.classList.remove('spectating');
   if (SPECT.saved){ pname = SPECT.saved.pname; myNat = SPECT.saved.myNat; gender = SPECT.saved.gender || gender; SPECT.saved = null; }
 }
@@ -2342,6 +2459,7 @@ function showSpectateEnd(){
   $('#spTop').onclick = () => { race = null; closeSheet(); startDemo(); showTop(); };
 }
 function abandon(){
+  if (race && race.spectate){ tapeLive(); TAPE.paused = false; TAPE.speed = 1; }
   if (!race || !(state === 'run' || state === 'countdown' || state === 'gate')) return;
   race.playerDsq[race.run - 1] = 'DNF'; recordPlayerTime(null);
   dsq = true; state = 'finished'; finT = .01;
@@ -4793,7 +4911,8 @@ function drawProgress(){
   const lv = $('#btLive'), lr = lv && !lv.hidden ? lv.getBoundingClientRect() : null;   // the race order may sit above the right button
   if (lr && lr.height && lr.left > cw / 2 && lr.top > ch / 3) rTop = Math.min(rTop, lr.top);   // keep the gap flag above it
   const top = 84, bot = floor - 50;
-  if (bot - top < 80) return;
+  if (bot - top < 80){ TAPE.bar = null; return; }
+  if (race.spectate) TAPE.bar = { x, top, bot };
   const yOf = p => bot - (bot - top) * p;
   const p = clamp(sk.y / course.finishY, 0, 1);
   ctx.lineCap = 'round';
@@ -4824,6 +4943,18 @@ function drawProgress(){
     else { ctx.beginPath(); ctx.moveTo(x, cy - 7); ctx.lineTo(x + 6, cy - 1); ctx.lineTo(x + 3, cy - 1); ctx.lineTo(x + 3, cy + 6); ctx.lineTo(x - 3, cy + 6); ctx.lineTo(x - 3, cy - 1); ctx.lineTo(x - 6, cy - 1); ctx.closePath(); ctx.fill(); }
   };
   badge(top - 16, 'finish'); badge(bot + 16, 'start');
+  // replaying: a ring marks how far the live run has got
+  if (race.spectate && TAPE.mode === 'replay' && TAPE.live){
+    const ly = yOf(clamp(TAPE.live.sk.y / course.finishY, 0, 1));
+    ctx.strokeStyle = '#FF8A1F'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(x, ly, 7, 0, 7); ctx.stroke();
+    ctx.font = "800 15px 'Barlow Condensed', sans-serif"; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = 'rgba(14,26,46,.75)'; rrect(cw / 2 - 44, 66, 88, 24, 12); ctx.fill();
+    ctx.fillStyle = '#FFC93C'; ctx.fillText(TAPE.paused ? '❚❚ REPLAY' : TAPE.dir < 0 ? '◀◀ REPLAY' : 'REPLAY', cw / 2, 78.5);
+  } else if (race.spectate && TAPE.paused){
+    ctx.font = "800 15px 'Barlow Condensed', sans-serif"; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = 'rgba(14,26,46,.75)'; rrect(cw / 2 - 44, 66, 88, 24, 12); ctx.fill();
+    ctx.fillStyle = '#FFC93C'; ctx.fillText('❚❚ PAUSE', cw / 2, 78.5);
+  }
   // current position
   const my = yOf(p);
   ctx.fillStyle = '#FF8A1F'; ctx.beginPath(); ctx.arc(x, my, 8, 0, 7); ctx.fill();
@@ -5895,9 +6026,20 @@ function hud(){
 let last = performance.now(), acc = 0;
 function frame(now){
   const dt = Math.min(.05, (now - last) / 1000); last = now;
-  acc += dt;
-  while (acc >= STEP){ step(STEP); acc -= STEP; }
-  if (state === 'finished'){ finT -= dt; if (finT <= 0){ state = 'sheet'; afterFinish(); } }
+  const sp = spActive();
+  if (sp && (TAPE.paused || TAPE.mode === 'replay')){
+    // spectator replay or pause: the run itself waits where it was
+    acc = 0;
+    if (TAPE.mode === 'replay' && !TAPE.paused) tapeTick(dt);
+  } else {
+    const k = sp ? TAPE.speed : 1;
+    acc += dt * k;
+    let n = 0;
+    while (acc >= STEP){ step(STEP); acc -= STEP; n++; }
+    if (sp){ TAPE.clock += n * STEP; tapeRecord(); }
+    if (state === 'finished'){ finT -= dt * k; if (finT <= 0){ state = 'sheet'; afterFinish(); } }
+  }
+  if (race && race.spectate) tapeUI();
   crowdTick(dt); if (state === 'watch'){ watchStep(dt); if (sk.act){ sk.act.t += dt; if (sk.act.t > (sk.act.type === 'skisup' ? 2.6 : 1.8)) sk.act = null; } }
   hud(); renderView(); if (actx) updateWind();
   if (race && race.battle) battleTick();
