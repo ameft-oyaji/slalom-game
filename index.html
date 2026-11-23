@@ -3559,7 +3559,7 @@ function drawWatcher(){
   const p = proj(sk.x, sk.y); if (!p) return;
   const u = p.k * 1.75, ex = CROWD.excite, now = performance.now() / 1000;
   const look = { suit: NAT[myNat].suit, trim: NAT[myNat].trim, ski: gearItem('ski', myGear.ski), helm: gearItem('helm', myGear.helm) };
-  const LKw = legendLook(racerName()); if (LKw){ look.suit = LKw.suit; look.trim = LKw.zig; look.ski = Object.assign({}, look.ski, LKw.ski); }
+  const LKw = legendLook(racerName()); if (LKw){ look.suit = LKw.suit; look.trim = LKw.trim || LKw.zig; look.ski = Object.assign({}, look.ski, LKw.ski); if (LKw.helm) look.helm = Object.assign({}, look.helm, LKw.helm); }
   const cheer = state === 'celebrate' ? Math.abs(Math.sin(now * 6)) * 2.5 : 0;
   ctx.fillStyle = COL.shadow; ctx.beginPath(); ctx.ellipse(p.X + 3 * u, p.Y + 1 * u, 7 * u, 2.2 * u, 0, 0, 7); ctx.fill();
   ctx.save(); ctx.translate(p.X, p.Y - cheer * u); ctx.scale(u, u); ctx.lineCap = 'round';
@@ -3795,7 +3795,7 @@ function paintFlag(nat, x, y, w, h, flap){
 // a racer in race suit seen from the front; pose: 'up' (skis held overhead), 'side' (skis upright beside), 'globe', 'ground'
 function athleteSVG(nat, me, pose, place, name){
   const LK = legendLook(name);
-  const c = LK ? { suit: LK.suit, trim: LK.zig } : NAT[nat] || { suit: '#13213A', trim: '#fff' };
+  const c = LK ? { suit: LK.suit, trim: LK.trim || LK.zig } : NAT[nat] || { suit: '#13213A', trim: '#fff' };
   const suit = c.suit, trim = c.trim === c.suit ? '#fff' : c.trim, legs = shade(suit, .8);
   const skiA = me ? gearItem('ski', myGear.ski) : GEAR.ski.items[(hashStr(nat + place) >>> 3) % GEAR.ski.items.length];
   const skiCol = ['#F4F1E8', '#C9D2DE'].includes(skiA.c1) ? '#8A97AA' : skiA.c1;
@@ -3824,7 +3824,7 @@ function athleteSVG(nat, me, pose, place, name){
     <circle cx="28" cy="20" r="10" fill="${face}"/>
     ${(() => {
       const L = legendHat(name);
-      if (!L) return `<path d="M17 18 Q28 4 39 18 L39 14 Q28 0 17 14 Z" fill="${me ? '#D42A2F' : shade(suit, .9)}"/>`;
+      if (!L) return `<path d="M17 18 Q28 4 39 18 L39 14 Q28 0 17 14 Z" fill="${LK && LK.helm ? LK.helm.c1 : me ? '#D42A2F' : shade(suit, .9)}"/>`;
       // knitted bobble hat in the flag's colours
       const id = 'kh' + (hashStr(name + place) % 100000), n = L.bands.length, h = 13 / n;
       return `<clipPath id="${id}"><path d="M17 19 Q17 5 28 5 Q39 5 39 19 Z"/></clipPath>
@@ -5467,6 +5467,11 @@ const LEGEND_LOOK = {
   // pale-blue bib, pink knee guards, black boots, red skis, orange goggle strap
   'GIRARDELLI Marc': { suit: '#F3F3F7', zig: '#5B3FA8', arm: '#4B58C8', armStripe: '#8A5FD6', cuff: '#D9324A', collar: '#D9324A',
                        bib: '#8FCBEF', bibTop: '#5FA8DC', knee: '#FF4FA3', boot: '#26262B', ski: { c1: '#E8322E', c2: '#1A1A1A' }, strap: '#E8501A' },
+  // Tomba, Albertville 1992: purple suit with magenta and turquoise panels, magenta sleeves, navy helmet with an orange flash,
+  // orange goggles, white bib with a red band, dark boots, black skis
+  'TOMBA Alberto': { suit: '#6B3FB8', trim: '#C8338A', arm: '#C8338A', armStripe: '#7A48C8', cuff: '#F2F4F8', legPanels: ['#2EC4D6', '#D2389A'],
+                     bib: '#FFFFFF', bibTop: '#D7263D', boot: '#2B3552', helm: { c1: '#1F2A5A', c2: '#F07A1A' },
+                     ski: { c1: '#1A1A1A', c2: '#E8322E' }, strap: '#F07A1A' },
 };
 const legendLook = name => LEGEND_LOOK[name] || null;
 // the start number on the racer's back, whatever is being raced
@@ -5490,7 +5495,10 @@ function drawSkier(){
   const tuck = sk.tuck;
   const look = { suit: NAT[myNat].suit, trim: NAT[myNat].trim, ski: gearItem('ski', myGear.ski), helm: gearItem('helm', myGear.helm), gog: gearItem('gog', myGear.gog), pole: gearItem('pole', myGear.pole) };
   const LK = legendLook(racerName());
-  if (LK){ look.suit = LK.suit; look.trim = LK.zig; look.ski = Object.assign({}, look.ski, LK.ski); look.gog = Object.assign({}, look.gog, { c2: LK.strap }); }
+  if (LK){
+    look.suit = LK.suit; look.trim = LK.trim || LK.zig; look.ski = Object.assign({}, look.ski, LK.ski); look.gog = Object.assign({}, look.gog, { c2: LK.strap });
+    if (LK.helm) look.helm = Object.assign({}, look.helm, LK.helm);
+  }
   // in the start gate: poles planted out over the start bar, rocking back and forth with the buzzers, coiled at the long tone
   const inGate = race && (state === 'countdown' || state === 'gate');
   let rock = 0;
@@ -5628,13 +5636,22 @@ function drawSkier(){
       for (let i = 1; i <= n; i++){ const f = i / n, w = (i % 2 ? .75 : -.75); ctx.lineTo(p0.x + dx * f + nx * w * (i < n ? 1 : 0), p0.y + dy * f + ny * w * (i < n ? 1 : 0)); }
       ctx.stroke();
     };
+    if (LK.legPanels){
+      // coloured panels: one up the thigh, one down the shin
+      ctx.lineWidth = 1.3;
+      for (const [f, k] of [[footO, kneeO], [footI, kneeI]]){
+        const hp = { x: hip.x + (f === footO ? -s : s) * 1.4, y: hip.y };
+        ctx.strokeStyle = LK.legPanels[0]; ctx.beginPath(); ctx.moveTo(k.x + (hp.x - k.x) * .2, k.y + (hp.y - k.y) * .2); ctx.lineTo(k.x + (hp.x - k.x) * .75, k.y + (hp.y - k.y) * .75); ctx.stroke();
+        ctx.strokeStyle = LK.legPanels[1]; ctx.beginPath(); ctx.moveTo(f.x + (k.x - f.x) * .3, f.y - .6 + (k.y - f.y + .6) * .3); ctx.lineTo(f.x + (k.x - f.x) * .85, f.y - .6 + (k.y - f.y + .6) * .85); ctx.stroke();
+      }
+    }
     ctx.strokeStyle = LK.zig; ctx.lineWidth = .45;
-    for (const [f, k] of [[footO, kneeO], [footI, kneeI]]){
+    if (LK.zig) for (const [f, k] of [[footO, kneeO], [footI, kneeI]]){
       const hp = { x: hip.x + (f === footO ? -s : s) * 1.4, y: hip.y };
       zig({ x: k.x + (hp.x - k.x) * .15, y: k.y + (hp.y - k.y) * .15 }, { x: k.x + (hp.x - k.x) * .85, y: k.y + (hp.y - k.y) * .85 }, 5);
       zig({ x: f.x + (k.x - f.x) * .35, y: f.y - .6 + (k.y - f.y + .6) * .35 }, { x: f.x + (k.x - f.x) * .8, y: f.y - .6 + (k.y - f.y + .6) * .8 }, 3);
     }
-    ctx.fillStyle = LK.knee; for (const k of [kneeO, kneeI]){ ctx.beginPath(); ctx.arc(k.x, k.y, 1.05, 0, 7); ctx.fill(); }
+    if (LK.knee){ ctx.fillStyle = LK.knee; for (const k of [kneeO, kneeI]){ ctx.beginPath(); ctx.arc(k.x, k.y, 1.05, 0, 7); ctx.fill(); } }
   }
   // boots
   ctx.fillStyle = LK ? LK.boot : '#E8ECF2';
@@ -5648,7 +5665,7 @@ function drawSkier(){
     ctx.beginPath(); ctx.moveTo(-2.5, .4); ctx.lineTo(2.5, .4); ctx.lineTo(3.2, -torsoLen + .6); ctx.quadraticCurveTo(0, -torsoLen - .9, -3.2, -torsoLen + .6); ctx.closePath(); ctx.fill();
     ctx.fillStyle = look.trim; ctx.fillRect(-3.05, -torsoLen + 1, .75, torsoLen - 1.2); ctx.fillRect(2.3, -torsoLen + 1, .75, torsoLen - 1.2);
   }
-  if (LK && !tuck){ ctx.fillStyle = LK.collar; ctx.beginPath(); ctx.ellipse(0, -torsoLen + .2, 1.6, .8, 0, 0, 7); ctx.fill(); }   // red collar
+  if (LK && LK.collar && !tuck){ ctx.fillStyle = LK.collar; ctx.beginPath(); ctx.ellipse(0, -torsoLen + .2, 1.6, .8, 0, 0, 7); ctx.fill(); }   // red collar
   const bibH = tuck ? 3.8 : 4.9;
   ctx.fillStyle = LK ? LK.bib : '#fff'; rrect(-2.5, -torsoLen + .8, 5, bibH, .5); ctx.fill();
   ctx.fillStyle = LK ? LK.bibTop : COL.red; ctx.fillRect(-2.5, -torsoLen + .8, 5, .7);
