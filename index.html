@@ -5518,7 +5518,8 @@ const LEGEND_HAT = {
   'MAHRE Phil':        { bands: ['#B31942', '#FFFFFF', '#0A3161'], pom: '#FFFFFF' },
   'GIRARDELLI Marc':   { bands: ['#F2F2F4', '#FFFFFF', '#E6E6EC'], pom: null },          // plain white beanie
 };
-const legendHat = name => LEGEND_HAT[name] || null;
+// the knit hat, unless this race calls for a suit that comes with its own helmet (e.g. Zurbriggen in GS)
+function legendHat(name){ const L = LEGEND_HAT[name]; if (!L) return null; const lk = legendLook(name); return lk && lk.helm ? null : L; }
 // whose figure is being drawn right now
 function racerName(){ if (SPLIT.side === 'R') return SPLIT.name; if (race && race.watch) return race.watch.a; return pname; }
 // a knitted hat seen from behind, centred on the head (r = head radius), in the current canvas transform
@@ -5559,9 +5560,17 @@ const LEGEND_LOOK_SL = {
                      bib: '#FFFFFF', bibTop: '#1F3A93', boot: '#1F3A93', helm: { c1: '#E2312A', c2: '#FFFFFF' },
                      ski: { c1: '#1F5FBF', c2: '#FFFFFF' }, strap: '#FFFFFF' },
 };
+// ...and in giant slalom
+const LEGEND_LOOK_GS = {
+  // Zurbriggen, late '80s: red suit with yellow bands over the shoulders and sleeves and yellow thigh panels,
+  // black helmet with a small white mark, dark goggles, white bib with a red band, red boots, black skis
+  'ZURBRIGGEN Pirmin': { suit: '#E0261C', trim: '#F5C518', arm: '#E0261C', armStripe: '#F5C518', cuff: '#E0261C', legPanels: ['#F5C518', '#E0261C'],
+                         bib: '#FFFFFF', bibTop: '#D7263D', boot: '#E0261C', helm: { c1: '#161616', c2: '#FFFFFF' },
+                         ski: { c1: '#1A1A1A', c2: '#FFFFFF' }, strap: '#1A1A1A' },
+};
 function legendLook(name){
   const slalom = course ? !course.gh : !(race && race.ev && race.ev.disc === 'GS');
-  return (slalom && LEGEND_LOOK_SL[name]) || LEGEND_LOOK[name] || null;
+  return (slalom ? LEGEND_LOOK_SL[name] : LEGEND_LOOK_GS[name]) || LEGEND_LOOK[name] || null;
 }
 // the start number on the racer's back, whatever is being raced
 function bibNumber(){
