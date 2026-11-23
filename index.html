@@ -1319,8 +1319,10 @@ function courseSeed(g, date){ return hashStr(`${g}-${date}`); }
 // =====================================================================
 // Physics (shared by the player, the demo skier and the reference simulation)
 // =====================================================================
-function newBody(){ return { x:0, y:-14, th:0, v:0, lean:0, tuck:false, px:0, py:-14, ng:0, block:null, pushT:0, pushCd:0, air:0, airT:0, jumped:false, kickT:0, tap:null }; }
+function newBody(){ return { x:0, y:-14, th:0, v:0, lean:0, tuck:false, px:0, py:-14, ng:0, block:null, pushT:0, pushCd:0, air:0, airT:0, jumped:false, kickT:0, tap:null, stomp:null }; }
 const TAP_GAP = .32;             // pole on boot: time between knocks
+const STOMP_GAP = .24;           // stamping the feet in the gate: left, right, left, right
+function tonTon(){ tone(120, .07, 'sine', .07); thwack(.05); }
 function kanKan(){ tone(2300, .05, 'square', .045); setTimeout(() => tone(3400, .035, 'square', .03), 18); }
 // super-G jump: you only take off above this speed (70 km/h); crouched at take-off you keep your speed, otherwise you lose some
 const JUMP_MIN = 70 / .36, JUMP_LOSS = .9;
@@ -2011,6 +2013,7 @@ function step(dt){
     const before = cdT;
     cdT -= dt;
     if (sk.tap) for (let i = 0; i < sk.tap.n; i++){ const ti = sk.tap.at - i * TAP_GAP; if (before > ti && cdT <= ti && startSfx) kanKan(); }
+    if (sk.stomp) for (let i = 0; i < sk.stomp.n; i++){ const ti = sk.stomp.at - i * STOMP_GAP - STOMP_GAP * .6; if (before > ti && cdT <= ti && startSfx) tonTon(); }
     for (const b of [3, 2, 1]) if (startSfx && before > b && cdT <= b) tone(780, .14, 'square', .08);
     if (cdT <= 0){
       if (startSfx){ tone(1320, .55, 'square', .09); thwack(.3); }
@@ -2028,6 +2031,7 @@ function step(dt){
     const before = cdT;
     cdT -= dt;
     if (sk.tap) for (let i = 0; i < sk.tap.n; i++){ const ti = sk.tap.at - i * TAP_GAP; if (before > ti && cdT <= ti && startSfx) kanKan(); }
+    if (sk.stomp) for (let i = 0; i < sk.stomp.n; i++){ const ti = sk.stomp.at - i * STOMP_GAP - STOMP_GAP * .6; if (before > ti && cdT <= ti && startSfx) tonTon(); }
     if (before > START_CALL - .05 && !race.called10){ race.called10 = true; if (startSfx) tone(520, .18, 'triangle', .07); if (startSfx) setTimeout(() => tone(620, .22, 'triangle', .07), 200); }
     for (const b of [5, 4, 3, 2, 1]){
       if (startSfx && before > b && cdT <= b){
@@ -2512,7 +2516,9 @@ function beginRun(){
   race.run1Me = race.mode === 'ta' ? (race.taTimes[0] || 0) : (race.run1 && race.run1.you) || 0;
   course = race.courses[race.run - 1]; resetCourseState(course); resetBody(false);
   // knock the boots before settling in (not always) — the dual's countdown is short, so there it comes just before "3, 2, 1"
-  sk.tap = Math.random() < .55 ? (race.dual ? { at: 4.75 - Math.random() * .2, n: 2 } : { at: 6.6 + Math.random() * 2.4, n: Math.random() < .5 ? 2 : 3 }) : null;
+  sk.tap = Math.random() < .55 ? (race.dual ? { at: 4.6 - Math.random() * .15, n: 2 } : { at: 6.6 + Math.random() * 2, n: Math.random() < .5 ? 2 : 3 }) : null;
+  // and now and then stamp the feet into the snow first: "ton, ton"
+  sk.stomp = Math.random() < .5 ? (race.dual ? { at: 4.98, n: 2 } : { at: 9.7 - Math.random() * .2, n: 4 }) : null;
   if (race.shimizu && race.shimizu[race.run - 1]){
     race.shimizuPaid = race.shimizuPaid || [false, false];
     if (!race.shimizuPaid[race.run - 1]){ race.shimizuPaid[race.run - 1] = true; save(shimizuKey(), { n: shimizuUsed() + 1 }); }
@@ -6111,6 +6117,11 @@ function drawSkier(){
   const tp = inGate && state === 'countdown' && sk.tap, tapEnd = tp ? tp.at - (tp.n - 1) * TAP_GAP - .12 : 0;
   const tapping = !!tp && cdT <= tp.at + .2 && cdT >= tapEnd;
   const tapPh = tapping ? ((tp.at + .2 - cdT) % TAP_GAP) / TAP_GAP : 0, tapHit = tapping ? Math.sin(Math.PI * clamp(tapPh * 1.25, 0, 1)) : 0;
+  // stamping the feet: one foot (and its ski) comes up a little and down again, left and right in turn
+  const stp = inGate && state === 'countdown' && sk.stomp;
+  const stompOn = !!stp && cdT <= stp.at && cdT > stp.at - stp.n * STOMP_GAP;
+  const stK = stompOn ? Math.floor((stp.at - cdT) / STOMP_GAP) : 0, stUp = stompOn ? Math.sin(Math.PI * (((stp.at - cdT) % STOMP_GAP) / STOMP_GAP)) : 0;
+  const stSide = stK % 2 ? 1 : -1;                                     // which foot: -1 = left on screen, 1 = right
   let rock = 0;
   if (inGate){
     // (as at a real start: standing tall and calm, then reaching out over the bar with each buzzer, hips high, fully coiled at the long tone)
@@ -6138,7 +6149,8 @@ function drawSkier(){
     if (!t0 || !h0) continue;
     const lift = skating && Math.sign(o) !== skSide ? skLift * 2.2 * u : 0;   // the unweighted ski comes off the snow
     const kk = o > 0 ? kickP : 0;                                              // the kicking leg: tail (heel side) up, tip still near the snow
-    const t = { X: t0.X, Y: t0.Y - lift - kk * 7 * u }, h = { X: h0.X, Y: h0.Y - lift - kk * 1.2 * u };
+    const st = stompOn && Math.sign(o) === stSide ? stUp * 1.8 * u : 0;        // a stamping foot lifts its ski a little
+    const t = { X: t0.X, Y: t0.Y - lift - kk * 7 * u - st }, h = { X: h0.X, Y: h0.Y - lift - kk * 1.2 * u - st };
     ctx.strokeStyle = ['#F4F1E8', '#C9D2DE', '#F5F5F5'].includes(look.ski.c1) ? shade(look.ski.c1, .8) : look.ski.c1; ctx.lineCap = 'round'; ctx.lineWidth = Math.max(1.5, 1.9*u*(1 - a*.35));
     ctx.beginPath(); ctx.moveTo(t.X, t.Y); ctx.lineTo(h.X, h.Y); ctx.stroke();
     ctx.strokeStyle = look.ski.c2; ctx.lineWidth = Math.max(1, 1.2*u);
@@ -6157,6 +6169,7 @@ function drawSkier(){
   const wI = clamp(incl / .9, 0, 1);                                                      // 0 = upright stance, 1 = fully laid over
   const footO = { x: -s*2.8 - s*incl*2.6, y: 0 }, footI = { x: s*2.2 - s*incl*2.6, y: 0 };
   if (kickP){ const kf = footO.x > footI.x ? footO : footI; kf.y -= kickP * 3.2; }                  // that boot comes up off the snow
+  if (stompOn){ const sf = (footO.x > footI.x) === (stSide > 0) ? footO : footI; sf.y -= stUp * 1.6; }   // stamping foot
   const pushing = sk.pushT > 0 && !tuck;
   const pp = pushing ? 1 - sk.pushT / PUSH_DUR : 0;
   const reach = pushing ? (pp < .35 ? pp / .35 : 1 - (pp - .35) / .65) : 0;     // 0 = arms pushed back, 1 = reaching forward
