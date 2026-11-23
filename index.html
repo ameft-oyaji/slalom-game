@@ -2343,9 +2343,9 @@ function makeIncolRace(d){
   courses.forEach(c => { c.prof = makeProfile(ev.venue, c.finishY, d); c.vd = Math.round(c.prof.drop * (d === 'SL' ? IK_SL.frac : 1)); });
   const refs = courses.map(refRun);
   const field = FIELDS[g], r = rng(sd ^ 0x5EED);
-  // your university enters you and its one best-ranked student; the others enter everyone registered
-  let mates = 0;
-  const rivals = field.filter(a => a.nat !== myNat || mates++ < 1).map(a => ({ id: a.id, name: a.name, nat: a.nat, me: false }));
+  // two racers per university: the two best-ranked students — your own university enters you and its best-ranked student
+  const per = {};
+  const rivals = field.filter(a => (per[a.nat] = (per[a.nat] || 0) + 1) <= (a.nat === myNat ? 1 : 2)).map(a => ({ id: a.id, name: a.name, nat: a.nat, me: false }));
   const order = [...shuffle(rivals.slice(0, 7), r), ...shuffle(rivals.slice(7, 15), r), ...rivals.slice(15)];
   order.splice(15 + Math.floor(r() * 30), 0, { id: 'you', name: pname, nat: myNat, me: true });   // your bib: drawn between 16 and 45
   const bib = new Map(order.map((e, i) => [e.id, i + 1]));
@@ -2381,7 +2381,7 @@ function showIncol(focus){
     <div class="ik-uni"><span class="flag" id="ikFlag"></span><select id="ikUni" aria-label="所属する大学">${UNIS.map(([c, jp]) => `<option value="${c}"${c === GK.uni ? ' selected' : ''}>${esc(jp)}</option>`).join('')}</select>
       <input type="text" id="ikName" maxlength="14" value="${esc(pname)}" aria-label="名前" autocomplete="off"></div>
     <h3>第${st.n}回 全日本学生スキー選手権（${gender === 'men' ? '男子' : '女子'}）</h3>
-    <p class="note">24大学の学生と、スーパー大回転・大回転・回転を1回ずつ滑ります。スーパー大回転は1本勝負、大回転と回転は2本合計で1本目の上位30名が2本目に進みます。あなたの大学からは、あなたとポイント上位の1人が出場します。${gender === 'men' ? '男子は登録選手がポイント順に出場します（0.00が最も強い。スーパー大回転は大回転のポイントで）。' : '女子の選手名は架空です。'}</p>
+    <p class="note">24大学の学生と、スーパー大回転・大回転・回転を1回ずつ滑ります。スーパー大回転は1本勝負、大回転と回転は2本合計で1本目の上位30名が2本目に進みます。出場は各大学2人まで（ポイント上位の2人）。あなたの大学からは、あなたとポイント上位の1人が出場します。${gender === 'men' ? '男子は登録選手がポイント順に出場します（0.00が最も強い。スーパー大回転は大回転のポイントで）。' : '女子の選手名は架空です。'}</p>
     ${card('SG')}${card('GS')}${card('SL')}
     ${incolTeamsHTML(st)}
     <h3 id="ikDual">デュアル（学生のCPライバルと1対1）</h3>
