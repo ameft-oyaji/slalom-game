@@ -5500,7 +5500,7 @@ function bibNumber(){
 // a ski helmet seen from behind: a domed shell that comes down over the ears, a notch at the nape,
 // a dark rim, vents on top and the goggle clip at the back (centred on x, y; head radius about 2.5)
 function drawHelmet(x, y, helm, strap){
-  ctx.save(); ctx.translate(x, y);
+  ctx.save(); ctx.translate(x, y - .3); ctx.scale(.94, 1.2);          // a little taller than wide, like a real ski helmet
   ctx.beginPath();
   ctx.moveTo(-2.5, 1.55); ctx.lineTo(-2.78, -.15);
   ctx.bezierCurveTo(-2.85, -3.25, 2.85, -3.25, 2.78, -.15);
