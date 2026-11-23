@@ -677,6 +677,7 @@ const DISC = { SL:'回転', GS:'大回転', SG:'スーパーG', DH:'滑降' };
 const nordic = (bg, c, inner) => `linear-gradient(${inner || c},${inner || c}) 7.5px 0/${inner ? 2 : 4}px 100% no-repeat,linear-gradient(${inner || c},${inner || c}) 0 ${inner ? 7 : 6}px/100% ${inner ? 2 : 4}px no-repeat,` + (inner ? `linear-gradient(${c},${c}) 6.5px 0/4px 100% no-repeat,linear-gradient(${c},${c}) 0 6px/100% 4px no-repeat,` : '') + bg;
 const tri = (a, b, c, dir) => `linear-gradient(${dir || '180deg'},${a} 0 33.4%,${b} 0 66.7%,${c} 0)`;
 const FLAG = {
+  KSD: 'url(data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2016%22%3E%3Crect%20width%3D%2224%22%20height%3D%2216%22%20fill%3D%22%23fff%22%2F%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%228%22%20r%3D%226.7%22%20fill%3D%22none%22%20stroke%3D%22%231B3C8C%22%20stroke-width%3D%221.1%22%2F%3E%3Cpath%20d%3D%22M7.4%206.1L9.2%205.4L10.8%206.2L12.1%207.6L12.5%2010L15.4%2010.4L15.9%207.8L12.1%207.6%22%20fill%3D%22none%22%20stroke%3D%22%231B3C8C%22%20stroke-width%3D%22.35%22%2F%3E%3Ccircle%20cx%3D%227.4%22%20cy%3D%226.1%22%20r%3D%220.65%22%20fill%3D%22%231B3C8C%22%2F%3E%3Ccircle%20cx%3D%229.2%22%20cy%3D%225.4%22%20r%3D%220.7%22%20fill%3D%22%231B3C8C%22%2F%3E%3Ccircle%20cx%3D%2210.8%22%20cy%3D%226.2%22%20r%3D%220.7%22%20fill%3D%22%231B3C8C%22%2F%3E%3Ccircle%20cx%3D%2212.1%22%20cy%3D%227.6%22%20r%3D%220.75%22%20fill%3D%22%231B3C8C%22%2F%3E%3Ccircle%20cx%3D%2212.5%22%20cy%3D%2210%22%20r%3D%220.8%22%20fill%3D%22%231B3C8C%22%2F%3E%3Ccircle%20cx%3D%2215.4%22%20cy%3D%2210.4%22%20r%3D%220.8%22%20fill%3D%22%231B3C8C%22%2F%3E%3Ccircle%20cx%3D%2215.9%22%20cy%3D%227.8%22%20r%3D%220.75%22%20fill%3D%22%231B3C8C%22%2F%3E%3C%2Fsvg%3E) center/100% 100% no-repeat,#fff',   // original emblem: navy ring and the Big Dipper
   AUT: tri('#C8102E','#fff','#C8102E'), GER: tri('#000','#DD0000','#FFCE00'), FRA: tri('#002395','#fff','#ED2939','90deg'), ITA: tri('#009246','#fff','#CE2B37','90deg'),
   CRO: tri('#FF0000','#fff','#171796'), SLO: 'radial-gradient(ellipse 3px 3.6px at 30% 45%,#005DA4 0 2.6px,#fff 2.6px 3px,transparent 3.2px),' + tri('#fff','#005DA4','#ED1C24'), SVK: 'radial-gradient(ellipse 3.2px 4px at 33% 50%,#EE1C25 0 2.8px,#fff 2.8px 3.3px,transparent 3.5px),' + tri('#fff','#0B4EA2','#EE1C25'), AND: tri('#10069F','#FEDD00','#D50032','90deg'),
   SUI: 'linear-gradient(#fff,#fff) center/12px 4px no-repeat,linear-gradient(#fff,#fff) center/4px 12px no-repeat,#DA291C',
@@ -710,6 +711,7 @@ const NATIONS = [
   ['DEN','デンマーク','#C8102E','#FFFFFF'], ['LTU','リトアニア','#006A44','#FDB913'], ['EST','エストニア','#0072CE','#FFFFFF'], ['AIN','個人中立選手','#5B6578','#FFFFFF'],
 ];
 const NAT = Object.fromEntries(NATIONS.map(n => [n[0], { jp: n[1], suit: n[2], trim: n[3] }]));
+NAT.KSD = { jp: 'KSD', suit: '#1B3C8C', trim: '#FFFFFF' };        // the インカレクラス rival's team (not a country you can pick)
 
 // Equipment. All brands and logos are fictional, original designs made for this game.
 // mod: turn (turn rate), drag (air/snow drag), carve (speed lost while turning), push (start push, km/h-ish),
@@ -2531,7 +2533,7 @@ if (DUAL_PREF.d !== 'SL') DUAL_PREF.d = 'GS';          // which gates the dual r
 // CP rival levels: [label, ranking from, ranking to]. The rival is drawn from that part of the ranking and skis at that rank's pace
 const CPU_LV = { easy: ['インカレクラス', 84, 999], mid: ['全日本クラス', 70, 83], hard: ['ヨーロッパカップ級', 20, 60], wc: ['ワールドカップ級', 1, 15] };
 // levels raced under given names (at the ability of their ranking band): インカレクラス and 全日本クラス
-const CPU_NAMED = { easy: [['OUCHI Keita', 'JPN']], mid: [['SASAKI Akira', 'JPN']] };
+const CPU_NAMED = { easy: [['OUCHI Keita', 'KSD']], mid: [['SASAKI Akira', 'JPN']] };
 // pace against the robot's clean line, by ranking (1st = fastest)
 function cpuPace(rank){
   const P = [[1, 1.03], [15, 1.05], [20, 1.07], [60, 1.12], [70, 1.14], [83, 1.18], [92, 1.24]];
