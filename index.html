@@ -1760,6 +1760,25 @@ function thwack(vol){
   const g = actx.createGain(); g.gain.setValueAtTime(vol || .5, actx.currentTime); g.gain.exponentialRampToValueAtTime(.001, actx.currentTime + .12);
   s.connect(f).connect(g).connect(master); s.start();
 }
+// giant slalom gate contact: the knock on the pole, then the slap and flutter of the panel's cloth
+function panelHit(vol){
+  if (muted || !actx) return;
+  const now = actx.currentTime;
+  const burst = (at, dur, freq, q, v) => {
+    const s = actx.createBufferSource(); s.buffer = noiseBuf(dur);
+    const f = actx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = freq; f.Q.value = q;
+    const g = actx.createGain(); g.gain.setValueAtTime(.0001, now + at); g.gain.linearRampToValueAtTime(v, now + at + .006); g.gain.exponentialRampToValueAtTime(.001, now + at + dur);
+    s.connect(f).connect(g).connect(master); s.start(now + at); s.stop(now + at + dur + .02);
+  };
+  burst(0, .09, 1700, 2.2, vol * .8);                 // the pole knocked aside
+  burst(.02, .16, 520, 1.1, vol);                     // the panel slaps
+  burst(.11, .1, 760, 1.4, vol * .45);                // ...and flutters back
+  burst(.19, .08, 900, 1.6, vol * .25);
+  const o = actx.createOscillator(), og = actx.createGain();       // a dull body thud
+  o.type = 'sine'; o.frequency.setValueAtTime(150, now); o.frequency.exponentialRampToValueAtTime(70, now + .12);
+  og.gain.setValueAtTime(vol * .5, now); og.gain.exponentialRampToValueAtTime(.001, now + .14);
+  o.connect(og).connect(master); o.start(now); o.stop(now + .16);
+}
 // ---- the snow under the skis today: powder, wet, ice or hard-packed. Spray, carving sound and the piste follow it ----
 function snowKind(){
   const w = race && race.wx && race.wx[(race.run || 1) - 1], s = (w && w.surface) || '';
@@ -2016,7 +2035,7 @@ function step(dt){
           g.cool[k] = .45;
           g.bv[k] += (Math.sign(ddx) || 1) * (3.5 + sk.v * .018);
           if (state !== 'finished') sk.v *= sk.mod && sk.mod.shimizu ? 1.03 : 1 - .006 * (sk.mod ? sk.mod.pole : 1);
-          if (!quiet) thwack(.14);
+          if (!quiet) panelHit(.35 + Math.min(.2, sk.v / 700));
         }
         continue;
       }
