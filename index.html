@@ -2523,16 +2523,35 @@ function showIntro(){
   if (course.jumpY != null) html += `<p class="note">コースの途中にプレジャンプが1か所あります（時速70km以上で一瞬浮きます）。浮く瞬間にクローチ（▼）を押していればスピードが落ちません。押していないと少し減速します。</p>`;
   html += `<p class="note">旗門を1つでも外すとその場で失格（DSQ）。ポールは倒しても構いません。</p>`;
   const inspected = race.inspected && race.inspected[race.run - 1];
-  html += `<div class="btns"><button class="btn primary" type="button" id="goStart">スタートハウスへ</button><button class="btn" type="button" id="goInspect">${inspected ? '✓ もう一度インスペクション' : 'インスペクション（コースの下見）'}</button><button class="btn" type="button" id="goBack">${race.run === 1 ? 'やめる' : '棄権する'}</button></div>`;
+  html += `<div class="btns"><button class="btn primary" type="button" id="goStart">スタートハウスへ</button>${!ta && race.entrants ? '<button class="btn" type="button" id="goList">スタートリスト</button>' : ''}<button class="btn" type="button" id="goInspect">${inspected ? '✓ もう一度インスペクション' : 'インスペクション（コースの下見）'}</button><button class="btn" type="button" id="goBack">${race.run === 1 ? 'やめる' : '棄権する'}</button></div>`;
   openSheet(ta ? 'Time Attack' : `Run ${race.run} · Start List`, `${JP[ev.venue] || ev.venue} — ${race.run}本目`, html, `${ev.date.replace(/-/g, '.')} · ${ev.venue} (${ev.nat})${ev.finals ? ' · Finals' : ''}`);
   bindWaxPicker();
   if (race.run === 2) race.waxSet2 = true;
   $('#goStart').onclick = beginRun;
+  if ($('#goList')) $('#goList').onclick = showStartList;
   $('#goInspect').onclick = startInspection;
   $('#goBack').onclick = () => {
     if (race.run === 2){ race.playerDsq[1] = 'DNF'; recordPlayerTime(null); afterRun2(); }
     else { const ik = race.incol; race = null; if (ik) showIncol(); else showMenu(); }
   };
+}
+// the start list for the coming run: run 1 in bib order, run 2 in its start order with the run-1 times
+function showStartList(){
+  const ik = race.incol, natCell = id => `<td class="nat3">${flagH(natOf(id))}${ik ? esc(uniName(natOf(id))) : natOf(id)}</td>`;
+  let head, rows;
+  if (race.run === 1){
+    head = ['Bib', '選手', ik ? '大学' : '国'];
+    rows = race.entrants.map(e => `<tr class="${e.me ? 'me' : ''}"><td class="n">${race.bib.get(e.id)}</td><td>${esc(e.me ? pname : nameOf(e.id))}${e.me && pname !== 'あなた' ? '（あなた）' : ''}</td>${natCell(e.id)}</tr>`);
+  } else {
+    const best = Math.min(...race.order2.map(id => race.run1[id]).filter(v => v != null));
+    head = ['順', 'Bib', '選手', ik ? '大学' : '国', '1本目', '差'];
+    rows = race.order2.map((id, i) => `<tr class="${id === 'you' ? 'me' : ''}"><td class="n">${i + 1}</td><td class="r">${race.bib.get(id)}</td><td>${esc(id === 'you' ? pname : nameOf(id))}${id === 'you' && pname !== 'あなた' ? '（あなた）' : ''}</td>${natCell(id)}<td class="r">${fmt(race.run1[id])}</td><td class="r">${race.run1[id] === best ? '' : fmtDiff(race.run1[id] - best)}</td></tr>`);
+  }
+  const html = `<p class="note">${race.run === 1 ? `${race.entrants.length}名がビブ順にスタートします。` : `1本目の上位${race.order2.length}名が、1本目の順位の逆順でスタートします。`}</p>` + table(head, rows) +
+    `<div class="btns"><button class="btn primary" type="button" id="slBack">戻る</button></div>`;
+  openSheet(`Run ${race.run} · Start List`, `${JP[race.ev.venue] || race.ev.venue} — ${race.run}本目 スタートリスト`, html);
+  scrollMeIntoView();
+  $('#slBack').onclick = showIntro;
 }
 function waxRow(run){ if (!race.wx) return ''; const w = waxById(race.wax[run - 1]), wx = race.wx[run - 1]; return `<dt>${run}本目のワックス（雪温 ${wx.snowT.toFixed(1)}℃）</dt><dd style="font-family:var(--f-body);font-size:14px">${w.name} ${waxGrade(waxMatch(w, wx))}</dd>` + (race.edge ? `<dt>${run}本目のエッジ（${wx.surface}）</dt><dd style="font-family:var(--f-body);font-size:14px">${race.edge[run - 1].side}° / ${race.edge[run - 1].base.toFixed(1)}° ${waxGrade(edgeMatch(race.edge[run - 1], wx))}</dd>` : ''); }
 function rec2Note(){
