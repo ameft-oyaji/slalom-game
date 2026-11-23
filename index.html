@@ -83,6 +83,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
 /* the start: READY, the countdown and GO stand to the left of the racer in the gate, not on top of them */
 .cd.side{align-items:flex-start;justify-content:center;padding-left:max(4vw,14px);padding-right:52%;box-sizing:border-box;font-size:min(13vw,104px);text-align:left}
 .cd.side small{font-size:clamp(12px,2.6vw,18px)}
+.cd.side.r{align-items:flex-end;padding-left:52%;padding-right:max(11vw,72px);text-align:right}   /* the countdown digits: on the other side of the start hut */
 .cd{flex-direction:column;gap:6px}
 .cd small{display:block;font-family:var(--f-body);font-style:normal;font-weight:700;font-size:clamp(14px,3.4vw,22px);color:var(--board);background:rgba(255,255,255,.85);padding:4px 12px;border-radius:4px;text-shadow:none}
 .cd em{display:block;font-family:var(--f-num);font-style:italic;font-weight:800;font-size:clamp(28px,8vw,56px);color:var(--board);text-shadow:0 3px 0 rgba(255,255,255,.7)}
@@ -5740,11 +5741,11 @@ function render(){
   drawConfetti();
   const cd = $('#cd');
   if (state === 'countdown' && race && race.dual){
-    cd.className = 'cd side';
+    cd.className = 'cd side' + (cdT > 3 ? '' : ' r');
     cd.innerHTML = cdT > 3 ? 'READY<small>3・2・1・GO! でゲートが開きます</small>' : `<em class="beep${cdT <= 1 ? ' hi' : ''}">${Math.max(1, Math.ceil(cdT))}</em>`;
   }
   else if (state === 'countdown'){
-    cd.className = 'cd side';
+    cd.className = 'cd side' + (cdT > 5 ? '' : ' r');
     if (cdT > 5) cd.innerHTML = cdT > START_CALL - 2 ? '10秒前<small>まもなくスタートです</small>' : 'READY';
     else cd.innerHTML = `<em class="beep${cdT <= 2 ? ' hi' : ''}">${Math.max(1, Math.ceil(cdT))}</em>`;
   }
