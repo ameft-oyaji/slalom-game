@@ -117,6 +117,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
 .ik-ev{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;background:rgba(19,35,94,.06);margin:6px 0}
 .ik-ev b{font-size:16px}.ik-ev .st{margin-left:auto;text-align:right;font-size:14px}
 .ik-uni{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.top-disc.top-gk{grid-template-columns:repeat(2,1fr)}.top-disc.top-gk button{width:7.4em}
 .top-disc{margin:0 auto 14px;display:inline-grid;grid-template-columns:repeat(3,1fr)}.top-disc button{font-size:16px;padding:9px 0;width:6.2em;text-align:center}   /* three modes, all the same width */
 .clog{margin:6px 0;padding:6px 10px;background:rgba(255,255,255,.06);border-radius:6px}.clog summary{cursor:pointer;font-weight:700}.clog ul{margin:6px 0 2px 18px;padding:0}.clog li{margin:3px 0;font-size:13px}
 .top-watch{min-width:220px;font-size:16px;background:rgba(255,255,255,.12);color:#fff;border:1px solid rgba(255,255,255,.4)}
@@ -554,6 +555,7 @@ body.nightrace .ev-label,body.nightrace .ev-label *,body.nightrace #keys,body.ni
       <p class="top-sub" id="topSub">回転（スラローム）ワールドカップ</p>
       <div class="top-stripe"><i></i><i></i></div>
       <div class="seg top-disc" role="group" aria-label="種目"><button type="button" id="tdSL" aria-pressed="true">回転</button><button type="button" id="tdGS" aria-pressed="false">大回転</button><button type="button" id="tdDual" aria-pressed="false">デュアル</button></div>
+      <div class="seg top-disc top-gk" id="tgSeg" role="group" aria-label="学連のモード" hidden><button type="button" id="tgIncol" aria-pressed="true">インカレ</button><button type="button" id="tgDual" aria-pressed="false">デュアル</button></div>
       <button class="btn primary top-go" type="button" id="topGo">スタート</button>
       <button class="btn top-watch" type="button" id="topWatch">観戦モード</button>
       <p class="top-who" id="topWho"></p>
@@ -769,7 +771,7 @@ function uniFlag(bg, fg, ch){
 }
 for (const [c, jp, suit, trim, ch] of UNIS){ if (ch) FLAG[c] = uniFlag(suit, trim, ch); NAT[c] = { jp, suit, trim }; }
 const uniName = c => (NAT[c] || {}).jp || c;
-const GK = Object.assign({ on: false, uni: 'KSD', cpu: 'mid' }, load('slalomwc-gk') || {});
+const GK = Object.assign({ on: false, uni: 'KSD', cpu: 'mid', mode: 'incol' }, load('slalomwc-gk') || {});
 if (!NAT[GK.uni]) GK.uni = 'KSD';
 const saveGK = () => save('slalomwc-gk', GK);
 let INCOL_SWAP = null;          // while racing as a student: what your country and the field were before        // the インカレクラス rival's team (not a country you can pick)
@@ -5105,7 +5107,10 @@ function applyDisc(){
   const m = playMode;
   for (const [id, k] of [['SL', 'SL'], ['GS', 'GS'], ['Dual', 'DUAL']]){ $('#d' + id).setAttribute('aria-pressed', m === k); $('#td' + id).setAttribute('aria-pressed', m === k); }
   const T = { SL: ['SLALOM', 'WORLD CUP', '回転（スラローム）ワールドカップ'], GS: ['GIANT SLALOM', 'WORLD CUP', '大回転（ジャイアントスラローム）ワールドカップ'], DUAL: ['DUAL RACE', 'ONLINE', 'デュアルレース（オンラインで同時スタート・2本合計）'] }[m];
-  const TG = { SL: ['SLALOM', 'INTERCOLLEGIATE', '回転 — 全日本学生スキー選手権（インカレ）'], GS: ['GIANT SLALOM', 'INTERCOLLEGIATE', '大回転 — 全日本学生スキー選手権（インカレ）'], DUAL: ['DUAL RACE', 'INTERCOLLEGIATE', 'デュアル — 学生のCPライバルと1対1・2本合計'] }[m];
+  // 学連: no slalom / giant slalom choice here — just the Intercollegiate or the dual
+  const TG = GK.mode === 'dual' ? ['DUAL RACE', 'INTERCOLLEGIATE', 'デュアル — 学生のCPライバルと1対1・2本合計'] : ['ALL JAPAN', 'INTERCOLLEGIATE', '全日本学生スキー選手権（インカレ）回転・大回転'];
+  document.querySelector('.top-disc:not(.top-gk)').hidden = GK.on; $('#tgSeg').hidden = !GK.on;
+  $('#tgIncol').setAttribute('aria-pressed', GK.mode !== 'dual'); $('#tgDual').setAttribute('aria-pressed', GK.mode === 'dual');
   const Tt = GK.on ? TG : T;
   $('#menuTitle').innerHTML = `${T[0]}<small>${T[2]}</small>`;
   $('#topTitle').innerHTML = `${Tt[0]}<span>${Tt[1]}</span>`;
@@ -6370,7 +6375,9 @@ function showTop(){
     : setupDone ? `${esc(pname)}（${flagH(myNat)}${esc((NAT[myNat] || {}).jp || myNat)}）でプレー` : 'はじめに国と用具を選びます';
   $('#top').hidden = false;
   $('#topWatch').hidden = GK.on;
-  $('#topGo').onclick = () => { $('#top').hidden = true; ac(); if (GK.on) showIncol(playMode); else bootGame(); };
+  $('#topGo').onclick = () => { $('#top').hidden = true; ac(); if (GK.on) showIncol(GK.mode === 'dual' ? 'DUAL' : null); else bootGame(); };
+  $('#tgIncol').onclick = () => { GK.mode = 'incol'; saveGK(); applyDisc(); };
+  $('#tgDual').onclick = () => { GK.mode = 'dual'; saveGK(); applyDisc(); };
   $('#topWatch').onclick = () => { $('#top').hidden = true; ac(); showSpectPick(); };
   $('#orgWC').onclick = () => { if (!GK.on) return; GK.on = false; saveGK(); showTop(); };
   $('#orgGK').onclick = () => { if (GK.on) return; GK.on = true; saveGK(); showTop(); };
