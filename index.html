@@ -5473,7 +5473,18 @@ const LEGEND_LOOK = {
                      bib: '#FFFFFF', bibTop: '#D7263D', boot: '#2B3552', helm: { c1: '#1F2A5A', c2: '#F07A1A' },
                      ski: { c1: '#1A1A1A', c2: '#E8322E' }, strap: '#F07A1A' },
 };
-const legendLook = name => LEGEND_LOOK[name] || null;
+// in slalom some of them wore a different suit
+const LEGEND_LOOK_SL = {
+  // Tomba in slalom: red suit with blue shoulders and upper arms, white bib with blue lettering, red helmet,
+  // white goggles, black shin guards, blue boots and skis
+  'TOMBA Alberto': { suit: '#E0242C', trim: '#1F3A93', arm: '#E0242C', armUpper: '#1F3A93', cuff: '#FFFFFF', legPanels: ['#E0242C', '#1A1A1A'],
+                     bib: '#FFFFFF', bibTop: '#1F3A93', boot: '#1F3A93', helm: { c1: '#E2312A', c2: '#FFFFFF' },
+                     ski: { c1: '#1F5FBF', c2: '#FFFFFF' }, strap: '#FFFFFF' },
+};
+function legendLook(name){
+  const slalom = course ? !course.gh : !(race && race.ev && race.ev.disc === 'GS');
+  return (slalom && LEGEND_LOOK_SL[name]) || LEGEND_LOOK[name] || null;
+}
 // the start number on the racer's back, whatever is being raced
 function bibNumber(){
   if (!race) return 1;
@@ -5677,8 +5688,9 @@ function drawSkier(){
   const eI = elbow(shI, handI, s), eO = elbow(shO, handO, -s);
   ctx.beginPath(); ctx.moveTo(shO.x, shO.y); ctx.lineTo(eO.x, eO.y); ctx.lineTo(handO.x, handO.y); ctx.moveTo(shI.x, shI.y); ctx.lineTo(eI.x, eI.y); ctx.lineTo(handI.x, handI.y); ctx.stroke();
   if (LK){
-    // striped sleeves with red cuffs
-    ctx.save(); ctx.setLineDash([.55, .55]); ctx.strokeStyle = LK.armStripe; ctx.lineWidth = 1.2; ctx.stroke(); ctx.restore();
+    if (LK.armUpper){ ctx.strokeStyle = LK.armUpper; ctx.lineWidth = 1.75; ctx.beginPath(); ctx.moveTo(shO.x, shO.y); ctx.lineTo(eO.x, eO.y); ctx.moveTo(shI.x, shI.y); ctx.lineTo(eI.x, eI.y); ctx.stroke(); }
+    // striped sleeves
+    if (LK.armStripe){ ctx.save(); ctx.setLineDash([.55, .55]); ctx.strokeStyle = LK.armStripe; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(shO.x, shO.y); ctx.lineTo(eO.x, eO.y); ctx.lineTo(handO.x, handO.y); ctx.moveTo(shI.x, shI.y); ctx.lineTo(eI.x, eI.y); ctx.lineTo(handI.x, handI.y); ctx.stroke(); ctx.restore(); }
     ctx.fillStyle = LK.cuff; for (const [e, hd] of [[eO, handO], [eI, handI]]){ ctx.beginPath(); ctx.arc(e.x + (hd.x - e.x) * .8, e.y + (hd.y - e.y) * .8, .75, 0, 7); ctx.fill(); }
   }
   ctx.fillStyle = '#F2F4F8'; ctx.beginPath(); ctx.arc(handO.x, handO.y, .95, 0, 7); ctx.arc(handI.x, handI.y, .95, 0, 7); ctx.fill();
