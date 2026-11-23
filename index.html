@@ -6099,8 +6099,8 @@ function drawSkier(){
   const tuck = sk.tuck;
   const look = { suit: NAT[myNat].suit, trim: NAT[myNat].trim, ski: gearItem('ski', myGear.ski), helm: gearItem('helm', myGear.helm), gog: gearItem('gog', myGear.gog), pole: gearItem('pole', myGear.pole) };
   const LK = legendLook(racerName());
-  const lift = (sk.air > 0 && sk.airT ? Math.sin(Math.PI * (1 - sk.air / sk.airT)) * (1.5 + sk.airT * 6) : 0)   // a little off the snow
-    + (sk.kickT > 0 ? Math.sin(Math.PI * (1 - sk.kickT / KICK_DUR)) * 2.4 : 0);                                   // the kick out of the gate
+  const lift = sk.air > 0 && sk.airT ? Math.sin(Math.PI * (1 - sk.air / sk.airT)) * (1.5 + sk.airT * 6) : 0;   // a little off the snow
+  const kickP = sk.kickT > 0 ? Math.sin(Math.PI * (1 - sk.kickT / KICK_DUR)) : 0;                                // kicking out of the gate: one heel goes up behind
   if (LK){
     look.suit = LK.suit; look.trim = LK.trim || LK.zig; look.ski = Object.assign({}, look.ski, LK.ski); look.gog = Object.assign({}, look.gog, { c2: LK.strap });
     if (LK.helm) look.helm = Object.assign({}, look.helm, LK.helm);
@@ -6137,7 +6137,8 @@ function drawSkier(){
     const t0 = proj(bx - sdx*(7 - lead), by - sdy*(7 - lead)), h0 = proj(bx + sdx*(12 + lead), by + sdy*(12 + lead));
     if (!t0 || !h0) continue;
     const lift = skating && Math.sign(o) !== skSide ? skLift * 2.2 * u : 0;   // the unweighted ski comes off the snow
-    const t = { X: t0.X, Y: t0.Y - lift }, h = { X: h0.X, Y: h0.Y - lift };
+    const kk = o > 0 ? kickP : 0;                                              // the kicking leg: tail (heel side) up, tip still near the snow
+    const t = { X: t0.X, Y: t0.Y - lift - kk * 7 * u }, h = { X: h0.X, Y: h0.Y - lift - kk * 1.2 * u };
     ctx.strokeStyle = ['#F4F1E8', '#C9D2DE', '#F5F5F5'].includes(look.ski.c1) ? shade(look.ski.c1, .8) : look.ski.c1; ctx.lineCap = 'round'; ctx.lineWidth = Math.max(1.5, 1.9*u*(1 - a*.35));
     ctx.beginPath(); ctx.moveTo(t.X, t.Y); ctx.lineTo(h.X, h.Y); ctx.stroke();
     ctx.strokeStyle = look.ski.c2; ctx.lineWidth = Math.max(1, 1.2*u);
@@ -6155,6 +6156,7 @@ function drawSkier(){
   const incl = tuck ? a * .35 : gsT ? clamp(Math.pow(a, .7) * (.5 + sk.v / 120), 0, 1.12) : clamp(Math.pow(a, .8) * (.45 + sk.v / 130), 0, 1.2);
   const wI = clamp(incl / .9, 0, 1);                                                      // 0 = upright stance, 1 = fully laid over
   const footO = { x: -s*2.8 - s*incl*2.6, y: 0 }, footI = { x: s*2.2 - s*incl*2.6, y: 0 };
+  if (kickP){ const kf = footO.x > footI.x ? footO : footI; kf.y -= kickP * 3.2; }                  // that boot comes up off the snow
   const pushing = sk.pushT > 0 && !tuck;
   const pp = pushing ? 1 - sk.pushT / PUSH_DUR : 0;
   const reach = pushing ? (pp < .35 ? pp / .35 : 1 - (pp - .35) / .65) : 0;     // 0 = arms pushed back, 1 = reaching forward
@@ -6185,7 +6187,10 @@ function drawSkier(){
   if (inGate){
     handI = { x: sh.x + s * (2.6 + rock * .6), y: sh.y + 2.4 - rock * 1.5 };      // arms reach out ahead over the bar
     handO = { x: sh.x - s * (2.6 + rock * .6), y: sh.y + 2.4 - rock * 1.5 };
-    if (tapping) handO = { x: sh.x - s * (3 + tapHit * 1.2), y: sh.y + 1.2 + tapHit * 3.4 };          // the pole hand comes down to knock the boot
+    if (tapping){                                                                                     // both hands out in front, poles crossed
+      handI = { x: sh.x + s * (2.2 - tapHit * 1.1), y: sh.y + 1.2 - tapHit * .6 };
+      handO = { x: sh.x - s * (2.2 - tapHit * 1.1), y: sh.y + 1.2 - tapHit * .6 };
+    }
   }
   if (skating){
     // arms swing across with each step
@@ -6221,9 +6226,13 @@ function drawSkier(){
   else if (actUp){ ctx.moveTo(handI.x, handI.y); ctx.lineTo(handI.x + s * 1.5, handI.y - 7); ctx.moveTo(handO.x, handO.y); ctx.lineTo(handO.x - s * 1.5, handO.y - 7); }
   else if (inGate){
     // pole tips planted on the far side of the start bar
-    ctx.moveTo(handI.x, handI.y); ctx.lineTo(handI.x + s * 1.2, -3.2 - rock * 2);
-    if (tapping){ ctx.moveTo(handO.x, handO.y); ctx.lineTo(footO.x + s * .3 * (1 - tapHit), footO.y - .6 - (1 - tapHit) * 2.4); }   // tip onto the boot
-    else { ctx.moveTo(handO.x, handO.y); ctx.lineTo(handO.x - s * 1.2, -3.2 - rock * 2); }
+    if (!tapping){ ctx.moveTo(handI.x, handI.y); ctx.lineTo(handI.x + s * 1.2, -3.2 - rock * 2); }
+    if (tapping){
+      // the shafts cross in front and clap together on each knock
+      const sp = 3.6 + (1 - tapHit) * 1.4;
+      ctx.moveTo(handI.x, handI.y); ctx.lineTo(handI.x - s * sp, handI.y - 6.5);
+      ctx.moveTo(handO.x, handO.y); ctx.lineTo(handO.x + s * sp, handO.y - 6.5);
+    } else { ctx.moveTo(handO.x, handO.y); ctx.lineTo(handO.x - s * 1.2, -3.2 - rock * 2); }
   }
   else if (pushing){
     // tips planted beside the boots, then pushed back behind them (toward the camera)
