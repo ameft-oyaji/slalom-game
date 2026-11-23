@@ -5519,7 +5519,12 @@ const LEGEND_HAT = {
   'GIRARDELLI Marc':   { bands: ['#F2F2F4', '#FFFFFF', '#E6E6EC'], pom: null },          // plain white beanie
 };
 // the knit hat, unless this race calls for a suit that comes with its own helmet (e.g. Zurbriggen in GS)
-function legendHat(name){ const L = LEGEND_HAT[name]; if (!L) return null; const lk = legendLook(name); return lk && lk.helm ? null : L; }
+function legendHat(name){
+  const lk = legendLook(name);
+  if (lk && lk.hat) return lk.hat;                     // this suit comes with its own knit hat
+  if (lk && lk.helm) return null;                      // ...or with a helmet
+  return LEGEND_HAT[name] || null;
+}
 // whose figure is being drawn right now
 function racerName(){ if (SPLIT.side === 'R') return SPLIT.name; if (race && race.watch) return race.watch.a; return pname; }
 // a knitted hat seen from behind, centred on the head (r = head radius), in the current canvas transform
@@ -5554,6 +5559,12 @@ const LEGEND_LOOK = {
 };
 // in slalom some of them wore a different suit
 const LEGEND_LOOK_SL = {
+  // Zurbriggen in slalom, 1986/87: dark purple suit with red, white and green bands over the shoulders, red and green
+  // panels down the legs, white gloves, plain white beanie, pink goggles, white bib with a red band, red boots
+  'ZURBRIGGEN Pirmin': { suit: '#3B2A57', trim: '#2E9E5B', arm: '#3B2A57', cuff: '#FFFFFF', collar: '#D7263D',
+                         legPanels: ['#3B2A57', '#C2185B'], bib: '#FFFFFF', bibTop: '#D7263D', boot: '#D7263D',
+                         hat: { bands: ['#F4F4F6', '#FFFFFF', '#E6E6EC'], pom: null },
+                         ski: { c1: '#F2F2F2', c2: '#D7263D' }, strap: '#FF4FA3' },
   // Tomba in slalom: red suit with blue shoulders and upper arms, white bib with blue lettering, red helmet,
   // white goggles, black shin guards, blue boots and skis
   'TOMBA Alberto': { suit: '#E0242C', trim: '#1F3A93', arm: '#E0242C', armUpper: '#1F3A93', cuff: '#FFFFFF', legPanels: ['#E0242C', '#1A1A1A'],
