@@ -754,14 +754,14 @@ const UNIS = [
   ['AOM', '青森大学', '#26774A', '#F2C14E', '青'],
   ['RIK', '立教大学', '#4E2A6E', '#FFFFFF', '教'],
   ['KAN', '関西大学', '#33127A', '#FFFFFF', '関'],
+  ['RYU', '龍谷大学', '#4A2A6E', '#FFFFFF', '龍'],
+  ['OSD', '大阪産業大学', '#1F4E6B', '#FFFFFF', '産'],
   ['RIT', '立命館大学', '#9E1B32', '#F2C14E', '命'],
   ['KGU', '関西学院大学', '#1B4A7A', '#F2C14E', '院'],
-  ['OSD', '大阪産業大学', '#1F4E6B', '#FFFFFF', '産'],
-  ['KYO', '京都大学', '#FFFFFF', '#1E2F5E', '京'],
-  ['KOB', '神戸大学', '#9E3A2F', '#F2C14E', '神'],
+  ['DOS', '同志社大学', '#5B2C83', '#F2C14E', '同'],
   ['OSA', '大阪大学', '#FFFFFF', '#2B3990', '阪'],
-  ['KYU', '九州大学', '#8A0B3F', '#FFFFFF', '九'],
-  ['RYU', '龍谷大学', '#4A2A6E', '#FFFFFF', '龍'],
+  ['KYO', '京都大学', '#FFFFFF', '#1E2F5E', '京'],
+  ['TKY', '東京大学', '#2F7FC1', '#FFFFFF', '東'],
 ];
 function uniFlag(bg, fg, ch){
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 16"><rect width="24" height="16" fill="${bg}"${bg === '#FFFFFF' ? ' stroke="#C9D2E3" stroke-width=".8"' : ''}/><path d="M0 13L24 4V7L0 16Z" fill="${fg}" opacity="${bg === '#FFFFFF' ? .12 : .3}"/><text x="12" y="12" text-anchor="middle" font-size="10.5" font-weight="700" fill="${fg}">${ch}</text></svg>`;
@@ -2242,7 +2242,7 @@ function incolState(){ const all = load('slalomwc-incol') || {}; return all[gend
 function incolSave(st){ const all = load('slalomwc-incol') || {}; all[gender] = st; save('slalomwc-incol', all); }
 function incolTeams(st){
   const tot = {}; for (const [c] of UNIS) tot[c] = 0;
-  for (const d of ['SL', 'GS']){ const R = st.res[d]; if (R) for (const o of R.rows) tot[o.nat] = (tot[o.nat] || 0) + o.pts; }
+  for (const d of ['SL', 'GS']){ const R = st.res[d]; if (R) for (const o of R.rows) if (o.nat in tot) tot[o.nat] += o.pts; }
   return Object.entries(tot).sort((a, b) => b[1] - a[1]);
 }
 function incolTeamsHTML(st){
