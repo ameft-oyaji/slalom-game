@@ -1305,6 +1305,14 @@ function buildSG(seedN, gender){
   const jk = Math.floor(N * (.5 + r() * .1)), jumpY = Math.round((gates[jk].y + gates[jk + 1].y) / 2);
   return { gates, finishY: gates[N-1].y + 280, checks: [Math.floor(N*.25), Math.floor(N*.5), Math.floor(N*.75)], vd: 520, nGates: N, gh: GS_GH, disc: 'SG', jumpY };
 }
+// where a steep pitch eases off: the super-G pre-jump sits on that break (c.prof must be set)
+function steepBreakY(c){
+  const P = c.prof.pts; let best = -1, bi = 0;
+  for (let i = 0; i < P.length - 1; i++){ const dg = P[i][1] - P[i + 1][1]; if (P[i][1] >= 35 && dg > best){ best = dg; bi = i; } }
+  if (best < 0) for (let i = 0; i < P.length - 1; i++){ const dg = P[i][1] - P[i + 1][1]; if (dg > best){ best = dg; bi = i; } }
+  const f = P[bi][0] + (P[bi + 1][0] - P[bi][0]) * .25;
+  return Math.round(clamp(f, .15, .85) * c.finishY);
+}
 function resetCourseState(c){ c.gates.forEach(g => { g.bend = [0,0]; g.bv = [0,0]; g.cool = [0,0]; g.res = 0; }); }
 function courseSeed(g, date){ return hashStr(`${g}-${date}`); }
 
@@ -2068,7 +2076,10 @@ function step(dt){
   if (sk.skateT > 0 && state === 'run'){
     const before = sk.skateT; sk.skateT -= dt;
     const k0 = Math.floor((SKATE_DUR - before) / SKATE_STEP), k1 = Math.floor((SKATE_DUR - sk.skateT) / SKATE_STEP);
-    if (before <= SKATE_DUR && k1 > k0 && k1 <= 3){ sk.v += 7 * clamp(1 - sk.v / 160, 0, 1); tone(300, .04, 'triangle', .03); }   // each skating step
+    if (before <= SKATE_DUR && k1 > k0 && k1 <= 3){
+      sk.v += 7 * clamp(1 - sk.v / 160, 0, 1); tone(300, .04, 'triangle', .03);   // each skating step
+      if (course && course.disc === 'SG') sk.pushT = PUSH_DUR;                    // super-G: out of the gate with strong double-pole pushes, skis parallel
+    }
   }
   if ((state === 'run' || state === 'demo') && sk.y > 0 && sk.y < RAMP_END) sk.v += 55 * (1 - sk.y / RAMP_END) * dt;
   if (state !== 'run' && state !== 'finished' && state !== 'demo') return;
@@ -2340,7 +2351,7 @@ function makeIncolRace(d){
   const sd = hashStr(`incol-${g}-${d}-${st.n}`);
   const one = d === 'SG';                                     // super-G is a single run
   const courses = one ? [buildCourse(sd ^ 0x1111, g, d)] : [buildCourse(sd ^ 0x1111, g, d, IK_SL), buildCourse(sd ^ 0x2222, g, d, IK_SL)];
-  courses.forEach(c => { c.prof = makeProfile(ev.venue, c.finishY, d); c.vd = Math.round(c.prof.drop * (d === 'SL' ? IK_SL.frac : 1)); });
+  courses.forEach(c => { c.prof = makeProfile(ev.venue, c.finishY, d); c.vd = Math.round(c.prof.drop * (d === 'SL' ? IK_SL.frac : 1)); if (d === 'SG') c.jumpY = steepBreakY(c); });
   const refs = courses.map(refRun);
   const field = FIELDS[g], r = rng(sd ^ 0x5EED);
   // two racers per university: the two best-ranked students — your own university enters you and its best-ranked student
@@ -6094,7 +6105,8 @@ function drawSkier(){
     else rock = .15 + .1 * Math.sin(performance.now() / 700);                                      // settling in
   }
   // skating out of the start: skis open in a V and the weight swings from one to the other
-  const skating = sk.skateT > 0 && sk.skateT <= SKATE_DUR && state === 'run';
+  // (super-G: the skating steps still give their speed, but the skis stay parallel so it never looks like a ski-jump V)
+  const skating = sk.skateT > 0 && sk.skateT <= SKATE_DUR && state === 'run' && !(course && course.disc === 'SG');
   const skPh = skating ? (SKATE_DUR - sk.skateT) / SKATE_STEP : 0, skSide = skating ? (Math.floor(skPh) % 2 ? 1 : -1) : 0, skLift = skating ? Math.sin(Math.PI * (skPh % 1)) : 0;
   // shadow
   ctx.fillStyle = COL.shadow; ctx.beginPath(); ctx.ellipse(p.X + (5 + s*a*3)*u, p.Y + 1*u, 10*u, 2.8*u, 0, 0, 7); ctx.fill();
