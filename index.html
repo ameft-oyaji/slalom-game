@@ -2216,13 +2216,24 @@ function finishCard(total, ref, rank){
 // 学連 mode: the All-Japan Intercollegiate Championships (インカレ) — slalom and giant slalom once each,
 // 2 runs, points for the top 30 that add up for each university, and dual races against student rivals
 // =====================================================================
-const IK_CPU = { top: ['学生トップクラス', 1, 10], mid: ['学生中位クラス', 11, 30], low: ['学生下位クラス', 31, 72] };
-const studentPace = rank => 1.13 + .11 * (rank - 1) / 71;      // against the robot's clean line: the best student about as quick as rank ~70 in the world
+const IK_CPU = { top: ['学生トップクラス', 1, 10], mid: ['学生中位クラス', 11, 30], low: ['学生下位クラス', 31, 99] };
+const studentPace = (rank, a, n) => a && a.rel != null ? 1.13 * (1 + a.rel) : 1.13 + .11 * (rank - 1) / Math.max(1, (n || 72) - 1);      // against the robot's clean line: the best student about as quick as rank ~70 in the world
 const STU_SUR = ['SATO','SUZUKI','TAKAHASHI','TANAKA','WATANABE','ITO','YAMAMOTO','NAKAMURA','KOBAYASHI','KATO','YOSHIDA','YAMADA','YAMAGUCHI','MATSUMOTO','INOUE','KIMURA','HAYASHI','YAMAZAKI','MORI','ABE','IKEDA','HASHIMOTO','ISHIKAWA','MAEDA','FUJITA','OKADA','GOTO','HASEGAWA','MURAKAMI','KONDO','ISHII','SAKAMOTO','ENDO','AOKI','FUJII','NISHIMURA','FUKUDA','OTA','MIURA','OKAMOTO','MATSUDA','NAKAGAWA','HARADA','ONO','TAMURA','TAKEUCHI','KANEKO','WADA','NAKANO','FUJIWARA','MURATA','UENO','SAKAI','KUDO','MIYAZAKI','CHIBA','NOGUCHI','ARAI','SUGIYAMA','KIKUCHI'];
 const STU_M = ['Haruto','Sota','Yuto','Riku','Kaito','Ren','Takumi','Hayato','Daiki','Shota','Kenta','Yuki','Ryota','Naoki','Kosuke','Shun','Taiga','Kazuki','Yamato','Sho','Tsubasa','Ryusei'];
 const STU_F = ['Yui','Hina','Sakura','Mei','Aoi','Rin','Miyu','Nanami','Haruka','Yuna','Saki','Mio','Akari','Kokona','Riko','Ayaka','Natsumi','Momoka','Honoka','Kaede','Misaki','Chihiro'];
-// 72 students (made-up names) from the universities, ordered by their ability in this discipline
+// the men's slalom entries: the real students with their points (0.00 is the strongest)
+const STU_SL_MEN = [['KGU', '岡田 拓己', 89.38], ['KGU', '国本 空良', 96.19], ['KAN', '佐竹 諒一郎', 117.3], ['KAN', '南川 翼', 244.47], ['KSD', '長崎 陽', 67.76], ['KSD', '辻 唯人', 98.71], ['KIN', '葛巻 福春', 38.76], ['KIN', '永澤 壮馬', 40.49], ['KEI', '鈴木 一生', 25.15], ['KEI', '近藤 優太', 156.8], ['AOM', '後山 晃聖', 72.97], ['AOM', '川田 遥斗', 77.64], ['SEN', '竹節 天太', 58.57], ['SEN', '中軽米 拓人', 94.94], ['WSD', '鎌田 宇朗', 24.4], ['WSD', '野澤 雪丸', 25.03], ['OSD', '上田 朔太郎', 113.07], ['OSD', '山口 侑利', 165.06], ['CHU', '戸谷 椋', 31.97], ['CHU', '権田 武蔵', 36.57], ['TOK', '片山 龍馬', 24.73], ['TOK', '富井 大作', 28.41], ['TKY', '梅根 航希', 187.67], ['TKY', '坂本 大河', 190.94], ['NOD', '遠藤 悠', 67.17], ['NOD', '稲葉 隆司', 102.86], ['TOY', '峰村 知宏', 33.12], ['TOY', '片山 大斗', 33.74], ['NIT', '今村 心温', 28.8], ['NIT', '下 康生', 52.09], ['NIH', '直江 優作', 24.75], ['NIH', '横尾 錬', 31.99], ['HOS', '峯岸 陽', 54.35], ['HOS', '田澤 佑記', 57.33], ['MEI', '野本 和愛', 27.96], ['MEI', '高橋 陸都', 29.52], ['RIK', '濱野 弘大', 90.54], ['RIK', '武者 佑樹', 113.09], ['RIT', '中川 顕', 71.08], ['RIT', '岡本 侑', 75.8], ['RYU', '一ノ本 廉', 164.89], ['RYU', '石川 裕哉', 192.01]];
+// a points gap in time: by the FIS formula a slalom racer with P more points is about P/730 slower
+const PTS_F = 730;
 function studentField(g, d){
+  if (g === 'men' && d === 'SL'){
+    const r = rng(7303), L = STU_SL_MEN.slice().sort((a, b) => a[2] - b[2]), minP = L[0][2], maxP = L[L.length - 1][2];
+    return L.map(([nat, name, pts], i) => ({ id: 'cs' + i, name, nat, pts, rel: (pts - minP) / PTS_F, skill: 1 - Math.pow(pts / maxP, .8), fis: i + 1, aggr: r() }));
+  }
+  return studentFieldMade(g, d);
+}
+// 72 students (made-up names) from the universities, ordered by their ability in this discipline
+function studentFieldMade(g, d){
   const r = rng(g === 'men' ? 7101 : 7202), n = 72, out = [], used = new Set();
   while (out.length < n){
     const sur = STU_SUR[Math.floor(r() * STU_SUR.length)], fl = g === 'men' ? STU_M : STU_F, first = fl[Math.floor(r() * fl.length)];
@@ -2276,7 +2287,7 @@ function makeIncolRace(d){
     const a = byId.get(id);
     const pDnf = (run === 1 ? .1 : .07) + .08 * (1 - a.skill) + .05 * a.aggr;
     if (r() < pDnf) return null;
-    const t0 = refs[run - 1].time * k * (1 + .065 * Math.pow(1 - a.skill, 1.1) + gauss(r) * .0085 - a.aggr * .002);
+    const t0 = refs[run - 1].time * k * (1 + (a.rel != null ? a.rel : .065 * Math.pow(1 - a.skill, 1.1)) + gauss(r) * .0085 - a.aggr * .002);
     return trunc(t0 + (run === 1 ? (bib.get(id) - 1) * .005 : 0));
   };
   const run1 = {};
@@ -2302,12 +2313,12 @@ function showIncol(focus){
     <div class="ik-uni"><span class="flag" id="ikFlag"></span><select id="ikUni" aria-label="所属する大学">${UNIS.map(([c, jp]) => `<option value="${c}"${c === GK.uni ? ' selected' : ''}>${esc(jp)}</option>`).join('')}</select>
       <input type="text" id="ikName" maxlength="14" value="${esc(pname)}" aria-label="名前" autocomplete="off"></div>
     <h3>第${st.n}回 全日本学生スキー選手権（${gender === 'men' ? '男子' : '女子'}）</h3>
-    <p class="note">24大学・学生72名（名前は架空）と、回転・大回転を1回ずつ滑ります。どちらも2本合計で、1本目の上位30名が2本目に進みます。</p>
+    <p class="note">24大学の学生と、回転・大回転を1回ずつ滑ります。どちらも2本合計で、1本目の上位30名が2本目に進みます。${gender === 'men' ? '男子回転は登録選手42名（ポイント順）。' : ''}ほかの種目の選手名は架空です。</p>
     ${card('SL')}${card('GS')}
     ${incolTeamsHTML(st)}
     <h3 id="ikDual">デュアル（学生のCPライバルと1対1）</h3>
     <div class="seg" id="ikDD" role="group" aria-label="デュアルの種目">${['SL', 'GS'].map(d => `<button type="button" data-d="${d}" aria-pressed="${DUAL_PREF.d === d}">${DISC[d]}</button>`).join('')}</div>
-    <div class="g-who"><select id="ikCpu" aria-label="CPライバルの強さ">${Object.entries(IK_CPU).map(([k, v]) => `<option value="${k}"${GK.cpu === k ? ' selected' : ''}>CPライバル：${v[0]}（学生${v[1]}〜${v[2]}位）</option>`).join('')}</select><button class="btn small hot" type="button" id="ikDualGo">対戦スタート</button></div>
+    <div class="g-who"><select id="ikCpu" aria-label="CPライバルの強さ">${Object.entries(IK_CPU).map(([k, v]) => `<option value="${k}"${GK.cpu === k ? ' selected' : ''}>CPライバル：${v[0]}（学生${v[1]}位${v[2] < 99 ? '〜' + v[2] + '位' : '以下'}）</option>`).join('')}</select><button class="btn small hot" type="button" id="ikDualGo">対戦スタート</button></div>
     <div class="btns"><button class="btn" type="button" id="ikReset">新しい大会（第${st.n + 1}回）を始める</button><button class="btn" type="button" id="ikTop">トップに戻る</button></div>`;
   openSheet('Intercollegiate', '全日本学生スキー選手権（インカレ）', html);
   setFlag($('#ikFlag'), GK.uni);
@@ -2995,7 +3006,7 @@ function startCpuDual(opt){
   let who = field[rank - 1];
   const named = ik ? null : CPU_NAMED[DUAL_PREF.cpu];
   if (named){ const c = named[Math.floor(r() * named.length)]; who = { name: c[0], nat: c[1] }; }
-  const pace = ik ? studentPace(rank) : cpuPace(rank);
+  const pace = ik ? studentPace(rank, who, field.length) : cpuPace(rank);
   const runs = race.courses.map((c, i) => {
     race.run = i + 1; const tr = cpuTrack(c, runMods()); race.run = 1;
     const f = pace * (1 + gauss(r) * .008);                    // this run's pace against the robot's clean line
