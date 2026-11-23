@@ -2090,15 +2090,15 @@ function step(dt){
   const net = physStep(sk, inAir ? { inp: 0, tuck: sk.tuck } : ctl, dt, state === 'finished');
   if (inAir){
     sk.air -= dt;
-    if (sk.air <= 0){ sk.air = 0; if (!quiet){ tone(95, .14, 'sine', .12); thwack(.12); } burst(sk.x, sk.y, 0, 10); }   // landing
+    if (sk.air <= 0){ sk.air = 0; if (!quiet){ tone(110, .08, 'sine', .08); thwack(.08); } burst(sk.x, sk.y, 0, 6); }   // landing
   }
   if (course.jumpY != null && !sk.jumped && sk.py < course.jumpY && sk.y >= course.jumpY && state === 'run'){
     sk.jumped = true;
     if (sk.v >= JUMP_MIN){
-      sk.airT = sk.air = clamp(.4 + (sk.v - JUMP_MIN) / 260, .4, 1.1);
+      sk.airT = sk.air = clamp(.14 + (sk.v - JUMP_MIN) / 900, .14, .3);     // a pre-jump: just a moment off the snow
       const crouched = !!ctl.tuck;
       if (!crouched) sk.v *= JUMP_LOSS;
-      if (!quiet){ tone(520, .25, 'triangle', .05); flash(crouched ? 'ジャンプ！ クローチでスピードキープ' : 'ジャンプ！（クローチしていないので減速）', !crouched); }
+      if (!quiet){ tone(520, .1, 'triangle', .04); flash(crouched ? 'プレジャンプ！ クローチでスピードキープ' : 'プレジャンプ（クローチしていないので減速）', !crouched); }
     }
   }
   if (state === 'run') maxV = Math.max(maxV, sk.v);
@@ -2467,7 +2467,7 @@ function showIntro(){
   if (rec2Note()) html += `<p class="note">${rec2Note()}</p>`;
   if (!ta && race.run === 1 && race.bib.get('you') > 30) html += `<p class="note">ビブが後ろのほど荒れたコースを滑ることになります。上位に入ってランキングを上げれば、早いスタート順がもらえます。</p>`;
   html += waxPickerHTML();
-  if (course.jumpY != null) html += `<p class="note">コースの途中にジャンプが1か所あります（時速70km以上で飛びます）。飛ぶ瞬間にクローチ（▼）を押していればスピードが落ちません。押していないと少し減速します。</p>`;
+  if (course.jumpY != null) html += `<p class="note">コースの途中にプレジャンプが1か所あります（時速70km以上で一瞬浮きます）。浮く瞬間にクローチ（▼）を押していればスピードが落ちません。押していないと少し減速します。</p>`;
   html += `<p class="note">旗門を1つでも外すとその場で失格（DSQ）。ポールは倒しても構いません。</p>`;
   const inspected = race.inspected && race.inspected[race.run - 1];
   html += `<div class="btns"><button class="btn primary" type="button" id="goStart">スタートハウスへ</button><button class="btn" type="button" id="goInspect">${inspected ? '✓ もう一度インスペクション' : 'インスペクション（コースの下見）'}</button><button class="btn" type="button" id="goBack">${race.run === 1 ? 'やめる' : '棄権する'}</button></div>`;
@@ -6078,7 +6078,7 @@ function drawSkier(){
   const tuck = sk.tuck;
   const look = { suit: NAT[myNat].suit, trim: NAT[myNat].trim, ski: gearItem('ski', myGear.ski), helm: gearItem('helm', myGear.helm), gog: gearItem('gog', myGear.gog), pole: gearItem('pole', myGear.pole) };
   const LK = legendLook(racerName());
-  const lift = sk.air > 0 && sk.airT ? Math.sin(Math.PI * (1 - sk.air / sk.airT)) * (6 + sk.airT * 12) : 0;   // height in the air
+  const lift = sk.air > 0 && sk.airT ? Math.sin(Math.PI * (1 - sk.air / sk.airT)) * (1.5 + sk.airT * 6) : 0;   // a little off the snow
   if (LK){
     look.suit = LK.suit; look.trim = LK.trim || LK.zig; look.ski = Object.assign({}, look.ski, LK.ski); look.gog = Object.assign({}, look.gog, { c2: LK.strap });
     if (LK.helm) look.helm = Object.assign({}, look.helm, LK.helm);
