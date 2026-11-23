@@ -2516,9 +2516,10 @@ function beginRun(){
   race.run1Me = race.mode === 'ta' ? (race.taTimes[0] || 0) : (race.run1 && race.run1.you) || 0;
   course = race.courses[race.run - 1]; resetCourseState(course); resetBody(false);
   // knock the boots before settling in (not always) — the dual's countdown is short, so there it comes just before "3, 2, 1"
-  sk.tap = Math.random() < .55 ? (race.dual ? { at: 4.6 - Math.random() * .15, n: 2 } : { at: 6.6 + Math.random() * 2, n: Math.random() < .5 ? 2 : 3 }) : null;
-  // and now and then stamp the feet into the snow first: "ton, ton"
-  sk.stomp = Math.random() < .5 ? (race.dual ? { at: 4.98, n: 2 } : { at: 9.7 - Math.random() * .2, n: 4 }) : null;
+  // ...or stamp the feet into the snow ("ton, ton") — one or the other, never both, and sometimes neither
+  const pre = Math.random();
+  sk.tap = pre < .38 ? (race.dual ? { at: 4.8 - Math.random() * .15, n: 2 } : { at: 6.6 + Math.random() * 2.6, n: Math.random() < .5 ? 2 : 3 }) : null;
+  sk.stomp = pre >= .38 && pre < .76 ? (race.dual ? { at: 4.98, n: 2 } : { at: 6.4 + Math.random() * 3.3, n: 4 }) : null;
   if (race.shimizu && race.shimizu[race.run - 1]){
     race.shimizuPaid = race.shimizuPaid || [false, false];
     if (!race.shimizuPaid[race.run - 1]){ race.shimizuPaid[race.run - 1] = true; save(shimizuKey(), { n: shimizuUsed() + 1 }); }
@@ -6176,7 +6177,8 @@ function drawSkier(){
   // legs incline as one long line from the outside ski: the hips drop toward the snow on the inside of the turn
   const legL = tuck ? 6.4 : 9 - incl * (gsT ? 1.25 : .8);
   const fc = (footO.x + footI.x) / 2;
-  const hip = { x: fc + s * Math.sin(incl) * legL, y: -Math.cos(incl) * legL + (pushing ? (1 - reach) * 1.4 : 0) + rock * 2.2 + (skating ? skLift * .6 : 0) };
+  const sink = inGate ? (state === 'gate' ? 1 : clamp((2 - cdT) / 1.2, 0, 1)) : 0;   // from 2 s before the start: settle the hips a little lower
+  const hip = { x: fc + s * Math.sin(incl) * legL, y: -Math.cos(incl) * legL + (pushing ? (1 - reach) * 1.4 : 0) + rock * 2.2 + sink * 1.4 + (skating ? skLift * .6 : 0) };
   const kneeO = { x: (footO.x + hip.x) / 2 + s * .5 * wI, y: (footO.y + hip.y) / 2 - .4 };                       // outside leg long and straight
   const kneeI = { x: footI.x + s * Math.sin(incl) * legL * .62 + s * 1.2 * wI, y: -Math.cos(incl) * legL * .42 + .6 * wI };  // inside leg folded under the body
   const torsoLen = (tuck ? 3.8 : gsT ? 6 - wI * 1.9 : 6.2 - wI * 1.4) - rock * 2.1;     // bending forward over the poles when coiled                                           // upper body bends forward over the skis
