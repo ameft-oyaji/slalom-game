@@ -289,6 +289,7 @@ body.nightrace .ev-gear .up,body.nightrace .ev-gear .dn{color:#fff!important}
 .btcode b{font-family:var(--f-num);font-style:italic;font-weight:800;font-size:44px;letter-spacing:.12em;color:var(--amber)}
 .btmem{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px;font-size:14px}
 .btmem li{display:flex;align-items:center;gap:6px}
+.btmem .badge.rdy{background:#2F9E44;color:#fff}.btmem .badge.wait{background:#5C6577;color:#fff}
 .evm{list-style:none;margin:0 0 10px;padding:0;display:flex;flex-direction:column;gap:4px;font-size:14px}
 .evm li{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;background:var(--board-2);border-radius:4px;padding:6px 10px}
 .evm li.me{box-shadow:inset 3px 0 0 var(--amber)}
@@ -2531,7 +2532,7 @@ window.__slReloadPlayers = () => loadPlayers(true);
 // =====================================================================
 const BT = { code: null, room: null, pos: {}, offset: 0, raceId: 0, poll: 0, sending: false, lastSend: 0, lastLive: 0, finSent: false };
 const GHOST_COL = ['#E8590C', '#7048E8', '#0CA678', '#D6336C', '#1C7ED6', '#F59F00', '#495057'];
-const BT_ERR = { auth: 'もう一度ログインしてください。', noroom: 'その番号の部屋が見つかりません（番号違いか、部屋が終了しています）。', full: '部屋が満員です（最大8人）。', host: 'スタートできるのは部屋を作った人だけです。', course: 'コースを選び直してください。', busy: '混み合っています。少し待ってからもう一度。' };
+const BT_ERR = { auth: 'もう一度ログインしてください。', noroom: 'その番号の部屋が見つかりません（番号違いか、部屋が終了しています）。', full: '部屋が満員です（最大8人）。', host: 'スタートできるのは部屋を作った人だけです。', course: 'コースを選び直してください。', busy: '混み合っています。少し待ってからもう一度。', notready: 'まだ準備完了していない人がいます。' };
 async function btCall(action, extra){
   const r = await cloudCall(Object.assign({ action, token: CLOUD.token, code: BT.code }, extra || {}));
   if (r && r.now) BT.offset = r.now - Date.now();
@@ -2764,12 +2765,29 @@ function makeDualRace(key){
   return { ev, mode: 'ta', dual: true, key, courses: [dualCourse(k.seed, k.d, false), dualCourse(k.seed, k.d, true)], refs: [{ time: 0, frac: [] }, { time: 0, frac: [] }],
     run: 1, playerDsq: [false, false], taTimes: [], finals: false, maxV: 0, wx: [wx, wx], wax: [rc.wax, rc.wax], edge: [{ side: rc.side, base: rc.base }, { side: rc.side, base: rc.base }] };
 }
+// dual rooms: the others press "ready" before the host can start a new race
+const isReady = (r, m) => !!(r && r.ready && r.ready[m]);
+const waitingFor = r => r ? r.members.filter(m => m !== r.host && !isReady(r, m)) : [];
+function readyBtnHTML(){
+  const r = BT.room; if (!r || r.host === CLOUD.name) return '';
+  return isReady(r, CLOUD.name)
+    ? '<button class="btn" type="button" id="btReady" data-on="0">準備完了を取り消す</button>'
+    : '<button class="btn primary" type="button" id="btReady" data-on="1">準備完了</button>';
+}
+function hostStartHTML(id, label){
+  const w = waitingFor(BT.room), n = BT.room.members.length - 1;
+  return w.length ? `<button class="btn primary" type="button" id="${id}" disabled>${label}（準備完了 ${n - w.length}/${n}）</button>` : `<button class="btn primary" type="button" id="${id}">${label}</button>`;
+}
+function bindReady(after){
+  const b = $('#btReady'); if (!b) return;
+  b.onclick = async () => { b.disabled = true; const r = await btCall('room_ready', { on: Number(b.dataset.on) }).catch(() => null); if (!(r && r.ok)) b.disabled = false; after(); };
+}
 function lobbyHTML(){
   const r = BT.room; if (!r) return '';
   const host = r.host === CLOUD.name;
   let html = `<div class="btcode"><span>部屋番号</span><b>${r.code}</b></div>
     <dl class="rows"><dt>コース</dt><dd style="font-family:var(--f-body);font-size:15px">${courseLabelOf(r.course)}${dualKeyParse(r.course) ? '' : '・1本勝負'}</dd><dt>参加者</dt><dd>${r.members.length} / 8 人</dd></dl>
-    <ul class="btmem">${r.members.map((m, i) => `<li><span class="dot" style="background:${m === CLOUD.name ? 'var(--amber)' : GHOST_COL[i % GHOST_COL.length]}"></span>${esc(m)}${m === r.host ? ' <span class="badge">ホスト</span>' : ''}${m === CLOUD.name ? '（あなた）' : ''}</li>`).join('')}</ul>`;
+    <ul class="btmem">${r.members.map((m, i) => `<li><span class="dot" style="background:${m === CLOUD.name ? 'var(--amber)' : GHOST_COL[i % GHOST_COL.length]}"></span>${esc(m)}${m === r.host ? ' <span class="badge">ホスト</span>' : ''}${m === CLOUD.name ? '（あなた）' : ''}${dualKeyParse(r.course) && m !== r.host ? (isReady(r, m) ? ' <span class="badge rdy">準備完了</span>' : ' <span class="badge wait">準備中</span>') : ''}</li>`).join('')}</ul>`;
   const dual = !!dualKeyParse(r.course), ev = evOn();
   if (r.ev) html += evBoardHTML();
   if (ev){                                                    // a tournament or league is under way
@@ -2784,8 +2802,13 @@ function lobbyHTML(){
         <p class="note">${lobbyFmt === 'tour' ? 'トーナメント：組み合わせはランダム。1対1の2本勝負で、勝った人が次へ進みます（人数が足りないところは不戦勝）。' : lobbyFmt === 'league' ? 'リーグ戦：全員と1回ずつ1対1の2本勝負。勝ち数で順位を決め、同じ勝ち数なら直接対決の結果で決めます。' : '全員で一斉：全員が同時に2本滑り、合計タイムで順位を決めます。'}</p>`
       : `<p class="note">対戦の形式（トーナメント／リーグ戦／全員で一斉）はホストが選びます。</p>`;
   }
-  html += host ? `<p class="note">全員そろったら「スタート」を押してください。9秒後に${dual ? '「3・2・1・GO!」でゲートが開き、全員同時にスタートします' : '全員同時にレースが始まります'}。</p>` : `<p class="note">ホスト（${esc(r.host)}）がスタートするのを待っています…</p>`;
-  html += `<div class="btns">${host ? '<button class="btn primary" type="button" id="btStart">スタート</button>' : ''}<button class="btn" type="button" id="btLeave">部屋を出る</button></div>`;
+  const wait = dual ? waitingFor(r) : [];
+  html += host
+    ? (wait.length ? `<p class="note">ほかの人が「準備完了」を押すまでスタートできません（待っている人：${wait.map(esc).join('、')}）。</p>`
+                   : `<p class="note">${dual && r.members.length > 1 ? '全員の準備ができました。' : '全員そろったら'}「スタート」を押してください。9秒後に${dual ? '「3・2・1・GO!」でゲートが開き、全員同時にスタートします' : '全員同時にレースが始まります'}。</p>`)
+    : (dual ? `<p class="note">${isReady(r, CLOUD.name) ? `準備完了しました。ホスト（${esc(r.host)}）のスタートを待っています…` : '準備ができたら「準備完了」を押してください。全員が押すとホストがスタートできます。'}</p>`
+            : `<p class="note">ホスト（${esc(r.host)}）がスタートするのを待っています…</p>`);
+  html += `<div class="btns">${host ? (dual ? hostStartHTML('btStart', 'スタート') : '<button class="btn primary" type="button" id="btStart">スタート</button>') : dual ? readyBtnHTML() : ''}<button class="btn" type="button" id="btLeave">部屋を出る</button></div>`;
   return html;
 }
 function showLobby(){
@@ -2801,12 +2824,13 @@ function bindLobby(){
   if (st) st.onclick = async () => {
     st.disabled = true;
     const room = BT.room, dk = dualKeyParse(room.course), fmt = dk && room.members.length >= 3 ? lobbyFmt : 'all';
-    const extra = { run: 1, ev: fmt === 'all' ? 'null' : JSON.stringify(newEv(fmt, room.members)) };
+    const extra = { run: 1, fresh: 1, ev: fmt === 'all' ? 'null' : JSON.stringify(newEv(fmt, room.members)) };
     if (dk && room.ev) extra.course = newDualKey(dk.g, dk.d);          // a fresh course after a finished event
     const r = await btCall('room_start', extra).catch(() => null);
     if (r && r.ok){ if (!checkRaceStart()) showLobby(); } else st.disabled = false;
   };
   if (lv) lv.onclick = leaveRoom;
+  bindReady(() => { $('#shBody').innerHTML = lobbyHTML(); bindLobby(); });
   document.querySelectorAll('#evFmt button').forEach(b => b.onclick = () => { lobbyFmt = b.dataset.f; $('#shBody').innerHTML = lobbyHTML(); bindLobby(); });
   evBindHost();
 }
@@ -3117,16 +3141,19 @@ function renderDualResult(box){
     : table(['順位', 'プレーヤー', '1本目', '2本目', '合計', '差'], order.map(r => `<tr class="${r.e.me ? 'me' : ''}"><td class="n">${r.rank || '—'}</td><td><span class="dot" style="background:${r.e.col}"></span> ${esc(r.e.name)}${r.e.me ? '（あなた）' : ''}</td><td class="r">${cell(r.r1, r.out && !r.r1 ? r.out : '', false)}</td><td class="r">${cell(r.r2, '', r.running)}</td><td class="n">${r.val != null ? fmt(r.val) : r.out || (r.running ? '滑走中' : '—')}</td><td class="r">${r.rank > 1 ? fmtDiff(r.val - best) : ''}</td></tr>`));
   const dk = dualKeyParse(race.key);
   if (early) html += '<p class="note">どちらかがゴールしなかったので、2本目はなしでここで決着です。</p>';
-  html += `<div class="btns">${host ? (run === 1 && !early ? '<button class="btn primary" type="button" id="btAgain">2本目スタート</button>' : '<button class="btn primary" type="button" id="btAgain">もう一度（新しいコース）</button>') : ''}<button class="btn" type="button" id="btLobby">部屋に戻る</button><button class="btn" type="button" id="btLeave2">部屋を出る</button></div>`;
-  if (!host) html += `<p class="note">${run === 1 && !early ? 'ホストが「2本目スタート」を押すと、自動で2本目が始まります（左右が逆のコース）。' : 'ホストが「もう一度」を押すと、新しいコースで次のレースが始まります。'}</p>`;
+  const fresh = !(run === 1 && !early);
+  html += `<div class="btns">${host ? (!fresh ? '<button class="btn primary" type="button" id="btAgain">2本目スタート</button>' : hostStartHTML('btAgain', 'もう一度（新しいコース）')) : fresh ? readyBtnHTML() : ''}<button class="btn" type="button" id="btLobby">部屋に戻る</button><button class="btn" type="button" id="btLeave2">部屋を出る</button></div>`;
+  if (!host) html += `<p class="note">${!fresh ? 'ホストが「2本目スタート」を押すと、自動で2本目が始まります（左右が逆のコース）。' : isReady(BT.room, CLOUD.name) ? '準備完了しました。ホストが「もう一度」を押すと、新しいコースで次のレースが始まります。' : 'もう一度滑るなら「準備完了」を押してください。全員が押すとホストが新しいコースでスタートできます。'}</p>`;
+  else if (fresh && waitingFor(BT.room).length) html += `<p class="note">ほかの人が「準備完了」を押すと「もう一度」を押せます（待っている人：${waitingFor(BT.room).map(esc).join('、')}）。</p>`;
   else if (run === 1 && !all) html += `<p class="note">全員がゴールしてから「2本目スタート」を押してください。</p>`;
   box.innerHTML = html;
   const again = $('#btAgain');
   if (again) again.onclick = async () => {
     again.disabled = true;
-    const r = await btCall('room_start', run === 1 && !early ? { run: 2 } : { run: 1, course: newDualKey(dk.g, dk.d) }).catch(() => null);
+    const r = await btCall('room_start', run === 1 && !early ? { run: 2 } : { run: 1, fresh: 1, course: newDualKey(dk.g, dk.d) }).catch(() => null);
     if (r && r.ok) checkRaceStart(); else again.disabled = false;
   };
+  bindReady(() => renderDualResult(box));
   $('#btLobby').onclick = () => { race = null; showLobby(); };
   $('#btLeave2').onclick = leaveRoom;
 }

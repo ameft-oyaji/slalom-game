@@ -66,6 +66,7 @@ function doPost(e) {
       case 'room_start': return out_(room_start_(q));
       case 'room_ev': return out_(room_ev_(q));
       case 'room_chat': return out_(room_chat_(q));
+      case 'room_ready': return out_(room_ready_(q));
       case 'room_leave': return out_(room_leave_(q));
     }
     return out_({ ok: false, error: 'unknown' });
@@ -249,10 +250,16 @@ function room_start_(q) {
   const r = roomGet_(String(q.code || ''));
   if (!r) return { ok: false, error: 'noroom' };
   if (r.host !== name) return { ok: false, error: 'host' };
+  // a new dual race (from the lobby, or "again" after one) waits until everyone else has pressed ready
+  if (q.fresh && /_dual-/.test(String(q.course || r.course))) {
+    const rd = r.ready || {};
+    if (r.members.some(function (m) { return m !== r.host && !rd[m]; })) return { ok: false, error: 'notready' };
+  }
   if (q.course && COURSE_RE.test(String(q.course))) r.course = String(q.course);
   r.run = Number(q.run) === 2 ? 2 : 1;                                 // dual race: which of the two runs
   if (q.ev != null) r.ev = evParse_(q.ev);                             // dual tournament / league: pairings and results so far
   r.raceId += 1; r.state = 'race'; r.startAt = Date.now() + 9000;
+  r.ready = {};                                                        // everyone presses ready again before the next new race
   rc_().removeAll(r.members.map(function (m) { return posKey_(r.code, m); }));
   roomPut_(r);
   return roomView_(r);
@@ -269,6 +276,18 @@ function room_ev_(q) {
   if (!r) return { ok: false, error: 'noroom' };
   if (r.host !== name) return { ok: false, error: 'host' };
   r.ev = evParse_(q.ev);
+  roomPut_(r);
+  return roomView_(r);
+}
+// a member says they are ready (or not) for the next dual race
+function room_ready_(q) {
+  const name = userByToken_(q.token);
+  if (!name) return { ok: false, error: 'auth' };
+  const r = roomGet_(String(q.code || ''));
+  if (!r) return { ok: false, error: 'noroom' };
+  if (r.members.indexOf(name) < 0) return { ok: false, error: 'member' };
+  r.ready = r.ready || {};
+  if (Number(q.on)) r.ready[name] = 1; else delete r.ready[name];
   roomPut_(r);
   return roomView_(r);
 }
@@ -304,6 +323,7 @@ function room_leave_(q) {
   const r = roomGet_(String(q.code || ''));
   if (!r || !name) return { ok: true };
   r.members = r.members.filter(function (m) { return m !== name; });
+  if (r.ready) delete r.ready[name];
   rc_().remove(posKey_(r.code, name));
   if (!r.members.length) { rc_().remove('room_' + r.code); return { ok: true }; }
   if (r.host === name) r.host = r.members[0];
