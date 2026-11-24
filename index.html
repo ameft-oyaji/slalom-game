@@ -121,8 +121,11 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
 .sp-keys span.on{background:#FFC93C;color:#1A1300;border-color:#fff;transform:translateY(2px) scale(.96)}
 .sp-keys span[data-b=push].on{background:#4C8DFF;color:#fff}.sp-keys span[data-b=d].on{background:#2FB36A;color:#fff}
 .top-org{margin:0 auto 12px;display:inline-grid;grid-template-columns:repeat(2,1fr)}.top-org button{font-size:13px;padding:6px 14px;min-width:7.5em;white-space:nowrap;text-align:center}   /* World Cup or 学連 (student federation) */
-.ik-ev{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;background:rgba(19,35,94,.06);margin:6px 0}
-.ik-ev b{font-size:16px}.ik-ev .st{margin-left:auto;text-align:right;font-size:14px}
+.ik-ev{display:grid;grid-template-columns:auto auto 1fr auto;grid-template-rows:auto auto;align-items:center;gap:2px 10px;padding:10px 12px;border-radius:10px;background:rgba(255,255,255,.05);border:1px solid var(--board-3);margin:2px 0}
+.ik-ev>.nat3{grid-column:1;grid-row:1}.ik-ev>.chip{grid-column:2;grid-row:1;justify-self:start}
+.ik-ev>b{font-size:16px;grid-column:3;grid-row:1;white-space:nowrap}
+.ik-ev>.note{grid-column:1/4;grid-row:2;font-size:12px}
+.ik-ev .st{grid-column:4;grid-row:1/3;text-align:right;font-size:14px;white-space:nowrap}
 .ik-uni{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .top-disc.top-gk{grid-template-columns:repeat(2,1fr)}.top-disc.top-gk button{width:7.4em}
 .top-disc{margin:0 auto 14px;display:inline-grid;grid-template-columns:repeat(3,1fr)}.top-disc button{font-size:16px;padding:9px 0;width:6.2em;text-align:center}   /* three modes, all the same width */
@@ -171,6 +174,23 @@ input[type=text]{width:9em}
 @media (prefers-reduced-motion:reduce){ .tabarr{animation:none} }
 .tabs button{border:0;background:transparent;color:var(--muted);font:700 14px var(--f-body);padding:8px 12px;cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap}
 .tabs button[aria-selected="true"]{color:#fff;border-bottom-color:var(--red)}
+/* the menu, grouped: each group is a labelled row of buttons that wraps instead of scrolling sideways */
+.tabs.grouped{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:6px 14px;overflow:visible;padding-bottom:10px}
+.tgrp{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.tgrp[hidden]{display:none}
+.tgl{flex:0 0 4.6em;font:700 11px var(--f-body);color:var(--muted);letter-spacing:.06em}
+.tabs.grouped button{flex:1 1 0;border:1px solid var(--board-3);border-radius:6px;background:var(--board-2);color:#C9D2E3;padding:8px 6px;font-size:13px;text-align:center}
+.tabs.grouped button[aria-selected="true"]{background:#fff;color:var(--board);border-color:#fff}
+.ik-top{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.ik-me{font:700 13px var(--f-body);color:#C9D2E3}
+.ik-tabs{grid-template-columns:1fr}.iksec{display:flex;flex-direction:column;gap:12px}.iksec[hidden]{display:none}
+.msettings{border:1px solid var(--board-3);border-radius:6px;background:rgba(255,255,255,.03)}
+.msettings summary{cursor:pointer;padding:7px 10px;font:700 13px var(--f-body);color:#C9D2E3;list-style:none;display:flex;gap:8px;align-items:center}
+.msettings summary::-webkit-details-marker{display:none}
+.msettings summary::before{content:'⚙';color:var(--amber)}
+.msettings summary .ms-sum{color:var(--muted);font-weight:400;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0}
+.msettings summary::after{content:'▾';color:var(--muted)}
+.msettings[open] summary::after{content:'▴'}
+.msettings .controls{padding:0 10px 10px}
 .rows{display:grid;grid-template-columns:1fr auto;gap:5px 12px;font-size:14px;margin:0}
 .rows dt{color:var(--muted)}
 .rows dd{margin:0;font-family:var(--f-num);font-weight:700;font-size:19px;text-align:right;font-variant-numeric:tabular-nums}
@@ -596,6 +616,9 @@ body.nightrace .ev-label,body.nightrace .ev-label *,body.nightrace #keys,body.ni
           <button type="button" id="gMen" aria-pressed="true">男子</button>
           <button type="button" id="gWomen" aria-pressed="false">女子</button>
         </div>
+      </div>
+      <details class="msettings" id="mSet"><summary>設定<span class="ms-sum" id="mSetSum"></span></summary>
+      <div class="controls">
         <select id="level" aria-label="ライバルの強さ">
           <option value="wc">ライバル：ワールドカップ級</option>
           <option value="ec" selected>ライバル：ヨーロッパカップ級</option>
@@ -612,18 +635,23 @@ body.nightrace .ev-label,body.nightrace .ev-label *,body.nightrace #keys,body.ni
         <label class="note" for="pname">名前</label>
         <input type="text" id="pname" maxlength="14" value="あなた" autocomplete="off">
       </div>
+      </details>
       <div class="tabwrap">
       <button type="button" class="tabarr l" id="tabL" aria-label="左にもメニューがあります" hidden>←</button>
-      <div class="tabs" role="tablist" id="tabBar">
-        <button type="button" role="tab" id="tDual" aria-selected="false" hidden>デュアルレース</button>
-        <button type="button" role="tab" id="tCal" aria-selected="true">シーズン</button>
-        <button type="button" role="tab" id="tStand" aria-selected="false">ランキング</button>
-        <button type="button" role="tab" id="tTa" aria-selected="false">タイムアタック</button>
-        <button type="button" role="tab" id="tFree" aria-selected="false">フリースキー</button>
-        <button type="button" role="tab" id="tBt" aria-selected="false">オンライン対戦</button>
-        <button type="button" role="tab" id="tPl" aria-selected="false">いろいろランキング</button>
-        <button type="button" role="tab" id="tGear" aria-selected="false">選手・用具</button>
-        <button type="button" role="tab" id="tRules" aria-selected="false">ルールと操作</button>
+      <div class="tabs grouped" role="tablist" id="tabBar">
+        <div class="tgrp"><span class="tgl">レース</span>
+          <button type="button" role="tab" id="tDual" aria-selected="false" hidden>デュアルレース</button>
+          <button type="button" role="tab" id="tCal" aria-selected="true">シーズン</button>
+          <button type="button" role="tab" id="tStand" aria-selected="false">ランキング</button></div>
+        <div class="tgrp"><span class="tgl">ひとりで</span>
+          <button type="button" role="tab" id="tTa" aria-selected="false">タイムアタック</button>
+          <button type="button" role="tab" id="tFree" aria-selected="false">フリースキー</button></div>
+        <div class="tgrp"><span class="tgl">みんなと</span>
+          <button type="button" role="tab" id="tBt" aria-selected="false">オンライン対戦</button>
+          <button type="button" role="tab" id="tPl" aria-selected="false">いろいろランキング</button></div>
+        <div class="tgrp"><span class="tgl">準備</span>
+          <button type="button" role="tab" id="tGear" aria-selected="false">選手・用具</button>
+          <button type="button" role="tab" id="tRules" aria-selected="false">ルールと操作</button></div>
       </div>
       <button type="button" class="tabarr r" id="tabR" aria-label="右にもメニューがあります" hidden>→</button>
       </div>
@@ -2443,31 +2471,38 @@ function showIncol(focus){
     const e = INCOL_SCHED.find(x => x.disc === d);
     return `<div class="ik-ev"><span class="nat3">${incolDay(e.date)}</span><span class="chip ${d}">${d}</span><b>${discJP(d)}</b><span class="note">${JP[e.venue]}・${d === 'SG' ? '1本勝負' : '2本合計'}</span><div class="st">${stt}</div></div>`;
   };
-  let html = `<div class="seg" id="ikG" role="group" aria-label="男子・女子">${['men', 'women'].map(k => `<button type="button" data-g="${k}" aria-pressed="${gender === k}">${k === 'men' ? '男子' : '女子'}</button>`).join('')}</div>
-    <h3>あなたの所属と名前</h3>
+  // four parts, one shown at a time: the championship, online, dual, and you (university, name, gear)
+  if (focus === 'DUAL') GK.sec = 'dual';
+  const sec = ['race', 'online', 'dual', 'me'].includes(GK.sec) ? GK.sec : 'race';
+  const S = (k, inner) => `<div class="iksec" data-sec="${k}"${k === sec ? '' : ' hidden'}>${inner}</div>`;
+  let html = `<div class="ik-top"><div class="seg" id="ikG" role="group" aria-label="男子・女子">${['men', 'women'].map(k => `<button type="button" data-g="${k}" aria-pressed="${gender === k}">${k === 'men' ? '男子' : '女子'}</button>`).join('')}</div>
+    <span class="ik-me">${flagH(GK.uni)}${esc(uniName(GK.uni))}　${esc(pname)}</span></div>
+    <div class="tabs grouped ik-tabs" role="tablist" id="ikTabs"><div class="tgrp">${[['race', '大会'], ['online', 'オンライン'], ['dual', 'デュアル'], ['me', '選手・マテリアル']].map(([k, l]) => `<button type="button" role="tab" data-sec="${k}" aria-selected="${k === sec}">${l}</button>`).join('')}</div></div>
+    ` + S('me', `<h3>あなたの所属と名前</h3>
     <div class="ik-uni"><span class="flag" id="ikFlag"></span><select id="ikUni" aria-label="所属する大学">${UNIS.map(([c, jp]) => `<option value="${c}"${c === GK.uni ? ' selected' : ''}>${esc(jp)}</option>`).join('')}</select>
       <input type="text" id="ikName" maxlength="14" value="${esc(pname)}" aria-label="名前" autocomplete="off">
       <button class="btn small" type="button" id="ikGear">マテリアル選択</button></div>
-    <p class="note">マテリアル：${['ski', 'boot', 'bind', 'helm', 'gog', 'pole'].filter(c => GEAR[c]).map(c => { const it = gearItem(c, myGear[c]); return it ? esc(it.name + ' ' + (it.model || '')) : ''; }).filter(Boolean).join(' ／ ')}</p>
-    <h3>第${st.n}回 全日本学生スキー選手権（${gender === 'men' ? '男子' : '女子'}）</h3>
+    <p class="note">マテリアル：${['ski', 'boot', 'bind', 'helm', 'gog', 'pole'].filter(c => GEAR[c]).map(c => { const it = gearItem(c, myGear[c]); return it ? esc(it.name + ' ' + (it.model || '')) : ''; }).filter(Boolean).join(' ／ ')}</p>`)
+    + S('race', `<h3>第${st.n}回 全日本学生スキー選手権（${gender === 'men' ? '男子' : '女子'}）</h3>
     <p class="note">${UNIS.length}大学の学生と、スーパー大回転・大回転・回転を1回ずつ滑ります。スーパー大回転は1本勝負、大回転と回転は2本合計で1本目の上位30名が2本目に進みます。出場は各大学3人まで（登録選手からランダムに選ばれます）。あなたの大学からは、あなたともう2人が出場します。${gender === 'men' ? '男子は登録選手がポイント順に出場します（0.00が最も強い。種目ごとのポイントで）。' : '女子の選手名は架空です。'}</p>
     ${card('SG')}${card('GS')}${card('SL')}
     ${incolTeamsHTML(st)}
-    <h3>オンライン（最大4人で同じ大会に出場）</h3>
+    <div class="btns"><button class="btn" type="button" id="ikReset">新しい大会（第${st.n + 1}回）を始める</button></div>`)
+    + S('online', `<h3>オンライン（最大4人で同じ大会に出場）</h3>
     ${!CLOUD.url ? '<p class="note">友だちとのオンライン出場は公開サイト（https://ameft-oyaji.github.io/slalom-game/）で、ユーザー登録して遊べます。</p>'
       : !CLOUD.token ? '<p class="note">オンライン出場にはユーザー登録（無料）が必要です。ワールドカップ側の「選手・用具」タブで名前と暗証番号を登録してください。</p>'
       : `<p class="note">部屋を作ると4桁の番号が出ます。友だちはその番号で入ります（あなたを含め最大4人、同じ大学でも別の大学でもOK）。ビブ順に1人ずつ滑り、ほかの人は観戦します。</p>
         <div class="seg" id="ikOD" role="group" aria-label="オンラインの種目">${['SG', 'GS', 'SL'].map(d => `<button type="button" data-d="${d}" aria-pressed="${(GK.od || 'GS') === d}">${DISC[d]}</button>`).join('')}</div>
         <div class="g-who"><button class="btn small hot" type="button" id="ikCreate">部屋を作る</button><input type="text" id="ikCode" inputmode="numeric" maxlength="4" placeholder="部屋番号（4桁）" autocomplete="off"><button class="btn small" type="button" id="ikJoin">入る</button></div>
-        <p class="lock-err" id="ikErr" hidden></p>`}
-    <h3 id="ikDual">デュアル（学生のCPライバルと1対1）</h3>
+        <p class="lock-err" id="ikErr" hidden></p>`}`)
+    + S('dual', `<h3 id="ikDual">デュアル（学生のCPライバルと1対1）</h3>
     <div class="seg" id="ikDD" role="group" aria-label="デュアルの種目">${['SL', 'GS'].map(d => `<button type="button" data-d="${d}" aria-pressed="${DUAL_PREF.d === d}">${DISC[d]}</button>`).join('')}</div>
-    <div class="g-who"><select id="ikCpu" aria-label="CPライバルの強さ">${Object.entries(IK_CPU).map(([k, v]) => `<option value="${k}"${GK.cpu === k ? ' selected' : ''}>CPライバル：${v[0]}（学生${v[1]}位${v[2] < 99 ? '〜' + v[2] + '位' : '以下'}）</option>`).join('')}</select><button class="btn small hot" type="button" id="ikDualGo">対戦スタート</button></div>
-    <div class="btns"><button class="btn" type="button" id="ikReset">新しい大会（第${st.n + 1}回）を始める</button><button class="btn" type="button" id="ikTop">トップに戻る</button></div>`;
+    <div class="g-who"><select id="ikCpu" aria-label="CPライバルの強さ">${Object.entries(IK_CPU).map(([k, v]) => `<option value="${k}"${GK.cpu === k ? ' selected' : ''}>CPライバル：${v[0]}（学生${v[1]}位${v[2] < 99 ? '〜' + v[2] + '位' : '以下'}）</option>`).join('')}</select><button class="btn small hot" type="button" id="ikDualGo">対戦スタート</button></div>`)
+    + `<div class="btns"><button class="btn" type="button" id="ikTop">トップに戻る</button></div>`;
   openSheet('Intercollegiate', '全日本学生スキー選手権（インカレ）', html);
   setFlag($('#ikFlag'), GK.uni);
   document.querySelectorAll('#ikG button').forEach(b => b.onclick = () => { gender = b.dataset.g; savePrefs(); showIncol(); });
-  $('#ikUni').onchange = e => { GK.uni = e.target.value; saveGK(); setFlag($('#ikFlag'), GK.uni); $('#shBody').querySelectorAll('tr').length && showIncol(); };
+  $('#ikUni').onchange = e => { GK.uni = e.target.value; saveGK(); showIncol(); };
   $('#ikName').oninput = e => { pname = e.target.value.trim().slice(0, 14) || 'あなた'; savePrefs(); };
   $('#ikGear').onclick = showIncolGear;
   document.querySelectorAll('[data-ik]').forEach(b => b.onclick = () => enterIncolRace(b.dataset.ik));
@@ -2495,7 +2530,11 @@ function showIncol(focus){
   $('#ikDualGo').onclick = () => { closeSheet(); startIncolDual(); };
   $('#ikReset').onclick = () => { const b = $('#ikReset'); if (b.dataset.armed){ incolSave({ n: st.n + 1, res: {} }); showIncol(); } else { b.dataset.armed = '1'; b.textContent = 'もう一度押すと、今の大会の記録を消して始めます'; } };
   $('#ikTop').onclick = goTop;
-  if (focus === 'DUAL'){ const h = $('#ikDual'); if (h) setTimeout(() => { try { h.scrollIntoView({ block: 'start' }); } catch(e){} }, 50); }
+  document.querySelectorAll('#ikTabs button').forEach(b => b.onclick = () => {
+    GK.sec = b.dataset.sec; saveGK();
+    document.querySelectorAll('#ikTabs button').forEach(x => x.setAttribute('aria-selected', x === b));
+    document.querySelectorAll('#shBody .iksec').forEach(x => { x.hidden = x.dataset.sec !== GK.sec; });
+  });
 }
 // choosing your gear from the インカレ screen (the same skis, boots and so on as everywhere else)
 function showIncolGear(){
@@ -5151,7 +5190,9 @@ function showMenu(which){
   renderTab();
   $('#menu').hidden = false;
   const sel = document.querySelector('#tabBar [aria-selected="true"]'); if (sel) try { sel.scrollIntoView({ block: 'nearest', inline: 'nearest' }); } catch(e){}
-  updTabArrows();
+  updTabArrows(); updSetSum();
+  // a group of the menu with nothing to show (デュアル mode) is hidden with its label
+  document.querySelectorAll('#tabBar .tgrp').forEach(g => { g.hidden = ![...g.querySelectorAll('button')].some(x => !x.hidden); });
   if (state !== 'demo') startDemo();
 }
 function renderTab(){
@@ -5543,6 +5584,16 @@ $('#ctrl').onchange = e => { ctrl = e.target.value; savePrefs(); applyCtrlLabels
 applyCtrlLabels();
 $('#pname').oninput = e => { pname = e.target.value.trim().slice(0, 14) || 'あなた'; savePrefs(); };
 $('#pname').onchange = () => renderTab();
+// the folded settings row says what is set, so it need not be opened to check
+function updSetSum(){
+  const el = $('#mSetSum'); if (!el) return;
+  const opt = sel => { const o = sel.options[sel.selectedIndex]; return o ? o.text.replace(/^[^：]*：/, '') : ''; };
+  const parts = [];
+  if (!$('#level').hidden) parts.push('ライバル ' + opt($('#level')));
+  parts.push('操作 ' + opt($('#ctrl')), '名前 ' + pname);
+  el.textContent = parts.join('・');
+}
+['level', 'ctrl', 'pname'].forEach(id => $('#' + id).addEventListener(id === 'pname' ? 'input' : 'change', updSetSum));
 for (const [id, k] of TABS) $('#' + id).onclick = () => showMenu(k);
 // blinking arrows at the ends of the menu bar while more tabs are hidden that way
 function updTabArrows(){
@@ -6808,6 +6859,7 @@ function bootGame(){ if (setupDone) showMenu(playMode === 'DUAL' ? 'dual' : 'cal
 // title screen with the game's version
 // what changed in each version (shown on the rules tab)
 const CHANGELOG = [
+  { v: '3.16.0', d: '2026.11.25', items: ['ワールドカップのメニューを4つのグループに整理：レース（シーズン・ランキング）／ひとりで（タイムアタック・フリースキー）／みんなと（オンライン対戦・いろいろランキング）／準備（選手・用具・ルールと操作）。横スクロールなしで全部見える', 'ライバルの強さ・操作方法・名前は「⚙ 設定」にまとめて折りたたみ（閉じていても今の設定が1行で見える）', 'インカレの画面を4つのタブに整理：大会／オンライン／デュアル／選手・マテリアル。TOPで「デュアル」を選ぶとデュアルのタブが開く', 'インカレの種目カードをスマホでも読みやすい並びに'] },
   { v: '3.15.3', d: '2026.11.24', items: ['部屋の画面（インカレ オンライン・デュアル）が自動で更新されるたびに先頭へ戻ってしまい、「準備完了」や「スタート」が押しにくかったのを修正：スクロール位置を保ち、変化がないときは描き直さず、指で押している間も描き直さない'] },
   { v: '3.15.2', d: '2026.11.24', items: ['観戦中のコメント（エール欄と吹き出し）を「コメントを隠す」で非表示にできる。もう一度押すと表示。選んだ状態は次回も続く', 'マルチプレー（インカレ オンライン）では、各本目の最初のスタート前にスタートリストを1番から自動でスクロール表示（×で閉じられる）'] },
   { v: '3.15.1', d: '2026.11.24', items: ['観戦中、下のエール欄に滑っている選手が隠れないように、画面とコース位置バーをエール欄の上に寄せた', '観戦中の選手の動きとタイム表示がカクカク飛ばず、なめらかに進むようにした'] },
@@ -6840,7 +6892,7 @@ const CHANGELOG = [
   { v: '1.1.0', d: '2026.11.20', items: ['トップ画面とバージョン表示を追加', '公式コースデータを参考に、緩斜面・急斜面のスピード変化を追加', 'スピードを調整', 'いろいろランキング（総合・優勝回数・最高速度・使用マテリアルなど）を追加', '1レース80人出場（ランキング74位まで＋75位以下から抽選）', '男子回転のライバルを実在の選手リストに変更'] },
   { v: '1.0.0', d: '', items: ['キッツビューエル風の表彰式、フリースキー（リズム旗門・用具の性能グラフ）', 'ナイターの照明、ゴーグルの影響、スタートゲートとスタートバー、高いスタート台', 'FISのスタート手順（10秒前・ブザー5回・遅れたら失格）', 'コースに残る滑走の跡、清水さん仕様、MARKSビンディング、ゴール後の隠しコマンド'] }
 ];
-const APP_VERSION = '3.15.3', APP_DATE = '2026.11.24';
+const APP_VERSION = '3.16.0', APP_DATE = '2026.11.25';
 function showTop(){
   incolLeave();
   $('#menu').hidden = true; $('#sheet').hidden = true; $('#lock').hidden = true;
@@ -6850,7 +6902,7 @@ function showTop(){
     : setupDone ? `${esc(pname)}（${flagH(myNat)}${esc((NAT[myNat] || {}).jp || myNat)}）でプレー` : 'はじめに国と用具を選びます';
   $('#top').hidden = false;
   $('#topWatch').hidden = GK.on;
-  $('#topGo').onclick = () => { $('#top').hidden = true; ac(); if (GK.on) showIncol(GK.mode === 'dual' ? 'DUAL' : null); else bootGame(); };
+  $('#topGo').onclick = () => { $('#top').hidden = true; ac(); if (GK.on){ if (GK.mode !== 'dual' && GK.sec === 'dual') GK.sec = 'race'; showIncol(GK.mode === 'dual' ? 'DUAL' : null); } else bootGame(); };
   $('#tgIncol').onclick = () => { GK.mode = 'incol'; saveGK(); applyDisc(); };
   $('#tgDual').onclick = () => { GK.mode = 'dual'; saveGK(); applyDisc(); };
   $('#topWatch').onclick = () => { $('#top').hidden = true; ac(); showSpectPick(); };
