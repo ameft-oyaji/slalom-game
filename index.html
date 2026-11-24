@@ -2436,7 +2436,9 @@ function showIncol(focus){
   let html = `<div class="seg" id="ikG" role="group" aria-label="男子・女子">${['men', 'women'].map(k => `<button type="button" data-g="${k}" aria-pressed="${gender === k}">${k === 'men' ? '男子' : '女子'}</button>`).join('')}</div>
     <h3>あなたの所属と名前</h3>
     <div class="ik-uni"><span class="flag" id="ikFlag"></span><select id="ikUni" aria-label="所属する大学">${UNIS.map(([c, jp]) => `<option value="${c}"${c === GK.uni ? ' selected' : ''}>${esc(jp)}</option>`).join('')}</select>
-      <input type="text" id="ikName" maxlength="14" value="${esc(pname)}" aria-label="名前" autocomplete="off"></div>
+      <input type="text" id="ikName" maxlength="14" value="${esc(pname)}" aria-label="名前" autocomplete="off">
+      <button class="btn small" type="button" id="ikGear">道具を選ぶ</button></div>
+    <p class="note">道具：${['ski', 'boot', 'bind', 'helm', 'gog', 'pole'].filter(c => GEAR[c]).map(c => { const it = gearItem(c, myGear[c]); return it ? esc(it.name + ' ' + (it.model || '')) : ''; }).filter(Boolean).join(' ／ ')}</p>
     <h3>第${st.n}回 全日本学生スキー選手権（${gender === 'men' ? '男子' : '女子'}）</h3>
     <p class="note">${UNIS.length}大学の学生と、スーパー大回転・大回転・回転を1回ずつ滑ります。スーパー大回転は1本勝負、大回転と回転は2本合計で1本目の上位30名が2本目に進みます。出場は各大学3人まで（登録選手からランダムに選ばれます）。あなたの大学からは、あなたともう2人が出場します。${gender === 'men' ? '男子は登録選手がポイント順に出場します（0.00が最も強い。種目ごとのポイントで）。' : '女子の選手名は架空です。'}</p>
     ${card('SG')}${card('GS')}${card('SL')}
@@ -2450,6 +2452,7 @@ function showIncol(focus){
   document.querySelectorAll('#ikG button').forEach(b => b.onclick = () => { gender = b.dataset.g; savePrefs(); showIncol(); });
   $('#ikUni').onchange = e => { GK.uni = e.target.value; saveGK(); setFlag($('#ikFlag'), GK.uni); $('#shBody').querySelectorAll('tr').length && showIncol(); };
   $('#ikName').oninput = e => { pname = e.target.value.trim().slice(0, 14) || 'あなた'; savePrefs(); };
+  $('#ikGear').onclick = showIncolGear;
   document.querySelectorAll('[data-ik]').forEach(b => b.onclick = () => enterIncolRace(b.dataset.ik));
   document.querySelectorAll('[data-ikres]').forEach(b => b.onclick = () => showIncolStored(b.dataset.ikres));
   document.querySelectorAll('#ikDD button').forEach(b => b.onclick = () => { DUAL_PREF.d = b.dataset.d; save('slalomwc-dual', DUAL_PREF); document.querySelectorAll('#ikDD button').forEach(x => x.setAttribute('aria-pressed', x === b)); });
@@ -2458,6 +2461,21 @@ function showIncol(focus){
   $('#ikReset').onclick = () => { const b = $('#ikReset'); if (b.dataset.armed){ incolSave({ n: st.n + 1, res: {} }); showIncol(); } else { b.dataset.armed = '1'; b.textContent = 'もう一度押すと、今の大会の記録を消して始めます'; } };
   $('#ikTop').onclick = goTop;
   if (focus === 'DUAL'){ const h = $('#ikDual'); if (h) setTimeout(() => { try { h.scrollIntoView({ block: 'start' }); } catch(e){} }, 50); }
+}
+// choosing your gear from the インカレ screen (the same skis, boots and so on as everywhere else)
+function showIncolGear(){
+  const html = `<div class="gear">${Object.entries(GEAR).map(([cat, g]) => `<h3>${g.label}</h3><div class="gcards" role="group" aria-label="${g.label}">${g.items.map(it => gearCard(cat, it)).join('')}</div>`).join('')}
+    <div class="gsum"><b>この組み合わせの性能</b><span id="gSum">${gearSummary() || '標準'}</span></div>
+    <p class="note">ブランド名・ロゴはすべてこのゲームのための架空のデザインです。性能差は数％の小さなもので、組み合わせで乗り味が変わります。</p></div>
+    <div class="btns"><button class="btn primary" type="button" id="ikGearDone">インカレのメニューに戻る</button></div>`;
+  openSheet('Intercollegiate · Gear', '道具を選ぶ', html);
+  const root = $('#shBody');
+  root.querySelectorAll('.gcard').forEach(b => b.onclick = () => {
+    myGear[b.dataset.cat] = b.dataset.id; savePrefs();
+    root.querySelectorAll(`.gcard[data-cat="${b.dataset.cat}"]`).forEach(x => { x.classList.toggle('on', x === b); x.setAttribute('aria-pressed', x === b); });
+    const sm = root.querySelector('#gSum'); if (sm) sm.textContent = gearSummary() || '標準';
+  });
+  $('#ikGearDone').onclick = () => showIncol();
 }
 function incolRowsHTML(rows, best, one){
   return table(['順位', '選手', '大学', one ? 'タイム' : '合計', '差', '得点'], rows.map(o => `<tr class="${o.id === 'you' ? 'me' : ''}"><td class="n">${o.rank}</td><td>${esc(o.id === 'you' ? pname : nameOf(o.id) || o.name || '')}</td><td class="nat3">${flagH(o.nat)}${esc(uniName(o.nat))}</td><td class="n">${fmt(o.t)}</td><td class="r">${o.rank === 1 ? '' : fmtDiff(o.t - best)}</td><td class="n">${o.pts || ''}</td></tr>`));
