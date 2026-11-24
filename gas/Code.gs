@@ -259,7 +259,7 @@ function room_start_(q) {
   r.run = Number(q.run) === 2 ? 2 : 1;                                 // dual race: which of the two runs
   if (q.ev != null) r.ev = evParse_(q.ev);                             // dual tournament / league: pairings and results so far
   if (q.ik != null) r.ik = ikParse_(q.ik);                             // インカレ: whose turn it is and the players' results so far
-  r.raceId += 1; r.state = 'race'; r.startAt = Date.now() + 9000;
+  r.raceId += 1; r.state = 'race'; r.startAt = Date.now() + Math.min(30000, Math.max(9000, Number(q.lead) || 0));   // lead: a longer wait (the start list is shown first)
   r.ready = {};                                                        // everyone presses ready again before the next new race
   rc_().removeAll(r.members.map(function (m) { return posKey_(r.code, m); }));
   roomPut_(r);

@@ -334,7 +334,16 @@ body.nightrace .ev-gear .up,body.nightrace .ev-gear .dn{color:#fff!important}
 .watching #pad,.watching #keys,.watching #bQuit,.watching #bCtrl{display:none!important}
 .watching #card{visibility:hidden}
 .cheerbar{position:absolute;left:50%;bottom:max(10px,env(safe-area-inset-bottom,0px));transform:translateX(-50%);width:min(560px,calc(100% - 20px));background:rgba(14,26,46,.86);color:#fff;border-radius:8px;padding:8px 10px;display:flex;flex-direction:column;gap:6px;z-index:6}
-.cb-who{font:700 13px var(--f-body);color:var(--amber)}
+.cb-who{font:700 13px var(--f-body);color:var(--amber);display:flex;align-items:center;gap:8px}
+#cheerHide{margin-left:auto;border:0;border-radius:12px;background:var(--board-3);color:#fff;font:700 12px var(--f-body);padding:4px 10px;cursor:pointer;white-space:nowrap}
+.cheerbar.min{width:auto;padding:6px 10px}.cheerbar.min .cb-row{display:none}
+body.watching.nocheer .cheers{display:none}
+.autolist{position:absolute;left:50%;top:max(56px,calc(env(safe-area-inset-top,0px) + 48px));transform:translateX(-50%);width:min(520px,calc(100% - 20px));background:rgba(14,26,46,.98);color:#fff;border-radius:8px;padding:10px 12px;z-index:8;box-shadow:0 8px 24px rgba(0,0,0,.35)}
+.autolist .al-h{display:flex;align-items:baseline;gap:10px}.autolist .al-h b{font:800 16px var(--f-body);color:var(--amber)}.autolist .al-h span{font:13px var(--f-body);color:#C9D2E3}
+#alClose{margin-left:auto;border:0;background:none;color:#fff;font-size:22px;line-height:1;cursor:pointer;padding:0 4px}
+.autolist .al-n{margin:4px 0 8px;font:12px var(--f-body);color:#C9D2E3}
+.autolist .tbl-wrap{max-height:min(52vh,420px);overflow:hidden}
+.autolist tr.hum td{background:rgba(232,89,12,.25)}
 .cb-row{display:flex;flex-wrap:wrap;gap:6px}
 .cb-row button{border:0;border-radius:16px;background:#fff;color:var(--board);font:700 13px var(--f-body);padding:6px 12px;cursor:pointer}
 .cb-row input{flex:1;min-width:120px;background:var(--board-2);color:#fff;border:1px solid var(--board-3);border-radius:16px;padding:6px 12px;font:14px var(--f-body)}
@@ -501,8 +510,9 @@ body.nightrace .ev-label,body.nightrace .ev-label *,body.nightrace #keys,body.ni
     <div class="btlive" id="btLive" hidden></div>
   </div>
   <div class="cheers" id="cheers" aria-live="polite"></div>
+  <div class="autolist" id="autoList" hidden></div>
   <div class="cheerbar" id="cheerBar" hidden>
-    <div class="cb-who" id="watchWho"></div>
+    <div class="cb-who"><span id="watchWho"></span><button type="button" id="cheerHide">コメントを隠す</button></div>
     <div class="cb-row"><button type="button" data-ch="がんばれ！">がんばれ！</button><button type="button" data-ch="いけー！">いけー！</button><button type="button" data-ch="ナイス！">ナイス！</button><button type="button" data-ch="おしい！">おしい！</button><button type="button" data-ch="👏👏👏">👏👏👏</button></div>
     <form class="cb-row" id="cheerForm"><input type="text" id="cheerTxt" maxlength="24" placeholder="エールを書く（24文字まで）" autocomplete="off"><button type="submit">送る</button><button type="button" id="cheerLeave">部屋に戻る</button></form>
   </div>
@@ -2583,7 +2593,7 @@ function showIncolRoom(){
     const rc = makeIncolOnline(Object.assign({}, r, { course, ik: null }));
     const order = rc.entrants.filter(e => e.me || rc.humans[e.id]).map(e => e.me ? CLOUD.name : rc.humans[e.id].name);
     const nik = { run: 1, i: 0, order, res: {}, players: r.members.slice(0, 4).map(m => [m, NAT[unis[m]] ? unis[m] : 'KSD']) };
-    const out = await btCall('room_start', { run: 1, fresh: 1, course, ik: JSON.stringify(nik) }).catch(() => null);
+    const out = await btCall('room_start', { run: 1, fresh: 1, course, ik: JSON.stringify(nik), lead: IK_LIST_LEAD }).catch(() => null);
     if (!(out && out.ok)) st.disabled = false; else incolPoll(true);
   };
   clearInterval(BT.poll); BT.poll = setInterval(pollRoom, 1500);
@@ -2631,6 +2641,7 @@ function incolPoll(force){
       document.body.classList.add('watching'); $('#watchWho').textContent = `観戦中：${cur}`; $('#cheerBar').hidden = false;
       clearInterval(BT.poll); BT.poll = setInterval(pollRoom, 700);
     }
+    if (ik.i === 0 && cdT > START_CALL + 4) showAutoList(cdT - START_CALL - .5);   // the first racer of the run: the start list first
     return;
   }
   // between turns (and in the lobby) the room screen keeps itself up to date
@@ -2661,7 +2672,7 @@ function ikHostStep(r){
       if (!nik.order.length) nik.done = true;
     } else nik.done = true;
   }
-  btCall('room_start', { run: nik.run, ik: JSON.stringify(nik) }).catch(() => null).then(() => { IKH.busy = false; });
+  btCall('room_start', Object.assign({ run: nik.run, ik: JSON.stringify(nik) }, nik.i === 0 && !nik.done ? { lead: IK_LIST_LEAD } : {})).catch(() => null).then(() => { IKH.busy = false; });
 }
 function incolRowsHTML(rows, best, one){
   return table(['順位', '選手', '大学', one ? 'タイム' : '合計', '差', '得点'], rows.map(o => `<tr class="${o.id === 'you' ? 'me' : ''}"><td class="n">${o.rank}</td><td>${esc(o.id === 'you' ? pname : nameOf(o.id) || o.name || '')}</td><td class="nat3">${flagH(o.nat)}${esc(uniName(o.nat))}</td><td class="n">${fmt(o.t)}</td><td class="r">${o.rank === 1 ? '' : fmtDiff(o.t - best)}</td><td class="n">${o.pts || ''}</td></tr>`));
@@ -2746,18 +2757,50 @@ function showIntro(){
   };
 }
 // the start list for the coming run: run 1 in bib order, run 2 in its start order with the run-1 times
-function showStartList(){
+function startListParts(){
   const ik = race.incol, natCell = id => `<td class="nat3">${flagH(natOf(id))}${ik ? esc(uniName(natOf(id))) : natOf(id)}</td>`;
+  const me = race.watchSave ? race.watchSave.pname : pname;              // (while watching, pname is the racer on screen)
+  const meName = () => esc(me) + (me !== 'あなた' ? '（あなた）' : '');
+  // the other players of an online race are marked too
+  const cls = id => id === 'you' ? 'me' : race.humans && race.humans[id] ? 'hum' : '';
   let head, rows;
   if (race.run === 1){
     head = ['Bib', '選手', ik ? '大学' : '国'];
-    rows = race.entrants.map(e => `<tr class="${e.me ? 'me' : ''}"><td class="n">${race.bib.get(e.id)}</td><td>${esc(e.me ? pname : nameOf(e.id))}${e.me && pname !== 'あなた' ? '（あなた）' : ''}</td>${natCell(e.id)}</tr>`);
+    rows = race.entrants.map(e => `<tr class="${cls(e.id)}"><td class="n">${race.bib.get(e.id)}</td><td>${e.me ? meName() : esc(nameOf(e.id))}</td>${natCell(e.id)}</tr>`);
   } else {
     const best = Math.min(...race.order2.map(id => race.run1[id]).filter(v => v != null));
     head = ['順', 'Bib', '選手', ik ? '大学' : '国', '1本目', '差'];
-    rows = race.order2.map((id, i) => `<tr class="${id === 'you' ? 'me' : ''}"><td class="n">${i + 1}</td><td class="r">${race.bib.get(id)}</td><td>${esc(id === 'you' ? pname : nameOf(id))}${id === 'you' && pname !== 'あなた' ? '（あなた）' : ''}</td>${natCell(id)}<td class="r">${fmt(race.run1[id])}</td><td class="r">${race.run1[id] === best ? '' : fmtDiff(race.run1[id] - best)}</td></tr>`);
+    rows = race.order2.map((id, i) => `<tr class="${cls(id)}"><td class="n">${i + 1}</td><td class="r">${race.bib.get(id)}</td><td>${id === 'you' ? meName() : esc(nameOf(id))}</td>${natCell(id)}<td class="r">${fmt(race.run1[id])}</td><td class="r">${race.run1[id] === best ? '' : fmtDiff(race.run1[id] - best)}</td></tr>`);
   }
-  const html = `<p class="note">${race.run === 1 ? `${race.entrants.length}名がビブ順にスタートします。` : `1本目の上位${race.order2.length}名が、1本目の順位の逆順でスタートします。`}</p>` + table(head, rows) +
+  const note = race.run === 1 ? `${race.entrants.length}名がビブ順にスタートします。` : `1本目の上位${race.order2.length}名が、1本目の順位の逆順でスタートします。`;
+  return { head, rows, note };
+}
+// online races: before the first racer of each run, the start list rolls by on its own from number 1
+const IK_LIST_LEAD = 25000;               // ms from the host's start to the start signal (the server keeps it between 9 and 30 s)
+let AUTOLIST = 0;
+function showAutoList(sec){
+  const box = $('#autoList'); if (!box || !race || !race.entrants) return;
+  const { head, rows, note } = startListParts();
+  const ev = race.ev;
+  box.innerHTML = `<div class="al-h"><b>${race.oneRun ? '' : race.run + '本目 '}スタートリスト</b><span>${esc(JP[ev.venue] || ev.venue)}</span><button type="button" id="alClose" aria-label="閉じる">×</button></div><p class="al-n">${note}</p>` + table(head, rows);
+  box.hidden = false;
+  const wrap = box.querySelector('.tbl-wrap'); wrap.scrollTop = 0;
+  const id = ++AUTOLIST, t0 = performance.now(), dur = Math.max(4, sec) * 1000, hold = Math.min(1500, dur * .15);
+  const close = () => { if (AUTOLIST === id){ AUTOLIST++; box.hidden = true; } };
+  $('#alClose').onclick = close;
+  const step = now => {
+    if (AUTOLIST !== id) return;
+    if (!race || state !== 'countdown'){ close(); return; }
+    const el = now - t0, max = wrap.scrollHeight - wrap.clientHeight;
+    wrap.scrollTop = max * clamp((el - hold) / (dur - 2 * hold), 0, 1);
+    if (el >= dur){ close(); return; }
+    requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+function showStartList(){
+  const { head, rows, note } = startListParts();
+  const html = `<p class="note">${note}</p>` + table(head, rows) +
     `<div class="btns"><button class="btn primary" type="button" id="slBack">戻る</button></div>`;
   openSheet(`Run ${race.run} · Start List`, `${JP[race.ev.venue] || race.ev.venue} — ${race.run}本目 スタートリスト`, html);
   scrollMeIntoView();
@@ -3706,6 +3749,14 @@ function pickCheers(){
 document.querySelectorAll('#cheerBar [data-ch]').forEach(b => b.onclick = () => sendCheer(b.dataset.ch));
 $('#cheerForm').onsubmit = e => { e.preventDefault(); const i = $('#cheerTxt'); sendCheer(i.value); i.value = ''; };
 $('#cheerLeave').onclick = () => endEvWatch();
+// comments can be put away while watching (the choice is kept)
+function setCheerHidden(on){
+  $('#cheerBar').classList.toggle('min', on); document.body.classList.toggle('nocheer', on);
+  $('#cheerHide').textContent = on ? 'コメントを表示' : 'コメントを隠す';
+  try { localStorage.setItem('slalomwc-cheerhide', on ? '1' : ''); } catch(e){}
+}
+$('#cheerHide').onclick = () => setCheerHidden(!$('#cheerBar').classList.contains('min'));
+try { if (localStorage.getItem('slalomwc-cheerhide') === '1') setCheerHidden(true); } catch(e){}
 // ---- split screen for the dual race: you on the left, your rival on the right, both racing at once ----
 const SPLIT = { side: '', ox: 0, oy: 0, me: null, name: '', camL: 0, camR: 0, prevTh: 0, lean: 0 };
 function meGhost(sprites, yNear, yFar){
@@ -6747,6 +6798,7 @@ function bootGame(){ if (setupDone) showMenu(playMode === 'DUAL' ? 'dual' : 'cal
 // title screen with the game's version
 // what changed in each version (shown on the rules tab)
 const CHANGELOG = [
+  { v: '3.15.2', d: '2026.11.24', items: ['観戦中のコメント（エール欄と吹き出し）を「コメントを隠す」で非表示にできる。もう一度押すと表示。選んだ状態は次回も続く', 'マルチプレー（インカレ オンライン）では、各本目の最初のスタート前にスタートリストを1番から自動でスクロール表示（×で閉じられる）'] },
   { v: '3.15.1', d: '2026.11.24', items: ['観戦中、下のエール欄に滑っている選手が隠れないように、画面とコース位置バーをエール欄の上に寄せた', '観戦中の選手の動きとタイム表示がカクカク飛ばず、なめらかに進むようにした'] },
   { v: '3.15.0', d: '2026.11.24', items: ['インカレにオンライン対戦：最大4人が同じ大会に出場（同じ大学でも別々の大学でも可）', 'ビブ順に1人ずつ滑走し、ほかの人はその滑りを観戦。2本目は1本目の成績順', '最後に総合結果と学校対抗の得点を表示、「もう一度（新しいコース）」で続けて遊べる'] },
   { v: '3.14.2', d: '2026.11.24', items: ['クローチの姿勢を、滑降のタックのように：両手をそろえて顔の前に出し、ストックは脇の下を通して先を腰の横から後ろ上へ'] },
@@ -6777,7 +6829,7 @@ const CHANGELOG = [
   { v: '1.1.0', d: '2026.11.20', items: ['トップ画面とバージョン表示を追加', '公式コースデータを参考に、緩斜面・急斜面のスピード変化を追加', 'スピードを調整', 'いろいろランキング（総合・優勝回数・最高速度・使用マテリアルなど）を追加', '1レース80人出場（ランキング74位まで＋75位以下から抽選）', '男子回転のライバルを実在の選手リストに変更'] },
   { v: '1.0.0', d: '', items: ['キッツビューエル風の表彰式、フリースキー（リズム旗門・用具の性能グラフ）', 'ナイターの照明、ゴーグルの影響、スタートゲートとスタートバー、高いスタート台', 'FISのスタート手順（10秒前・ブザー5回・遅れたら失格）', 'コースに残る滑走の跡、清水さん仕様、MARKSビンディング、ゴール後の隠しコマンド'] }
 ];
-const APP_VERSION = '3.15.1', APP_DATE = '2026.11.24';
+const APP_VERSION = '3.15.2', APP_DATE = '2026.11.24';
 function showTop(){
   incolLeave();
   $('#menu').hidden = true; $('#sheet').hidden = true; $('#lock').hidden = true;
