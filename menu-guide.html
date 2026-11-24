@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>スラロームWC メニュー案内</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@1,700;1,800&family=Noto+Sans+JP:wght@400;700;900&display=swap">
+<style>
+/* layout: one column like the game's own menu panel; each screen is a section, each button a row with its label shown as it appears in the game */
+:root{
+  --bg:#EEF3F9; --surface:#FFFFFF; --ink:#13213B; --muted:#5A6A85; --line:#D3DDEA;
+  --gate-red:#D7263D; --gate-blue:#1F5FBF; --board:#0E1A2E; --chip-bg:#0E1A2E; --chip-fg:#FFFFFF; --amber:#B7791F;
+  --f-disp:'Barlow Condensed','Arial Narrow',sans-serif; --f-body:'Noto Sans JP','Hiragino Sans','Yu Gothic',sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0B1424; --surface:#13213B; --ink:#E8EEF7; --muted:#9AA9C2; --line:#24365A;
+  --gate-red:#FF5A6E; --gate-blue:#6FA3FF; --chip-bg:#E8EEF7; --chip-fg:#0E1A2E; --amber:#FFC93C; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0B1424; --surface:#13213B; --ink:#E8EEF7; --muted:#9AA9C2; --line:#24365A;
+  --gate-red:#FF5A6E; --gate-blue:#6FA3FF; --chip-bg:#E8EEF7; --chip-fg:#0E1A2E; --amber:#FFC93C; color-scheme:dark}
+body{background:var(--bg);color:var(--ink);font:15px/1.75 var(--f-body)}
+.wrap{max-width:760px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:28px 48px;display:flex;flex-direction:column;gap:28px}
+header{display:flex;flex-direction:column;gap:6px}
+.eyebrow{font:700 12px var(--f-body);letter-spacing:.16em;color:var(--muted)}
+h1{margin:0;font:italic 800 44px/1 var(--f-disp);letter-spacing:.01em;text-wrap:balance}
+h1 span{display:block;font:900 18px/1.4 var(--f-body);font-style:normal;margin-top:8px}
+.stripe{height:5px;background:linear-gradient(90deg,var(--gate-red) 0 50%,var(--gate-blue) 50% 100%);border-radius:3px;max-width:160px}
+.lead{margin:0;color:var(--muted);max-width:62ch}
+nav.toc{display:flex;flex-wrap:wrap;gap:8px}
+nav.toc a{font:700 13px var(--f-body);color:var(--ink);text-decoration:none;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:5px 12px}
+nav.toc a:hover,nav.toc a:focus-visible{border-color:var(--gate-blue);outline:none}
+section{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:20px;display:flex;flex-direction:column;gap:14px;min-width:0}
+section.wc{border-top:4px solid var(--gate-red)} section.gk{border-top:4px solid var(--gate-blue)} section.common{border-top:4px solid var(--muted)}
+h2{margin:0;font:900 20px/1.35 var(--f-body);text-wrap:balance}
+h2 small{display:block;font:italic 700 14px var(--f-disp);letter-spacing:.08em;color:var(--muted)}
+h3{margin:4px 0 0;font:700 13px var(--f-body);letter-spacing:.08em;color:var(--muted)}
+p{margin:0;max-width:65ch}
+.path{font-size:13px;color:var(--muted)}
+.path b{color:var(--ink)}
+.items{display:flex;flex-direction:column;border-top:1px solid var(--line)}
+.item{display:grid;grid-template-columns:minmax(7.5em,auto) 1fr;gap:4px 14px;padding:11px 0;border-bottom:1px solid var(--line);align-items:start}
+.item>div{min-width:0}
+.btn{display:inline-block;background:var(--chip-bg);color:var(--chip-fg);font:700 13px/1.5 var(--f-body);padding:4px 10px;border-radius:6px;white-space:nowrap;justify-self:start}
+.btn.hot{background:var(--gate-red);color:#fff}
+.tag{display:inline-block;font:700 11px var(--f-body);color:var(--gate-blue);border:1px solid currentColor;border-radius:4px;padding:0 6px;margin-left:6px;vertical-align:1px}
+.note{font-size:13px;color:var(--muted)}
+.flow{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:13px}
+.flow i{font-style:normal;color:var(--muted)}
+.keys{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px}
+.key{display:flex;gap:10px;align-items:center;font-size:14px}
+kbd{font:700 13px var(--f-body);background:var(--bg);border:1px solid var(--line);border-bottom-width:3px;border-radius:5px;padding:1px 8px;min-width:2em;text-align:center}
+@media (max-width:480px){ .item{grid-template-columns:1fr} h1{font-size:38px} section{padding:16px} }
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="eyebrow">SLALOM WORLD CUP / ALL JAPAN INTERCOLLEGIATE</div>
+    <h1>MENU GUIDE<span>スラローム・ワールドカップ メニュー案内</span></h1>
+    <div class="stripe" aria-hidden="true"></div>
+    <p class="lead">どの画面に何があるかを、ゲームの画面の順にまとめました。ボタンの名前はゲームの表示と同じです（Ver. 3.16.0 時点）。</p>
+  </header>
+
+  <nav class="toc" aria-label="目次">
+    <a href="#top">TOP画面</a><a href="#wc">ワールドカップ</a><a href="#dual">デュアル</a><a href="#watch">観戦モード</a><a href="#incol">学連・インカレ</a><a href="#online">オンラインの部屋</a><a href="#race">レース中</a>
+  </nav>
+
+  <section class="common" id="top">
+    <h2><small>TOP</small>TOP画面</h2>
+    <p>ゲームを開くと最初に出る画面です。どの画面からでも、左上の <span class="btn">TOP</span> でここに戻れます。</p>
+    <div class="items">
+      <div class="item"><span class="btn">ワールドカップ</span><div>FISワールドカップ2026/27の日程で遊ぶ側。種目は <b>回転・大回転・デュアル</b> から選びます。</div></div>
+      <div class="item"><span class="btn">学連</span><div>全日本学生スキー選手権（インカレ）で遊ぶ側。<b>インカレ・デュアル</b> から選びます。</div></div>
+      <div class="item"><span class="btn hot">スタート</span><div>選んだ側・種目のメニューに進みます。初めてのときは、先に国と用具を選ぶ画面が出ます。</div></div>
+      <div class="item"><span class="btn">観戦モード</span><div>ワールドカップ側だけ。コンピューターの選手のレースを見ます（<a href="#watch">観戦モード</a>）。</div></div>
+    </div>
+  </section>
+
+  <section class="wc" id="wc">
+    <h2><small>WORLD CUP</small>ワールドカップのメニュー</h2>
+    <p class="path"><b>TOP</b> › ワールドカップ › 回転 または 大回転 › スタート</p>
+    <h3>いちばん上</h3>
+    <div class="items">
+      <div class="item"><span class="btn">回転 / 大回転 / デュアル</span><div>種目の切り替え。ここでも変えられます。</div></div>
+      <div class="item"><span class="btn">男子 / 女子</span><div>男子と女子のシーズンは別々に記録されます。</div></div>
+      <div class="item"><span class="btn">⚙ 設定</span><div>押すと開きます。<b>ライバルの強さ</b>（ワールドカップ級〜インターハイ級）、<b>操作方法</b>（外足に乗って曲がる／押した方向へ曲がる）、<b>名前</b>。閉じていても今の設定が1行で見えます。<p class="note">シーズン途中はライバルの強さを変えられません。</p></div></div>
+    </div>
+    <h3>メニュー（4つのグループ）</h3>
+    <div class="items">
+      <div class="item"><span class="btn">シーズン</span><div><span class="tag">レース</span> ワールドカップ全戦を順番に転戦してポイントを集め、クリスタルグローブ（種目別総合優勝）を目指します。次のレースの <span class="btn hot">出走</span> か「欠場」を選びます。終わったレースは「もう一度」で練習できます（ポイントなし）。</div></div>
+      <div class="item"><span class="btn">ランキング</span><div><span class="tag">レース</span> シーズンの順位表とこれまでの成績。上位25人がファイナルに出られます。シーズンのリセットもここ。</div></div>
+      <div class="item"><span class="btn">タイムアタック</span><div><span class="tag">ひとりで</span> ワールドカップ各会場のコースで、遊んでいる人どうし2本合計の最速タイムを競います。</div></div>
+      <div class="item"><span class="btn">フリースキー</span><div><span class="tag">ひとりで</span> タイムもポイントも気にせず好きに滑るモード。会場・天気・旗門の有無や間隔・長さを選べます。失格なし。用具の効き目もここで確かめられます。</div></div>
+      <div class="item"><span class="btn">オンライン対戦</span><div><span class="tag">みんなと</span> 友だちと同じコースを同時に滑る1本勝負。部屋を作ると4桁の番号が出ます（最大8人）。ユーザー登録が必要です。</div></div>
+      <div class="item"><span class="btn">いろいろランキング</span><div><span class="tag">みんなと</span> 登録したプレーヤーどうしのランキング。</div></div>
+      <div class="item"><span class="btn">選手・用具</span><div><span class="tag">準備</span> 国、スキー・ブーツ・ビンディング・ヘルメット・ゴーグル・ストックを選びます。オンライン用のユーザー登録（名前と暗証番号）もここ。</div></div>
+      <div class="item"><span class="btn">ルールと操作</span><div><span class="tag">準備</span> 失格の決まりや操作の説明。</div></div>
+    </div>
+  </section>
+
+  <section class="wc" id="dual">
+    <h2><small>DUAL RACE</small>デュアル（ワールドカップ側）</h2>
+    <p class="path"><b>TOP</b> › ワールドカップ › デュアル › スタート</p>
+    <p>同じリズムの旗門で、2人が並んで同時に滑ります。2本勝負（左右のコースを入れ替え）。メニューは <span class="btn">デュアルレース</span>・<span class="btn">選手・用具</span>・<span class="btn">ルールと操作</span> の3つだけになります。</p>
+    <div class="items">
+      <div class="item"><span class="btn">CPライバルと対戦</span><div>コンピューターの選手と1対1。ユーザー登録なしで遊べます。</div></div>
+      <div class="item"><span class="btn">オンライン対戦</span><div>部屋番号で友だちと対戦。トーナメントやリーグもできます。</div></div>
+    </div>
+  </section>
+
+  <section class="wc" id="watch">
+    <h2><small>SPECTATOR</small>観戦モード</h2>
+    <p class="path"><b>TOP</b> › ワールドカップ › 観戦モード</p>
+    <p>ランキング上位30人から選手を選び、その選手のレースを見ます。右側のコース位置バーを押すと、巻き戻し・一時停止・早送り（×3）・5秒戻る・ライブに戻るが使え、バーをなぞると好きな場所へ移れます。</p>
+  </section>
+
+  <section class="gk" id="incol">
+    <h2><small>INTERCOLLEGIATE</small>学連・インカレ</h2>
+    <p class="path"><b>TOP</b> › 学連 › インカレ（または デュアル）› スタート</p>
+    <p>上で <b>男子／女子</b> を選び、その下の4つのタブで画面を切り替えます。いま選んでいる大学と名前は、男子／女子の横に出ています。</p>
+    <div class="items">
+      <div class="item"><span class="btn">大会</span><div>第◯回インカレ。<b>1/29 スーパー大回転</b>（猪苗代・1本勝負）、<b>2/14 大回転</b>・<b>2/16 回転</b>（大鰐温泉・2本合計）を <span class="btn hot">出走</span> で滑ります。各大学3人まで、自分の大学は自分＋2人。学校対抗の得点表もここ。「新しい大会を始める」で記録を消して次の大会へ。</div></div>
+      <div class="item"><span class="btn">オンライン</span><div>最大4人で同じ大会に出場（同じ大学でも別々でもOK）。種目を選んで「部屋を作る」か、4桁の番号で「入る」。ビブ順に1人ずつ滑り、ほかの人は観戦します。ユーザー登録が必要です（ワールドカップ側の「選手・用具」で登録）。</div></div>
+      <div class="item"><span class="btn">デュアル</span><div>学生のCPライバルと1対1。種目（回転／大回転）とライバルの強さを選んで「対戦スタート」。TOPで「デュアル」を選んで来ると、このタブが開きます。</div></div>
+      <div class="item"><span class="btn">選手・マテリアル</span><div>所属する大学と名前を選び、「マテリアル選択」でスキーなどの用具を選びます。</div></div>
+    </div>
+  </section>
+
+  <section class="common" id="online">
+    <h2><small>ONLINE ROOM</small>オンラインの部屋</h2>
+    <div class="flow"><span class="btn">部屋を作る</span><i>→ 番号を友だちに伝える →</i><span class="btn">準備完了</span><i>（ホスト以外）→</i><span class="btn hot">スタート</span><i>（ホスト）</i></div>
+    <div class="items">
+      <div class="item"><span class="btn">準備完了</span><div>ホスト以外の全員が押すまで、ホストはスタートできません。</div></div>
+      <div class="item"><span class="btn">チャット</span><div>部屋の画面の下で、定型文かひと言を送れます。</div></div>
+      <div class="item"><span class="btn">スタートリスト</span><div>インカレのオンラインでは、各本目の最初の選手が出る前に、1番から自動で流れます（× で閉じられます）。</div></div>
+      <div class="item"><span class="btn">エール</span><div>観戦中は画面の下から「がんばれ！」などを送れます。<span class="btn">コメントを隠す</span> で欄と吹き出しを消せます（もう一度押すと表示）。</div></div>
+      <div class="item"><span class="btn">部屋に戻る</span><div>観戦をやめて部屋の画面に戻ります。</div></div>
+    </div>
+  </section>
+
+  <section class="common" id="race">
+    <h2><small>RACE</small>レース中</h2>
+    <p>スタート前の画面で <b>スタートハウスへ</b>・<b>スタートリスト</b>・<b>インスペクション（コースの下見）</b>・ワックス選びができます。旗門を1つでも外すと失格（DSQ）です。</p>
+    <div class="keys">
+      <div class="key"><kbd>←</kbd><kbd>→</kbd> ターン（スマホは画面の左右ボタン）</div>
+      <div class="key"><kbd>↓</kbd> クローチ（▼ボタン）</div>
+      <div class="key"><kbd>Esc</kbd> 棄権</div>
+    </div>
+    <p class="note">スーパー大回転には途中に一瞬浮くプレジャンプがあります。浮く瞬間にクローチを押していれば減速しません。</p>
+  </section>
+</div>
+
+</body>
+</html>
