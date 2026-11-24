@@ -3383,6 +3383,12 @@ function cpuPace(rank){
   for (let i = 1; i < P.length; i++) if (rank <= P[i][0]){ const [a, fa] = P[i - 1], [b, fb] = P[i]; return fa + (fb - fa) * (rank - a) / (b - a); }
   return P[P.length - 1][1];
 }
+// the world ranking's top 30 for the dual's discipline: pick one by name, or leave it to the level
+const CPU_TOP = 30;
+function cpuWhoOptions(){
+  const field = buildField(gender, DUAL_PREF.d), n = Math.min(CPU_TOP, field.length), w = +DUAL_PREF.who || 0;
+  return `<option value="0"${w ? '' : ' selected'}>選手：おまかせ</option>` + field.slice(0, n).map((a, i) => `<option value="${i + 1}"${w === i + 1 ? ' selected' : ''}>${i + 1}位 ${esc(a.name)}（${a.nat}）</option>`).join('');
+}
 function dualTabHTML(){
   const rules = `<h3>デュアルレースのルール</h3><ul class="note">
     <li>種目は回転か大回転を選べます。同じ間隔・同じ振り幅の旗門が20個続くリズムコースです（大回転は約25秒、回転は約15秒）。</li>
@@ -3394,7 +3400,9 @@ function dualTabHTML(){
   let html = `<p class="note">同じリズムの旗門で勝負します。種目を選んでください。</p>
     <div class="seg" id="dualDisc" role="group" aria-label="デュアルレースの種目">${['SL', 'GS'].map(d => `<button type="button" data-d="${d}" class="${DUAL_PREF.d === d ? 'on' : ''}" aria-pressed="${DUAL_PREF.d === d}">${DISC[d]}</button>`).join('')}</div>`;
   html += `<h3>CPライバルと対戦</h3><p class="note">コンピューターの選手と1対1で2本勝負。ユーザー登録なしで遊べます。</p>
-    <div class="g-who"><select id="cpuLv" aria-label="CPライバルの強さ">${Object.entries(CPU_LV).map(([k, v]) => `<option value="${k}"${DUAL_PREF.cpu === k ? ' selected' : ''}>CPライバル：${v[0]}</option>`).join('')}</select><button class="btn small hot" type="button" id="cpuGo">対戦スタート</button></div>`;
+    <div class="g-who"><select id="cpuLv" aria-label="CPライバルの強さ">${Object.entries(CPU_LV).map(([k, v]) => `<option value="${k}"${DUAL_PREF.cpu === k ? ' selected' : ''}>CPライバル：${v[0]}</option>`).join('')}</select>
+      <select id="cpuWho" aria-label="対戦する選手">${cpuWhoOptions()}</select><button class="btn small hot" type="button" id="cpuGo">対戦スタート</button></div>
+    <p class="note">選手を指名すると、その選手のワールドランキングどおりの速さで滑ります（「おまかせ」なら強さの範囲から選ばれます）。</p>`;
   html += `<h3>オンライン対戦</h3>`;
   if (!CLOUD.url) html += '<p class="note">友だちとのオンライン対戦は公開サイト（https://ameft-oyaji.github.io/slalom-game/）で、ユーザー登録して遊べます。</p>';
   else if (!CLOUD.token) html += '<p class="note">友だちとのオンライン対戦にはユーザー登録（無料）が必要です。「選手・用具」タブで名前と暗証番号を登録してください。</p>';
@@ -3406,11 +3414,12 @@ function dualTabHTML(){
 }
 function bindDualTab(root){
   bindBattleTab(root);                                   // joining a room works the same way
-  const c = root.querySelector('#dualCreate'), lv = root.querySelector('#cpuLv');
-  const keep = () => { DUAL_PREF.cpu = lv.value; save('slalomwc-dual', DUAL_PREF); };
-  lv.onchange = keep;
+  const c = root.querySelector('#dualCreate'), lv = root.querySelector('#cpuLv'), who = root.querySelector('#cpuWho');
+  const keep = () => { DUAL_PREF.cpu = lv.value; DUAL_PREF.who = +who.value || 0; save('slalomwc-dual', DUAL_PREF); lv.disabled = !!DUAL_PREF.who; };
+  lv.onchange = keep; who.onchange = keep; lv.disabled = !!(+who.value);
   root.querySelectorAll('#dualDisc button').forEach(b => b.onclick = () => {
     DUAL_PREF.d = b.dataset.d; save('slalomwc-dual', DUAL_PREF);
+    who.innerHTML = cpuWhoOptions();                     // the slalom and giant-slalom rankings differ
     root.querySelectorAll('#dualDisc button').forEach(x => { const on = x === b; x.classList.toggle('on', on); x.setAttribute('aria-pressed', on); });
   });
   root.querySelector('#cpuGo').onclick = () => { keep(); startCpuDual(); };
@@ -3448,9 +3457,10 @@ function startCpuDual(opt){
   if (ik && race.ev.disc === 'SL'){ const dk = dualKeyParse(key), o = { n: Math.round(20 * IK_SL.frac), open: true }; race.courses = [dualCourse(dk.seed, 'SL', false, o), dualCourse(dk.seed, 'SL', true, o)]; }
   const field = ik ? studentField(gender, race.ev.disc) : buildField(gender, race.ev.disc), k = ik ? (IK_CPU[GK.cpu] || IK_CPU.mid) : CPU_LV[DUAL_PREF.cpu] || CPU_LV.mid, r = Math.random;
   const lo = Math.min(k[1], field.length), hi = Math.min(k[2], field.length);
-  const rank = lo + Math.floor(r() * (hi - lo + 1));          // where in the ranking this rival stands
+  const pick = !ik && +DUAL_PREF.who >= 1 && +DUAL_PREF.who <= Math.min(CPU_TOP, field.length) ? +DUAL_PREF.who : 0;   // a rival picked by name
+  const rank = pick || lo + Math.floor(r() * (hi - lo + 1));  // where in the ranking this rival stands
   let who = field[rank - 1];
-  const named = ik ? null : CPU_NAMED[DUAL_PREF.cpu];
+  const named = ik || pick ? null : CPU_NAMED[DUAL_PREF.cpu];
   if (named){ const c = named[Math.floor(r() * named.length)]; who = { name: c[0], nat: c[1] }; }
   const pace = ik ? studentPace(rank, who, field.length) : cpuPace(rank);
   const runs = race.courses.map((c, i) => {
@@ -3459,7 +3469,7 @@ function startCpuDual(opt){
     const fall = r() < .05 ? .3 + r() * .55 : null;             // now and then the rival goes out
     return { pts: tr.pts, f, T: trunc(tr.T * f), fall };
   });
-  race.cpu = { name: who.name, nat: who.nat, lv: k[0], rank, college: !ik && !!CPU_NAMED[DUAL_PREF.cpu], incol: ik, runs, times: runs.map(x => x.fall ? null : x.T) };
+  race.cpu = { name: who.name, nat: who.nat, lv: pick ? `ワールドランキング${pick}位` : k[0], rank, college: !ik && !pick && !!CPU_NAMED[DUAL_PREF.cpu], incol: ik, runs, times: runs.map(x => x.fall ? null : x.T) };
   $('#menu').hidden = true;
   beginRun();
   cdT = 5;
@@ -6879,6 +6889,7 @@ function bootGame(){ if (setupDone) showMenu(playMode === 'DUAL' ? 'dual' : 'cal
 // title screen with the game's version
 // what changed in each version (shown on the rules tab)
 const CHANGELOG = [
+  { v: '4.2.0', d: '2026.11.25', items: ['ワールドカップのデュアル：CPライバルをワールドランキング上位30人の中から指名できる（種目ごとのランキング）。指名した選手はその順位どおりの速さで滑る。「おまかせ」ならこれまでどおり強さの範囲から選ばれる'] },
   { v: '4.1.0', d: '2026.11.25', items: ['ワールドカップの大会（シーズン・「もう一度」）で出した2本合計タイムも、そのコースの記録として残るように。タイムアタックの記録とは別に、それぞれの自己ベストがランキングに載る（大会の記録には「大会」の印）', 'タイムアタックのコース一覧に、自分のタイムアタックと大会の記録を両方表示'] },
   { v: '4.0.1', d: '2026.11.25', items: ['ワールドカップの大回転：ライバル（CP選手）のタイムを3％速く（どの強さでも）'] },
   { v: '4.0.0', d: '2026.11.25', items: ['バージョン4：ワールドカップに加えて「学連」モード（インカレ：スーパー大回転・大回転・回転、デュアル）が遊べるように', 'インカレのオンライン対戦（最大4人・ビブ順に1人ずつ滑走、ほかの人は観戦）', 'メニューをグループ・タブに整理し、各画面の「メニュー案内」ページを公開'] },
@@ -6916,7 +6927,7 @@ const CHANGELOG = [
   { v: '1.1.0', d: '2026.11.20', items: ['トップ画面とバージョン表示を追加', '公式コースデータを参考に、緩斜面・急斜面のスピード変化を追加', 'スピードを調整', 'いろいろランキング（総合・優勝回数・最高速度・使用マテリアルなど）を追加', '1レース80人出場（ランキング74位まで＋75位以下から抽選）', '男子回転のライバルを実在の選手リストに変更'] },
   { v: '1.0.0', d: '', items: ['キッツビューエル風の表彰式、フリースキー（リズム旗門・用具の性能グラフ）', 'ナイターの照明、ゴーグルの影響、スタートゲートとスタートバー、高いスタート台', 'FISのスタート手順（10秒前・ブザー5回・遅れたら失格）', 'コースに残る滑走の跡、清水さん仕様、MARKSビンディング、ゴール後の隠しコマンド'] }
 ];
-const APP_VERSION = '4.1.0', APP_DATE = '2026.11.25';
+const APP_VERSION = '4.2.0', APP_DATE = '2026.11.25';
 function showTop(){
   incolLeave();
   $('#menu').hidden = true; $('#sheet').hidden = true; $('#lock').hidden = true;
