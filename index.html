@@ -6265,8 +6265,9 @@ function drawSkier(){
   const shO = { x: sh.x - s*shW*perpX, y: sh.y - s*shW*perpY }, shI = { x: sh.x + s*shW*perpX, y: sh.y + s*shW*perpY };
   // hands: upright they are wide and forward; laid over, the inside hand skims the snow and the outside hand drives forward across the body
   const lerpP = (p0, p1, f) => ({ x: p0.x + (p1.x - p0.x) * f, y: p0.y + (p1.y - p0.y) * f });
-  let handI = tuck ? { x: sh.x + s*2.4, y: sh.y + 3.2 } : lerpP({ x: shI.x + s*2.6, y: shI.y + 4.4 }, { x: hip.x + s*(3.4 + incl*2.2), y: -1.2 }, wI);
-  let handO = tuck ? { x: sh.x - s*2.4, y: sh.y + 3.2 } : lerpP({ x: shO.x - s*2.6, y: shO.y + 4.6 }, { x: sh.x + s*1.4, y: sh.y + 2.2 }, wI);
+  // crouch (as in a downhill tuck): both hands together out in front of the face
+  let handI = tuck ? { x: sh.x + s*.8, y: sh.y - 1.7 } : lerpP({ x: shI.x + s*2.6, y: shI.y + 4.4 }, { x: hip.x + s*(3.4 + incl*2.2), y: -1.2 }, wI);
+  let handO = tuck ? { x: sh.x - s*.8, y: sh.y - 1.7 } : lerpP({ x: shO.x - s*2.6, y: shO.y + 4.6 }, { x: sh.x + s*1.4, y: sh.y + 2.2 }, wI);
   const gsPose = gsT && !inGate && !skating && !(sk.pushT > 0) && wI > .05;
   if (gsPose){
     handI = lerpP(handI, { x: hip.x + s * (3 + incl * 2.4), y: hip.y + 2.2 }, wI);       // inside hand low, reaching toward the snow ahead of the knee
@@ -6310,7 +6311,11 @@ function drawSkier(){
   // poles (behind the body)
   ctx.strokeStyle = look.pole.c1 === '#F2F2F2' ? '#AEB6C4' : look.pole.c1; ctx.lineWidth = .55;
   ctx.beginPath();
-  if (tuck){ ctx.moveTo(handI.x, handI.y); ctx.lineTo(handI.x + s*3, handI.y - 6); ctx.moveTo(handO.x, handO.y); ctx.lineTo(handO.x - s*3, handO.y - 6); }
+  if (tuck){
+    // the poles run back under the arms, tight along the body, the tips sticking out behind and above the hips
+    ctx.moveTo(handI.x, handI.y); ctx.lineTo(hip.x + s*5.8, hip.y - 3.4);
+    ctx.moveTo(handO.x, handO.y); ctx.lineTo(hip.x - s*5.8, hip.y - 3.4);
+  }
   else if (actUp){ ctx.moveTo(handI.x, handI.y); ctx.lineTo(handI.x + s * 1.5, handI.y - 7); ctx.moveTo(handO.x, handO.y); ctx.lineTo(handO.x - s * 1.5, handO.y - 7); }
   else if (inGate){
     // pole tips planted on the far side of the start bar
