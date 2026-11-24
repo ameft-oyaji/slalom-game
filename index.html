@@ -4860,13 +4860,23 @@ function drawFinishHouse(x, y){
 // =====================================================================
 // Sheets
 // =====================================================================
+// a room screen redraws itself every poll: the same screen keeps its scroll position, an unchanged one is left alone,
+// and nothing is redrawn while a finger is on it (a button swapped mid-tap would lose the tap)
+const SHEETST = { html: '', down: false };
 function openSheet(eyebrow, title, html, sub){
   $('#menu').hidden = true; setTimeout(renderChat, 0);
+  const sh = $('#sheet'), same = !sh.hidden && $('#shTitle').textContent === title;
+  if (same && (SHEETST.html === html || SHEETST.down)) return;
+  const top = sh.scrollTop, inner = same ? [...sh.querySelectorAll('#shBody .tbl-wrap')].map(w => w.scrollTop) : [];
   $('#shEyebrow').textContent = eyebrow + (sub ? ' · ' + sub : '');
   $('#shTitle').textContent = title;
-  $('#shBody').innerHTML = html;
-  $('#sheet').hidden = false; $('#sheet').scrollTop = 0;
+  $('#shBody').innerHTML = html; SHEETST.html = html;
+  sh.hidden = false; sh.scrollTop = same ? top : 0;
+  if (same) sh.querySelectorAll('#shBody .tbl-wrap').forEach((w, i) => { if (inner[i] != null) w.scrollTop = inner[i]; });
 }
+$('#sheet').addEventListener('pointerdown', () => { SHEETST.down = true; });
+addEventListener('pointerup', () => { SHEETST.down = false; }, true);          // (before the click, so a button's own screen change still goes through)
+addEventListener('pointercancel', () => { SHEETST.down = false; });
 function closeSheet(){ $('#sheet').hidden = true; const c = $('#roomChat'); if (c) c.hidden = true; }
 // ---- room chat: always at the bottom of the room's screens; new lines pop up as bubbles while racing or watching ----
 const RCHAT = { seen: 0, sending: false };
@@ -6798,6 +6808,7 @@ function bootGame(){ if (setupDone) showMenu(playMode === 'DUAL' ? 'dual' : 'cal
 // title screen with the game's version
 // what changed in each version (shown on the rules tab)
 const CHANGELOG = [
+  { v: '3.15.3', d: '2026.11.24', items: ['部屋の画面（インカレ オンライン・デュアル）が自動で更新されるたびに先頭へ戻ってしまい、「準備完了」や「スタート」が押しにくかったのを修正：スクロール位置を保ち、変化がないときは描き直さず、指で押している間も描き直さない'] },
   { v: '3.15.2', d: '2026.11.24', items: ['観戦中のコメント（エール欄と吹き出し）を「コメントを隠す」で非表示にできる。もう一度押すと表示。選んだ状態は次回も続く', 'マルチプレー（インカレ オンライン）では、各本目の最初のスタート前にスタートリストを1番から自動でスクロール表示（×で閉じられる）'] },
   { v: '3.15.1', d: '2026.11.24', items: ['観戦中、下のエール欄に滑っている選手が隠れないように、画面とコース位置バーをエール欄の上に寄せた', '観戦中の選手の動きとタイム表示がカクカク飛ばず、なめらかに進むようにした'] },
   { v: '3.15.0', d: '2026.11.24', items: ['インカレにオンライン対戦：最大4人が同じ大会に出場（同じ大学でも別々の大学でも可）', 'ビブ順に1人ずつ滑走し、ほかの人はその滑りを観戦。2本目は1本目の成績順', '最後に総合結果と学校対抗の得点を表示、「もう一度（新しいコース）」で続けて遊べる'] },
@@ -6829,7 +6840,7 @@ const CHANGELOG = [
   { v: '1.1.0', d: '2026.11.20', items: ['トップ画面とバージョン表示を追加', '公式コースデータを参考に、緩斜面・急斜面のスピード変化を追加', 'スピードを調整', 'いろいろランキング（総合・優勝回数・最高速度・使用マテリアルなど）を追加', '1レース80人出場（ランキング74位まで＋75位以下から抽選）', '男子回転のライバルを実在の選手リストに変更'] },
   { v: '1.0.0', d: '', items: ['キッツビューエル風の表彰式、フリースキー（リズム旗門・用具の性能グラフ）', 'ナイターの照明、ゴーグルの影響、スタートゲートとスタートバー、高いスタート台', 'FISのスタート手順（10秒前・ブザー5回・遅れたら失格）', 'コースに残る滑走の跡、清水さん仕様、MARKSビンディング、ゴール後の隠しコマンド'] }
 ];
-const APP_VERSION = '3.15.2', APP_DATE = '2026.11.24';
+const APP_VERSION = '3.15.3', APP_DATE = '2026.11.24';
 function showTop(){
   incolLeave();
   $('#menu').hidden = true; $('#sheet').hidden = true; $('#lock').hidden = true;
