@@ -3651,7 +3651,7 @@ function startEvWatch(){
 function watchRacer(name){
   const q = BT.pos[name]; if (!q || q.raceId !== BT.raceId || q.sp) return null;
   const done = q.fin != null || !!q.out, age = done ? 0 : clamp((serverNow() - q.ts) / 1000, 0, 2);
-  return { x: q.x + Math.sin(q.th || 0) * q.v * age, y: q.y + Math.cos(q.th || 0) * q.v * age, th: q.th || 0, v: q.v, ng: q.ng || 0, done, out: !!q.out, t: q.fin != null ? q.fin : q.t };
+  return { x: q.x + Math.sin(q.th || 0) * q.v * age, y: q.y + Math.cos(q.th || 0) * q.v * age, th: q.th || 0, v: q.v, ng: q.ng || 0, done, out: !!q.out, t: q.fin != null ? q.fin : q.t + (q.t > 0 ? age : 0) };
 }
 function watchStepEv(dt){
   const w = race.watch;
@@ -3662,7 +3662,10 @@ function watchStepEv(dt){
   const A = watchRacer(w.a), B = watchRacer(w.b);
   if (A){
     sk.lean += (clamp((A.th - w.pth) * 22, -1, 1) - sk.lean) * .25; w.pth = A.th;
-    Object.assign(sk, { x: A.x, y: A.y, th: A.th, v: A.v, ng: A.ng }); if (A.t != null) t = A.t;
+    // the position arrives about once a second: glide toward it instead of jumping (a big gap is a jump anyway)
+    const far = Math.abs(A.y - sk.y) > 40 || Math.abs(A.x - sk.x) > 25, k = far ? 1 : 1 - Math.exp(-dt * 7);
+    Object.assign(sk, { x: sk.x + (A.x - sk.x) * k, y: sk.y + (A.y - sk.y) * k, th: sk.th + (A.th - sk.th) * k, v: A.v, ng: A.ng });
+    if (A.t != null) t = A.done || far ? A.t : Math.max(t, A.t);
   }
   if (state === 'run' && A && A.done && (!w.b || (B && B.done))){ w.doneT += dt; if (w.doneT > 2.5) endEvWatch(); }
 }
@@ -5502,9 +5505,15 @@ function flash(text, warn){ const m = $('#msg'); m.textContent = text; m.classNa
 const NEAR_FINISH = .82;     // from here on the card shows the live gap to the leader
 function diffColor(d){ if (d == null) return '#FFC93C'; if (d < -.15) return '#1FA855'; if (d < 0) return '#7ED957'; if (d < .15) return '#FFC93C'; if (d < .4) return '#FF8A3D'; return '#D93A3F'; }
 // Vertical course map on the right: start at the bottom, finish at the top, like the skier's direction of travel
+// what covers the bottom of the screen: the athlete card, or the cheer panel while watching someone else
+function lowerPanel(){
+  const cb = $('#cheerBar');
+  if (document.body.classList.contains('watching') && cb && !cb.hidden){ const r = cb.getBoundingClientRect(); if (r.height) return r; }
+  return $('#card').getBoundingClientRect();
+}
 function drawProgress(){
   if (!race || !(state === 'run' || state === 'countdown' || state === 'gate' || state === 'finished' || state === 'inspect')) return;
-  const card = $('#card').getBoundingClientRect();
+  const card = lowerPanel();
   const x = cw - 32;
   let floor = card.right > x - 24 ? card.top : ch - 20;
   const pad = $('#pad'), padOn = getComputedStyle(pad).display !== 'none';
@@ -5869,7 +5878,7 @@ function render(){
   const live = state === 'run' || state === 'countdown' || state === 'gate' || state === 'finished';
   // keep the skier just above the athlete card / touch buttons, whatever the screen shape
   let baseFrac = Math.min(.36, 110 / ch + .1);
-  if (live){ const cr = $('#card').getBoundingClientRect(); if (cr.height) baseFrac = clamp((ch - (cr.top - SPLIT.oy) + 30) / ch, .16, .5); }
+  if (live){ const cr = lowerPanel(); if (cr.height) baseFrac = clamp((ch - (cr.top - SPLIT.oy) + 30) / ch, .16, .5); }
   // slalom, giant slalom and free ski (one full view): the racer sits a little higher, with more room under the skis
   if (live && !SPLIT.side && !(race && race.dual)) baseFrac = Math.min(.58, baseFrac + .08);
   camX += (sk.x * .75 - camX) * .1;
@@ -6738,6 +6747,7 @@ function bootGame(){ if (setupDone) showMenu(playMode === 'DUAL' ? 'dual' : 'cal
 // title screen with the game's version
 // what changed in each version (shown on the rules tab)
 const CHANGELOG = [
+  { v: '3.15.1', d: '2026.11.24', items: ['観戦中、下のエール欄に滑っている選手が隠れないように、画面とコース位置バーをエール欄の上に寄せた', '観戦中の選手の動きとタイム表示がカクカク飛ばず、なめらかに進むようにした'] },
   { v: '3.15.0', d: '2026.11.24', items: ['インカレにオンライン対戦：最大4人が同じ大会に出場（同じ大学でも別々の大学でも可）', 'ビブ順に1人ずつ滑走し、ほかの人はその滑りを観戦。2本目は1本目の成績順', '最後に総合結果と学校対抗の得点を表示、「もう一度（新しいコース）」で続けて遊べる'] },
   { v: '3.14.2', d: '2026.11.24', items: ['クローチの姿勢を、滑降のタックのように：両手をそろえて顔の前に出し、ストックは脇の下を通して先を腰の横から後ろ上へ'] },
   { v: '3.14.1', d: '2026.11.24', items: ['インカレの画面に「マテリアル選択」ボタン：スキー・ビンディング・ストック・ブーツ・ゴーグル・ヘルメットをその場で選べる（ワールドカップ側と共通）。名前の下に今のマテリアルを表示'] },
@@ -6767,7 +6777,7 @@ const CHANGELOG = [
   { v: '1.1.0', d: '2026.11.20', items: ['トップ画面とバージョン表示を追加', '公式コースデータを参考に、緩斜面・急斜面のスピード変化を追加', 'スピードを調整', 'いろいろランキング（総合・優勝回数・最高速度・使用マテリアルなど）を追加', '1レース80人出場（ランキング74位まで＋75位以下から抽選）', '男子回転のライバルを実在の選手リストに変更'] },
   { v: '1.0.0', d: '', items: ['キッツビューエル風の表彰式、フリースキー（リズム旗門・用具の性能グラフ）', 'ナイターの照明、ゴーグルの影響、スタートゲートとスタートバー、高いスタート台', 'FISのスタート手順（10秒前・ブザー5回・遅れたら失格）', 'コースに残る滑走の跡、清水さん仕様、MARKSビンディング、ゴール後の隠しコマンド'] }
 ];
-const APP_VERSION = '3.15.0', APP_DATE = '2026.11.24';
+const APP_VERSION = '3.15.1', APP_DATE = '2026.11.24';
 function showTop(){
   incolLeave();
   $('#menu').hidden = true; $('#sheet').hidden = true; $('#lock').hidden = true;
