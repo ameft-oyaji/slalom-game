@@ -131,7 +131,7 @@ function ta_submit_(q) {
   const name = userByToken_(q.token);
   if (!name) return { ok: false, error: 'auth' };
   const course = String(q.course || ''), t = Number(q.t), r1 = Number(q.r1), r2 = Number(q.r2);
-  if (!/^(men|women)_\d{4}-\d{2}-\d{2}$/.test(course)) return { ok: false, error: 'course' };
+  if (!/^(men|women)_\d{4}-\d{2}-\d{2}(_race)?$/.test(course)) return { ok: false, error: 'course' };   // _race: the best two-run total from the World Cup race itself
   if (!(t > 15 && t < 400 && r1 > 5 && r2 > 5)) return { ok: false, error: 'time' };
   const s = ta_(), v = s.getDataRange().getValues();
   for (let i = 1; i < v.length; i++) {
