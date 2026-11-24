@@ -2437,8 +2437,8 @@ function showIncol(focus){
     <h3>あなたの所属と名前</h3>
     <div class="ik-uni"><span class="flag" id="ikFlag"></span><select id="ikUni" aria-label="所属する大学">${UNIS.map(([c, jp]) => `<option value="${c}"${c === GK.uni ? ' selected' : ''}>${esc(jp)}</option>`).join('')}</select>
       <input type="text" id="ikName" maxlength="14" value="${esc(pname)}" aria-label="名前" autocomplete="off">
-      <button class="btn small" type="button" id="ikGear">道具を選ぶ</button></div>
-    <p class="note">道具：${['ski', 'boot', 'bind', 'helm', 'gog', 'pole'].filter(c => GEAR[c]).map(c => { const it = gearItem(c, myGear[c]); return it ? esc(it.name + ' ' + (it.model || '')) : ''; }).filter(Boolean).join(' ／ ')}</p>
+      <button class="btn small" type="button" id="ikGear">マテリアル選択</button></div>
+    <p class="note">マテリアル：${['ski', 'boot', 'bind', 'helm', 'gog', 'pole'].filter(c => GEAR[c]).map(c => { const it = gearItem(c, myGear[c]); return it ? esc(it.name + ' ' + (it.model || '')) : ''; }).filter(Boolean).join(' ／ ')}</p>
     <h3>第${st.n}回 全日本学生スキー選手権（${gender === 'men' ? '男子' : '女子'}）</h3>
     <p class="note">${UNIS.length}大学の学生と、スーパー大回転・大回転・回転を1回ずつ滑ります。スーパー大回転は1本勝負、大回転と回転は2本合計で1本目の上位30名が2本目に進みます。出場は各大学3人まで（登録選手からランダムに選ばれます）。あなたの大学からは、あなたともう2人が出場します。${gender === 'men' ? '男子は登録選手がポイント順に出場します（0.00が最も強い。種目ごとのポイントで）。' : '女子の選手名は架空です。'}</p>
     ${card('SG')}${card('GS')}${card('SL')}
@@ -2468,7 +2468,7 @@ function showIncolGear(){
     <div class="gsum"><b>この組み合わせの性能</b><span id="gSum">${gearSummary() || '標準'}</span></div>
     <p class="note">ブランド名・ロゴはすべてこのゲームのための架空のデザインです。性能差は数％の小さなもので、組み合わせで乗り味が変わります。</p></div>
     <div class="btns"><button class="btn primary" type="button" id="ikGearDone">インカレのメニューに戻る</button></div>`;
-  openSheet('Intercollegiate · Gear', '道具を選ぶ', html);
+  openSheet('Intercollegiate · Gear', 'マテリアル選択', html);
   const root = $('#shBody');
   root.querySelectorAll('.gcard').forEach(b => b.onclick = () => {
     myGear[b.dataset.cat] = b.dataset.id; savePrefs();
