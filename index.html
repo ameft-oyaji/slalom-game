@@ -1775,8 +1775,8 @@ function makeRace(ev, mode){
   for (const e of order) if (!e.me) run1[e.id] = sim(e.id, 1);
   return Object.assign(base, { blocked: false, entrants: order, bib, run1, run2: {}, order2: null, sim });
 }
-function nameOf(id){ return id === 'you' ? pname : (FIELDS[gender].find(a => a.id === id) || {}).name; }
-function natOf(id){ return id === 'you' ? myNat : (FIELDS[gender].find(a => a.id === id) || {}).nat; }
+function nameOf(id){ if (id === 'you') return pname; if (race && race.humans && race.humans[id]) return race.humans[id].name; return (FIELDS[gender].find(a => a.id === id) || {}).name; }
+function natOf(id){ if (id === 'you') return myNat; if (race && race.humans && race.humans[id]) return race.humans[id].nat; return (FIELDS[gender].find(a => a.id === id) || {}).nat; }
 // a small national flag to put beside a country code or name
 const flagH = c => `<span class="flag sm" style="background:${FLAG[c] || '#C9D2E3'}"></span>`;
 function rankList(times){
@@ -1790,7 +1790,7 @@ function setupRun2(){
   const q = rl.filter(x => x.rank <= cut);           // top 30 (ties included) qualify
   race.order2 = q.slice().sort((a, b) => b.rank - a.rank || race.bib.get(b.id) - race.bib.get(a.id)).map(x => x.id);   // reverse order
   race.qualified = race.order2.includes('you');
-  for (const id of race.order2) if (id !== 'you') race.run2[id] = race.sim(id, 2);
+  for (const id of race.order2) if (id !== 'you' && !(race.humans && race.humans[id])) race.run2[id] = race.sim(id, 2);
 }
 // インカレ (division 1): 11 points for 1st, 9 for 2nd, then one less each place down to 1 for 10th.
 // Racers tied on a place share the points of the places they fill (two tied 3rd: (8 + 7) / 2 = 7.5 each)
@@ -2443,6 +2443,13 @@ function showIncol(focus){
     <p class="note">${UNIS.length}大学の学生と、スーパー大回転・大回転・回転を1回ずつ滑ります。スーパー大回転は1本勝負、大回転と回転は2本合計で1本目の上位30名が2本目に進みます。出場は各大学3人まで（登録選手からランダムに選ばれます）。あなたの大学からは、あなたともう2人が出場します。${gender === 'men' ? '男子は登録選手がポイント順に出場します（0.00が最も強い。種目ごとのポイントで）。' : '女子の選手名は架空です。'}</p>
     ${card('SG')}${card('GS')}${card('SL')}
     ${incolTeamsHTML(st)}
+    <h3>オンライン（最大4人で同じ大会に出場）</h3>
+    ${!CLOUD.url ? '<p class="note">友だちとのオンライン出場は公開サイト（https://ameft-oyaji.github.io/slalom-game/）で、ユーザー登録して遊べます。</p>'
+      : !CLOUD.token ? '<p class="note">オンライン出場にはユーザー登録（無料）が必要です。ワールドカップ側の「選手・用具」タブで名前と暗証番号を登録してください。</p>'
+      : `<p class="note">部屋を作ると4桁の番号が出ます。友だちはその番号で入ります（あなたを含め最大4人、同じ大学でも別の大学でもOK）。ビブ順に1人ずつ滑り、ほかの人は観戦します。</p>
+        <div class="seg" id="ikOD" role="group" aria-label="オンラインの種目">${['SG', 'GS', 'SL'].map(d => `<button type="button" data-d="${d}" aria-pressed="${(GK.od || 'GS') === d}">${DISC[d]}</button>`).join('')}</div>
+        <div class="g-who"><button class="btn small hot" type="button" id="ikCreate">部屋を作る</button><input type="text" id="ikCode" inputmode="numeric" maxlength="4" placeholder="部屋番号（4桁）" autocomplete="off"><button class="btn small" type="button" id="ikJoin">入る</button></div>
+        <p class="lock-err" id="ikErr" hidden></p>`}
     <h3 id="ikDual">デュアル（学生のCPライバルと1対1）</h3>
     <div class="seg" id="ikDD" role="group" aria-label="デュアルの種目">${['SL', 'GS'].map(d => `<button type="button" data-d="${d}" aria-pressed="${DUAL_PREF.d === d}">${DISC[d]}</button>`).join('')}</div>
     <div class="g-who"><select id="ikCpu" aria-label="CPライバルの強さ">${Object.entries(IK_CPU).map(([k, v]) => `<option value="${k}"${GK.cpu === k ? ' selected' : ''}>CPライバル：${v[0]}（学生${v[1]}位${v[2] < 99 ? '〜' + v[2] + '位' : '以下'}）</option>`).join('')}</select><button class="btn small hot" type="button" id="ikDualGo">対戦スタート</button></div>
@@ -2457,6 +2464,24 @@ function showIncol(focus){
   document.querySelectorAll('[data-ikres]').forEach(b => b.onclick = () => showIncolStored(b.dataset.ikres));
   document.querySelectorAll('#ikDD button').forEach(b => b.onclick = () => { DUAL_PREF.d = b.dataset.d; save('slalomwc-dual', DUAL_PREF); document.querySelectorAll('#ikDD button').forEach(x => x.setAttribute('aria-pressed', x === b)); });
   $('#ikCpu').onchange = e => { GK.cpu = e.target.value; saveGK(); };
+  document.querySelectorAll('#ikOD button').forEach(b => b.onclick = () => { GK.od = b.dataset.d; saveGK(); document.querySelectorAll('#ikOD button').forEach(x => x.setAttribute('aria-pressed', x === b)); });
+  const ikErr = m => { const e = $('#ikErr'); if (e){ e.textContent = m; e.hidden = false; } };
+  if ($('#ikCreate')) $('#ikCreate').onclick = async () => {
+    try {
+      const r = await btCall('room_create', { course: `${gender}_incol-${GK.od || 'GS'}-${Math.floor(Math.random() * 900000)}` });
+      if (!r.ok) throw new Error(BT_ERR[r.error] || '部屋を作れませんでした。');
+      BT.code = r.room.code; await btCall('room_ready', { on: 0, uni: GK.uni }); showIncolRoom();
+    } catch(e){ ikErr(e.message); }
+  };
+  if ($('#ikJoin')) $('#ikJoin').onclick = async () => {
+    const code = ($('#ikCode').value || '').trim(); if (!/^\d{4}$/.test(code)) return ikErr('4桁の部屋番号を入れてください。');
+    try {
+      BT.code = code; const r = await btCall('room_join');
+      if (!r.ok){ BT.code = null; throw new Error(BT_ERR[r.error] || '入れませんでした。'); }
+      if (!/_incol-/.test(r.room.course)){ await btCall('room_leave'); BT.code = null; throw new Error('その番号はインカレの部屋ではありません。'); }
+      await btCall('room_ready', { on: 0, uni: GK.uni }); showIncolRoom();
+    } catch(e){ ikErr(e.message); }
+  };
   $('#ikDualGo').onclick = () => { closeSheet(); startIncolDual(); };
   $('#ikReset').onclick = () => { const b = $('#ikReset'); if (b.dataset.armed){ incolSave({ n: st.n + 1, res: {} }); showIncol(); } else { b.dataset.armed = '1'; b.textContent = 'もう一度押すと、今の大会の記録を消して始めます'; } };
   $('#ikTop').onclick = goTop;
@@ -2476,6 +2501,167 @@ function showIncolGear(){
     const sm = root.querySelector('#gSum'); if (sm) sm.textContent = gearSummary() || '標準';
   });
   $('#ikGearDone').onclick = () => showIncol();
+}
+// ---- online インカレ: up to four players in one race; they ski one at a time in bib order, the others watch ----
+const ikRoom = () => !!(BT.code && BT.room && /_incol-/.test(BT.room.course));
+const ikKey = c => { const m = /^(men|women)_incol-(SL|GS|SG)-(\d+)$/.exec(c || ''); return m ? { g: m[1], d: m[2], seed: +m[3] } : null; };
+const ikMe = name => name === CLOUD.name ? 'you' : 'h:' + name;
+// the same race on every phone: built from the room's course key, its players and their universities
+function makeIncolOnline(room){
+  const k = ikKey(room.course), g = k.g, d = k.d;
+  gender = g; incolLeave(); incolEnter(d);
+  const ev = incolEv(d), sd = hashStr('incol-online-' + room.course), one = d === 'SG';
+  const courses = one ? [buildCourse(sd ^ 0x1111, g, d)] : [buildCourse(sd ^ 0x1111, g, d, IK_SL), buildCourse(sd ^ 0x2222, g, d, IK_SL)];
+  courses.forEach(c => { c.prof = makeProfile(ev.venue, c.finishY, d); c.vd = Math.round(c.prof.drop * (d === 'SL' ? IK_SL.frac : 1)); if (d === 'SG') placeJump(c); });
+  const refs = courses.map(refRun);
+  const field = FIELDS[g], r = rng(sd ^ 0x5EED), unis = room.uni || {};
+  // the players are fixed when the race starts (someone leaving half-way must not change the race for the others)
+  const players = room.ik && room.ik.players ? room.ik.players.map(([n, u]) => ({ name: n, nat: NAT[u] ? u : 'KSD' })) : room.members.slice(0, 4).map(n => ({ name: n, nat: NAT[unis[n]] ? unis[n] : 'KSD' }));
+  const humans = {}; players.forEach(p => { if (p.name !== CLOUD.name) humans['h:' + p.name] = { name: p.name, nat: p.nat }; });
+  if (players.some(p => p.name === CLOUD.name)) myNat = players.find(p => p.name === CLOUD.name).nat;
+  // three per university, the players counting toward their own university's three
+  const pick = new Set(), byUni = {};
+  for (const a of field) (byUni[a.nat] = byUni[a.nat] || []).push(a);
+  for (const [u, list] of Object.entries(byUni)) shuffle(list.slice(), r).slice(0, Math.max(0, 3 - players.filter(p => p.nat === u).length)).forEach(a => pick.add(a.id));
+  const rivals = field.filter(a => pick.has(a.id)).map(a => ({ id: a.id, name: a.name, nat: a.nat, me: false }));
+  const order = [...shuffle(rivals.slice(0, 7), r), ...shuffle(rivals.slice(7, 15), r), ...rivals.slice(15)];
+  for (const p of players){ const id = ikMe(p.name); order.splice(Math.min(order.length, 15 + Math.floor(r() * 30)), 0, { id, name: p.name, nat: p.nat, me: id === 'you' }); }
+  const bib = new Map(order.map((e, i) => [e.id, i + 1]));
+  const kk = LEVEL_K.incol, byId = new Map(field.map(a => [a.id, a]));
+  const sim = (id, run) => {
+    const a = byId.get(id); if (!a) return null;
+    const pDnf = (run === 1 ? .1 : .07) + .08 * (1 - a.skill) + .05 * a.aggr;
+    if (r() < pDnf) return null;
+    const t0 = refs[run - 1].time * kk * (1 + (a.rel != null ? a.rel : .065 * Math.pow(1 - a.skill, 1.1)) + gauss(r) * .0085 - a.aggr * .002);
+    return trunc(t0 + (run === 1 ? (bib.get(id) - 1) * .005 : 0));
+  };
+  const run1 = {};
+  for (const e of order) if (!e.me && !humans[e.id]) run1[e.id] = sim(e.id, 1);
+  const res = (room.ik && room.ik.res) || {};
+  for (const p of players){ const q = res[p.name]; if (q && 'r1' in q) run1[ikMe(p.name)] = q.r1; }
+  const race = { ev, mode: 'incol', incol: true, incolOnline: true, oneRun: one, humans, courses, refs, run: 1, playerDsq: [false, false], finals: false, maxV: 0, wx: weatherFor(ev, g),
+    wax: [lastWax, lastWax], edge: [Object.assign({}, lastEdge), Object.assign({}, lastEdge)], blocked: false, entrants: order, bib, run1, run2: {}, order2: null, sim, key: room.course };
+  return race;
+}
+// your own run 2 (and everyone's) needs the run-1 results of all players first
+function ikPrepRun2(rc, room){
+  setupRun2Of(rc);
+  for (const [n, q] of Object.entries((room.ik && room.ik.res) || {})) if ('r2' in q) rc.run2[ikMe(n)] = q.r2;
+}
+function setupRun2Of(rc){ const save = race; race = rc; setupRun2(); race = save; }
+// the screen of the room: players, their universities and readiness; then whose turn it is and the results
+function showIncolRoom(){
+  const r = BT.room; if (!r){ showIncol(); return; }
+  const k = ikKey(r.course), ik = r.ik, host = r.host === CLOUD.name, unis = r.uni || {};
+  const pl = m => `<span class="flag sm" style="background:${FLAG[unis[m]] || '#C9D2E3'}"></span>${esc(uniName(unis[m] || 'KSD'))}`;
+  let html = `<div class="btcode"><span>部屋番号</span><b>${r.code}</b></div>
+    <dl class="rows"><dt>種目</dt><dd style="font-family:var(--f-body);font-size:15px">${k.g === 'men' ? '男子' : '女子'} ${DISC[k.d]}（${JP[incolEv(k.d).venue]}・${k.d === 'SG' ? '1本勝負' : '2本合計'}）</dd><dt>参加者</dt><dd>${r.members.length} / 4 人</dd></dl>`;
+  if (!ik || ik.done){
+    html += `<ul class="btmem">${r.members.map(m => `<li>${pl(m)}　${esc(m)}${m === r.host ? ' <span class="badge">ホスト</span>' : ''}${m === CLOUD.name ? '（あなた）' : ''}${m !== r.host ? (isReady(r, m) ? ' <span class="badge rdy">準備完了</span>' : ' <span class="badge wait">準備中</span>') : ''}</li>`).join('')}</ul>`;
+    if (ik && ik.done) html += ikFinalHTML(r);
+    const wait = waitingFor(r);
+    html += host
+      ? `<p class="note">${wait.length ? `ほかの人が「準備完了」を押すまでスタートできません（待っている人：${wait.map(esc).join('、')}）。` : '全員の準備ができたら「スタート」。ビブ順に1人ずつ滑ります。'}</p>`
+      : `<p class="note">${isReady(r, CLOUD.name) ? 'ホストのスタートを待っています…' : '準備ができたら「準備完了」を押してください。'}</p>`;
+    html += `<div class="btns">${host ? hostStartHTML('ikStart', ik && ik.done ? 'もう一度（新しいコース）' : 'スタート') : readyBtnHTML()}<button class="btn" type="button" id="ikLeave">部屋を出る</button></div>`;
+  } else {
+    const cur = ik.order[ik.i];
+    html += `<h3>${k.d === 'SG' ? '' : ik.run + '本目 '}滑走順</h3><ul class="btmem">${ik.order.map((m, i) => {
+      const q = (ik.res || {})[m] || {}, t = q['r' + ik.run], o = q['o' + ik.run];
+      const st = i < ik.i ? (o ? o : fmt(t)) : i === ik.i ? '<b>滑走中</b>' : '待機';
+      return `<li>${pl(m)}　${esc(m)}${m === CLOUD.name ? '（あなた）' : ''} <span class="nat3" style="margin-left:auto">${st}</span></li>`;
+    }).join('')}</ul>`;
+    html += `<p class="note">${cur === CLOUD.name ? 'あなたの番です。スタートを待っています…' : `${esc(cur)} が滑っています。まもなく観戦画面になります。`}</p>`;
+    html += `<div class="btns"><button class="btn" type="button" id="ikLeave">部屋を出る</button></div>`;
+  }
+  openSheet('Intercollegiate · Online', `インカレ オンライン（部屋 ${r.code}）`, html);
+  bindReady(() => showIncolRoom());
+  if ($('#ikLeave')) $('#ikLeave').onclick = leaveRoom;
+  if ($('#ikStart')) $('#ikStart').onclick = async () => {
+    const st = $('#ikStart'); st.disabled = true;
+    const course = ik && ik.done ? `${k.g}_incol-${k.d}-${Math.floor(Math.random() * 900000)}` : r.course;
+    const rc = makeIncolOnline(Object.assign({}, r, { course, ik: null }));
+    const order = rc.entrants.filter(e => e.me || rc.humans[e.id]).map(e => e.me ? CLOUD.name : rc.humans[e.id].name);
+    const nik = { run: 1, i: 0, order, res: {}, players: r.members.slice(0, 4).map(m => [m, NAT[unis[m]] ? unis[m] : 'KSD']) };
+    const out = await btCall('room_start', { run: 1, fresh: 1, course, ik: JSON.stringify(nik) }).catch(() => null);
+    if (!(out && out.ok)) st.disabled = false; else incolPoll(true);
+  };
+  clearInterval(BT.poll); BT.poll = setInterval(pollRoom, 1500);
+}
+// results of the race once every player has skied: students and players together, with the school points
+function ikFinalHTML(r){
+  const rc = makeIncolOnline(r);
+  if (!rc.oneRun){ setupRun2Of(rc); for (const [n, q] of Object.entries(r.ik.res || {})) if ('r2' in q) rc.run2[ikMe(n)] = q.r2; }
+  const save = race; race = rc;
+  const res = combined(), best = res.length ? res[0].t : null;
+  const rows = res.map(o => ({ id: o.id, name: nameOf(o.id), nat: natOf(o.id), pts: o.pts, rank: o.rank, t: o.t }));
+  const tot = {}; for (const o of rows) tot[o.nat] = (tot[o.nat] || 0) + o.pts;
+  const T = Object.entries(tot).filter(x => x[1] > 0).sort((a, b) => b[1] - a[1]);
+  const humanIds = new Set(['you', ...Object.keys(rc.humans)]);
+  const html = `<h3>${DISC[rc.ev.disc]} 最終結果</h3>` + table(['順位', '選手', '大学', rc.oneRun ? 'タイム' : '合計', '差', '得点'], rows.map(o =>
+      `<tr class="${humanIds.has(o.id) ? 'me' : ''}"><td class="n">${o.rank}</td><td>${esc(o.name || '')}</td><td class="nat3">${flagH(o.nat)}${esc(uniName(o.nat))}</td><td class="n">${fmt(o.t)}</td><td class="r">${o.rank === 1 ? '' : fmtDiff(o.t - best)}</td><td class="n">${o.pts || ''}</td></tr>`))
+    + `<h3>学校対抗（この種目）</h3>` + table(['順位', '大学', '得点'], T.map(([c, p], i) => `<tr><td class="n">${1 + T.filter(x => x[1] > p).length}</td><td>${flagH(c)}${esc(uniName(c))}</td><td class="n">${Math.round(p * 100) / 100}</td></tr>`));
+  race = save;
+  return html;
+}
+// every poll: start your own run or the watch when the turn changes; the host moves the turns on
+let IKH = { busy: false, seen: 0 };
+function incolPoll(force){
+  const r = BT.room; if (!r) return;
+  const ik = r.ik;
+  if (r.host === CLOUD.name && ik && !ik.done) ikHostStep(r);           // the host moves the turns on, whatever its own screen shows
+  if (ik && !ik.done && r.state === 'race' && r.raceId !== BT.raceId){
+    if (state === 'run' || state === 'gate' || state === 'countdown' || state === 'finished') return;
+    BT.raceId = r.raceId;
+    const cur = ik.order[ik.i];
+    const rc = makeIncolOnline(r); rc.run = ik.run;
+    if (ik.run === 2) ikPrepRun2(rc, r);
+    rc.battle = { code: BT.code, raceId: BT.raceId };
+    race = rc;
+    if (cur === CLOUD.name){
+      clearInterval(BT.poll); BT.finSent = false; BT.lastSend = 0; ac();
+      beginRun(); race.leader = leaderBefore(); $('#vs').hidden = true;
+      cdT = Math.max(1, (r.startAt - serverNow()) / 1000); race.called10 = cdT < START_CALL - .5;
+      clearInterval(BT.poll); BT.poll = setInterval(pollRoom, 1500);
+    } else {
+      race.watch = { a: cur, b: null, doneT: 0, pth: 0 };
+      race.watchSave = { pname, nat: myNat }; pname = cur; myNat = (r.uni || {})[cur] || 'KSD';
+      beginRun(); race.leader = null; $('#vs').hidden = true;
+      cdT = Math.max(1, (r.startAt - serverNow()) / 1000);
+      document.body.classList.add('watching'); $('#watchWho').textContent = `観戦中：${cur}`; $('#cheerBar').hidden = false;
+      clearInterval(BT.poll); BT.poll = setInterval(pollRoom, 700);
+    }
+    return;
+  }
+  // between turns (and in the lobby) the room screen keeps itself up to date
+  if (!race || !(state === 'run' || state === 'gate' || state === 'countdown' || state === 'finished' || state === 'watch')){
+    if (!$('#sheet').hidden && /^インカレ オンライン/.test($('#shTitle').textContent)) showIncolRoom();
+  }
+}
+// the host: when the current racer has finished (or gone out, or left, or taken too long), start the next turn
+function ikHostStep(r){
+  const ik = r.ik, cur = ik.order[ik.i];
+  if (IKH.busy || r.state !== 'race') return;
+  const q = BT.pos[cur], gone = !r.members.includes(cur);
+  const done = gone || (q && q.raceId === r.raceId && (q.fin != null || q.out)) || serverNow() - r.startAt > 150000;
+  if (!done) return;
+  if (IKH.seen !== r.raceId){ IKH.seen = r.raceId; IKH.at = Date.now(); return; }      // give everyone a moment to see the finish
+  if (Date.now() - IKH.at < 3500) return;
+  IKH.busy = true;
+  const nik = JSON.parse(JSON.stringify(ik)); nik.res = nik.res || {};
+  const rq = nik.res[cur] = nik.res[cur] || {};
+  rq['r' + ik.run] = q && q.raceId === r.raceId && q.fin != null ? q.fin : null; rq['o' + ik.run] = q && q.raceId === r.raceId && q.out ? q.out : (rq['r' + ik.run] == null ? 'DNF' : '');
+  nik.i++;
+  if (nik.i >= nik.order.length){
+    const rc = makeIncolOnline(Object.assign({}, r, { ik: nik }));
+    if (ik.run === 1 && !rc.oneRun){
+      setupRun2Of(rc);
+      nik.order = rc.order2.filter(id => id === 'you' || rc.humans[id]).map(id => id === 'you' ? CLOUD.name : rc.humans[id].name);
+      nik.run = 2; nik.i = 0;
+      if (!nik.order.length) nik.done = true;
+    } else nik.done = true;
+  }
+  btCall('room_start', { run: nik.run, ik: JSON.stringify(nik) }).catch(() => null).then(() => { IKH.busy = false; });
 }
 function incolRowsHTML(rows, best, one){
   return table(['順位', '選手', '大学', one ? 'タイム' : '合計', '差', '得点'], rows.map(o => `<tr class="${o.id === 'you' ? 'me' : ''}"><td class="n">${o.rank}</td><td>${esc(o.id === 'you' ? pname : nameOf(o.id) || o.name || '')}</td><td class="nat3">${flagH(o.nat)}${esc(uniName(o.nat))}</td><td class="n">${fmt(o.t)}</td><td class="r">${o.rank === 1 ? '' : fmtDiff(o.t - best)}</td><td class="n">${o.pts || ''}</td></tr>`));
@@ -2649,8 +2835,9 @@ function leaveRunUI(){
   $('#pad').classList.remove('live'); $('#mute').classList.remove('raised');
 }
 function afterFinish(){
-  if (race.watchQueue && race.watchQueue.length) return startWatch();
+  if (race.watchQueue && race.watchQueue.length && !race.incolOnline) return startWatch();
   leaveRunUI();
+  if (race.incolOnline){ sendBattlePos(true); state = 'sheet'; return showIncolRoom(); }
   if (race.battle) return showBattleResult();
   if (race.cpu) return showCpuResult();
   if (race.spectate) return showSpectateEnd();
@@ -3355,6 +3542,7 @@ async function pollRoom(){
     const r = await btCall('room_state');
     if (!r.ok){ if (r.error === 'noroom'){ clearInterval(BT.poll); BT.code = null; showMenu(playMode === 'DUAL' ? 'dual' : 'battle'); } return; }
   } catch(e){ return; }
+  if (ikRoom()) return incolPoll();
   if (checkRaceStart()) return;
   if (!$('#sheet').hidden && $('#shTitle').textContent === 'オンライン対戦の部屋'){ $('#shBody').innerHTML = lobbyHTML(); bindLobby(); }
   if (!$('#sheet').hidden && $('#shTitle').textContent === 'オンライン対戦の結果') renderBattleResult();
@@ -3400,7 +3588,7 @@ function battleTick(){
 }
 async function sendBattlePos(final){
   BT.sending = true; BT.lastSend = performance.now();
-  const ri = race.run - 1, tt = race.taTimes[ri];
+  const ri = race.run - 1, tt = race.incolOnline ? (race.run === 1 ? race.run1.you : race.run2.you) : race.taTimes[ri];
   const out = race.playerDsq[ri] ? String(race.playerDsq[ri]) : '';
   const done = tt != null || !!out;
   const prev = race.dual && race.run === 2 ? { t1: race.taTimes[0] != null ? race.taTimes[0] : null, o1: race.playerDsq[0] ? String(race.playerDsq[0]) : (race.taTimes[0] == null ? 'DNS' : '') } : {};
@@ -3423,7 +3611,8 @@ function renderBattleLive(){
   const opp = evOpp(CLOUD.name), pair = race && race.watch ? [race.watch.a, race.watch.b] : null;
   const list = battleEntries().filter(e => pair ? pair.includes(e.name) : (!opp || e.me || e.name === opp)).map(e => {
     let k, label;
-    if (e.me){ const ri = race.run - 1, done = race.taTimes[ri] != null; const o = race.playerDsq[ri]; k = o ? 1e9 : done ? race.taTimes[ri] : 1e6 - sk.y; label = o ? o : done ? fmt(race.taTimes[ri]) : timing ? `第${Math.min(sk.ng + 1, course.gates.length)}旗門` : 'スタート前'; }
+    if (e.me && race.watch){ k = 3e9; label = '観戦中'; }
+    else if (e.me){ const ri = race.run - 1, my = race.incolOnline ? (race.run === 1 ? race.run1.you : race.run2.you) : race.taTimes[ri], done = my != null; const o = race.playerDsq[ri]; k = o ? 1e9 : done ? my : 1e6 - sk.y; label = o ? o : done ? fmt(my) : timing ? `第${Math.min(sk.ng + 1, course.gates.length)}旗門` : 'スタート前'; }
     else if (!e.p){ k = 2e9; label = '待機中'; }
     else if (e.p.out){ k = 1e9; label = e.p.out; }
     else if (e.p.fin != null){ k = e.p.fin; label = fmt(e.p.fin); }
@@ -3438,6 +3627,7 @@ function battleGhosts(sprites, yNear, yFar){
   battleEntries().forEach(e => {
     if (e.me || !e.p || e.p.out || e.p.fin != null) return;
     if (opp && e.name !== opp) return;                                 // in a tournament or league only your opponent is on your course
+    if (race && race.watch && e.name === race.watch.a) return;         // the one being watched is the racer on screen, not a ghost
     if (SPLIT.side === 'R' && e.name === SPLIT.name) return;           // that one is the racer this pane follows
     const age = clamp((serverNow() - e.p.ts) / 1000, 0, 2);
     const y = e.p.y + Math.cos(e.p.th || 0) * e.p.v * age, x = e.p.x + Math.sin(e.p.th || 0) * e.p.v * age;
@@ -3465,6 +3655,7 @@ function watchRacer(name){
 }
 function watchStepEv(dt){
   const w = race.watch;
+  if (race.incolOnline && BT.room && BT.room.raceId !== BT.raceId){ endEvWatch(); return; }   // the next turn has begun: that run is over
   if (state === 'countdown'){ cdT -= dt; if (cdT <= 0){ state = 'run'; DGATE.open = true; goT = .9; timing = true; } }
   if (DGATE.open && DGATE.a < Math.PI / 2) DGATE.a = Math.min(Math.PI / 2, DGATE.a + dt * 13);
   if (goT > 0) goT -= dt;
@@ -3473,11 +3664,14 @@ function watchStepEv(dt){
     sk.lean += (clamp((A.th - w.pth) * 22, -1, 1) - sk.lean) * .25; w.pth = A.th;
     Object.assign(sk, { x: A.x, y: A.y, th: A.th, v: A.v, ng: A.ng }); if (A.t != null) t = A.t;
   }
-  if (state === 'run' && A && B && A.done && B.done){ w.doneT += dt; if (w.doneT > 2.5) endEvWatch(); }
+  if (state === 'run' && A && A.done && (!w.b || (B && B.done))){ w.doneT += dt; if (w.doneT > 2.5) endEvWatch(); }
 }
 function endEvWatch(){
   document.body.classList.remove('watching'); $('#cheerBar').hidden = true;
-  race = null; leaveRunUI(); state = 'sheet'; showLobby();
+  const ik = race && race.incolOnline;
+  if (ik && race.watchSave){ pname = race.watchSave.pname; myNat = race.watchSave.nat; }
+  race = null; leaveRunUI(); state = 'sheet';
+  if (ik) showIncolRoom(); else showLobby();
 }
 // ---- cheers: watchers send a short shout; it pops up as a speech bubble on everyone's screen ----
 const CHEER = { seen: {}, last: 0 };
@@ -3889,10 +4083,11 @@ function renderEvResult(box){
 }
 async function leaveRoom(){
   clearInterval(BT.poll);
+  const ik = ikRoom();
   const code = BT.code; BT.code = null; BT.room = null; BT.pos = {}; RCHAT.seen = 0; renderChat();
   race = null;
   try { await cloudCall({ action: 'room_leave', token: CLOUD.token, code }); } catch(e){}
-  showMenu(playMode === 'DUAL' ? 'dual' : 'battle');
+  if (ik) showIncol(); else showMenu(playMode === 'DUAL' ? 'dual' : 'battle');
 }
 // =====================================================================
 // Finish-area crowd: spectators behind the nets, noise that swells as you come in, and graded cheers
@@ -6596,6 +6791,8 @@ function goTop(){
     cloudCall({ action: 'room_leave', token: CLOUD.token, code }).catch(() => {});
   }
   if (race && race.spectate) endSpectate();
+  if (race && race.watchSave){ pname = race.watchSave.pname; myNat = race.watchSave.nat; }
+  document.body.classList.remove('watching'); $('#cheerBar').hidden = true;
   incolLeave();
   race = null; closeSheet(); leaveRunUI(); startDemo(); showTop();
 }

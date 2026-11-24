@@ -206,7 +206,7 @@ function players_() {
 // ---------------------------------------------------------------------
 const RC_TTL = 21600;
 // a World Cup course (gender_date), or a dual race on a rhythm set (gender_dual-SL|GS-seed)
-const COURSE_RE = /^(men|women)_(\d{4}-\d{2}-\d{2}|dual-(SL|GS)-\d{1,6})$/;
+const COURSE_RE = /^(men|women)_(\d{4}-\d{2}-\d{2}|dual-(SL|GS)-\d{1,6}|incol-(SL|GS|SG)-\d{1,6})$/;   // + the インカレ (up to 4 players)
 function rc_() { return CacheService.getScriptCache(); }
 function roomGet_(code) { const s = rc_().get('room_' + code); return s ? JSON.parse(s) : null; }
 function roomPut_(r) { rc_().put('room_' + r.code, JSON.stringify(r), RC_TTL); }
@@ -235,7 +235,7 @@ function room_join_(q) {
   const r = roomGet_(String(q.code || ''));
   if (!r) return { ok: false, error: 'noroom' };
   if (r.members.indexOf(name) < 0) {
-    if (r.members.length >= 8) return { ok: false, error: 'full' };
+    if (r.members.length >= (/_incol-/.test(r.course) ? 4 : 8)) return { ok: false, error: 'full' };
     r.members.push(name); roomPut_(r);
   }
   return roomView_(r);
@@ -251,13 +251,14 @@ function room_start_(q) {
   if (!r) return { ok: false, error: 'noroom' };
   if (r.host !== name) return { ok: false, error: 'host' };
   // a new dual race (from the lobby, or "again" after one) waits until everyone else has pressed ready
-  if (q.fresh && /_dual-/.test(String(q.course || r.course))) {
+  if (q.fresh && /_(dual|incol)-/.test(String(q.course || r.course))) {
     const rd = r.ready || {};
     if (r.members.some(function (m) { return m !== r.host && !rd[m]; })) return { ok: false, error: 'notready' };
   }
   if (q.course && COURSE_RE.test(String(q.course))) r.course = String(q.course);
   r.run = Number(q.run) === 2 ? 2 : 1;                                 // dual race: which of the two runs
   if (q.ev != null) r.ev = evParse_(q.ev);                             // dual tournament / league: pairings and results so far
+  if (q.ik != null) r.ik = ikParse_(q.ik);                             // インカレ: whose turn it is and the players' results so far
   r.raceId += 1; r.state = 'race'; r.startAt = Date.now() + 9000;
   r.ready = {};                                                        // everyone presses ready again before the next new race
   rc_().removeAll(r.members.map(function (m) { return posKey_(r.code, m); }));
@@ -269,6 +270,11 @@ function evParse_(s) {
   s = s && typeof s === 'object' ? JSON.stringify(s) : String(s || '');
   if (!s || s === 'null' || s.length > 8000) return null;
   try { const e = JSON.parse(s); return e && (e.fmt === 'tour' || e.fmt === 'league') ? e : null; } catch (err) { return null; }
+}
+function ikParse_(s) {
+  s = String(s || '');
+  if (!s || s === 'null' || s.length > 6000) return null;
+  try { const o = JSON.parse(s); return o && typeof o === 'object' ? o : null; } catch (err) { return null; }
 }
 function room_ev_(q) {
   const name = userByToken_(q.token);
@@ -288,6 +294,7 @@ function room_ready_(q) {
   if (r.members.indexOf(name) < 0) return { ok: false, error: 'member' };
   r.ready = r.ready || {};
   if (Number(q.on)) r.ready[name] = 1; else delete r.ready[name];
+  if (q.uni && /^[A-Z]{3}$/.test(String(q.uni))) { r.uni = r.uni || {}; r.uni[name] = String(q.uni); }   // インカレ: the player's university
   roomPut_(r);
   return roomView_(r);
 }
@@ -324,6 +331,7 @@ function room_leave_(q) {
   if (!r || !name) return { ok: true };
   r.members = r.members.filter(function (m) { return m !== name; });
   if (r.ready) delete r.ready[name];
+  if (r.uni) delete r.uni[name];
   rc_().remove(posKey_(r.code, name));
   if (!r.members.length) { rc_().remove('room_' + r.code); return { ok: true }; }
   if (r.host === name) r.host = r.members[0];
