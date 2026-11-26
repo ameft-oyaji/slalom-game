@@ -198,6 +198,14 @@ input[type=text]{width:9em}
 .badge{display:inline-block;background:var(--amber);color:var(--board);font-weight:700;font-size:12px;padding:2px 8px;border-radius:2px;vertical-align:middle;letter-spacing:.04em}
 .badge.red{background:var(--red);color:#fff}
 .badge.night{background:#3B4E78;color:#fff}
+.tms{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:8px}
+.tm{border:1px solid var(--board-3);border-radius:6px;overflow:hidden;background:var(--board-2)}
+.tm-p{display:flex;justify-content:space-between;gap:8px;padding:6px 10px;font-size:14px;color:#C9D2E3}
+.tm-p+.tm-p{border-top:1px solid var(--board-3)}
+.tm-p b{font-family:var(--f-num);font-variant-numeric:tabular-nums;white-space:nowrap}
+.tm-p.win{color:#fff;font-weight:700;background:rgba(255,201,60,.12)}.tm-p.win b{color:var(--amber)}
+.tm-p.me span{color:var(--amber)}
+.tm.next{border-style:dashed}
 .badge.rk-race{background:#1F5FBF;color:#fff;font-size:11px;padding:1px 6px}
 .btns{display:flex;flex-wrap:wrap;gap:8px}
 .btn{flex:1 1 auto;border:0;border-radius:4px;padding:12px 14px;font:700 15px var(--f-body);cursor:pointer;background:var(--board-2);color:#fff}
@@ -3402,7 +3410,9 @@ function dualTabHTML(){
   html += `<h3>CPライバルと対戦</h3><p class="note">コンピューターの選手と1対1で2本勝負。ユーザー登録なしで遊べます。</p>
     <div class="g-who"><select id="cpuLv" aria-label="CPライバルの強さ">${Object.entries(CPU_LV).map(([k, v]) => `<option value="${k}"${DUAL_PREF.cpu === k ? ' selected' : ''}>CPライバル：${v[0]}</option>`).join('')}</select>
       <select id="cpuWho" aria-label="対戦する選手">${cpuWhoOptions()}</select><button class="btn small hot" type="button" id="cpuGo">対戦スタート</button></div>
-    <p class="note">選手を指名すると、その選手のワールドランキングどおりの速さで滑ります（「おまかせ」なら強さの範囲から選ばれます）。</p>`;
+    <p class="note">選手を指名すると、その選手のワールドランキングどおりの速さで滑ります（「おまかせ」なら強さの範囲から選ばれます）。</p>
+    <h3>CPライバルとトーナメント（8人）</h3><p class="note">あなたとCPライバル7人（上で選んだ強さの範囲から）の8人で、準々決勝・準決勝・決勝を1対1の2本勝負で勝ち抜きます。</p>
+    <div class="g-who"><button class="btn small hot" type="button" id="cpuTour">トーナメントを始める</button></div>`;
   html += `<h3>オンライン対戦</h3>`;
   if (!CLOUD.url) html += '<p class="note">友だちとのオンライン対戦は公開サイト（https://ameft-oyaji.github.io/slalom-game/）で、ユーザー登録して遊べます。</p>';
   else if (!CLOUD.token) html += '<p class="note">友だちとのオンライン対戦にはユーザー登録（無料）が必要です。「選手・用具」タブで名前と暗証番号を登録してください。</p>';
@@ -3423,6 +3433,7 @@ function bindDualTab(root){
     root.querySelectorAll('#dualDisc button').forEach(x => { const on = x === b; x.classList.toggle('on', on); x.setAttribute('aria-pressed', on); });
   });
   root.querySelector('#cpuGo').onclick = () => { keep(); startCpuDual(); };
+  root.querySelector('#cpuTour').onclick = () => { keep(); startCpuTour(); };
   if (c) c.onclick = async () => {
     c.disabled = true;
     const err = m => { const e = root.querySelector('#btErr'); e.textContent = m; e.hidden = false; };
@@ -3457,7 +3468,8 @@ function startCpuDual(opt){
   if (ik && race.ev.disc === 'SL'){ const dk = dualKeyParse(key), o = { n: Math.round(20 * IK_SL.frac), open: true }; race.courses = [dualCourse(dk.seed, 'SL', false, o), dualCourse(dk.seed, 'SL', true, o)]; }
   const field = ik ? studentField(gender, race.ev.disc) : buildField(gender, race.ev.disc), k = ik ? (IK_CPU[GK.cpu] || IK_CPU.mid) : CPU_LV[DUAL_PREF.cpu] || CPU_LV.mid, r = Math.random;
   const lo = Math.min(k[1], field.length), hi = Math.min(k[2], field.length);
-  const pick = !ik && +DUAL_PREF.who >= 1 && +DUAL_PREF.who <= Math.min(CPU_TOP, field.length) ? +DUAL_PREF.who : 0;   // a rival picked by name
+  const tour = !ik && opt && opt.tour ? opt.rank : 0;                // a tournament match: the opponent is set by the draw
+  const pick = tour || (!ik && +DUAL_PREF.who >= 1 && +DUAL_PREF.who <= Math.min(CPU_TOP, field.length) ? +DUAL_PREF.who : 0);   // a rival picked by name
   const rank = pick || lo + Math.floor(r() * (hi - lo + 1));  // where in the ranking this rival stands
   let who = field[rank - 1];
   const named = ik || pick ? null : CPU_NAMED[DUAL_PREF.cpu];
@@ -3467,9 +3479,10 @@ function startCpuDual(opt){
     race.run = i + 1; const tr = cpuTrack(c, runMods()); race.run = 1;
     const f = pace * (1 + gauss(r) * .008);                    // this run's pace against the robot's clean line
     const fall = r() < .05 ? .3 + r() * .55 : null;             // now and then the rival goes out
-    return { pts: tr.pts, f, T: trunc(tr.T * f), fall };
+    return { pts: tr.pts, f, T: trunc(tr.T * f), fall, base: tr.T };
   });
-  race.cpu = { name: who.name, nat: who.nat, lv: pick ? `ワールドランキング${pick}位` : k[0], rank, college: !ik && !pick && !!CPU_NAMED[DUAL_PREF.cpu], incol: ik, runs, times: runs.map(x => x.fall ? null : x.T) };
+  if (tour){ race.tour = true; TOUR.base = runs.map(x => x.base); }
+  race.cpu = { name: who.name, nat: who.nat, lv: tour ? `トーナメント${TOUR_RND[TOUR.r]}` : pick ? `ワールドランキング${pick}位` : k[0], rank, college: !ik && !pick && !!CPU_NAMED[DUAL_PREF.cpu], incol: ik, runs, times: runs.map(x => x.fall ? null : x.T) };
   $('#menu').hidden = true;
   beginRun();
   cdT = 5;
@@ -3523,13 +3536,117 @@ function showCpuResult(){
   const row = (name, nat, a, out, isMe) => `<tr class="${isMe ? 'me' : ''}"><td>${esc(name)}${isMe && name !== 'あなた' ? '（あなた）' : ''} <span class="nat3">${flagH(nat)}${nat}</span></td><td class="r">${out && a[0] == null ? out : cell(a[0])}</td>${run === 2 ? `<td class="r">${out && a[0] != null && a[1] == null ? out : cell(a[1])}</td><td class="n">${out ? out : cell(tot(a))}</td>` : ''}</tr>`;
   html += table(run === 1 ? ['選手', '1本目'] : ['選手', '1本目', '2本目', '合計'], [row(pname, myNat, mine, myOut, true), row(cp.name, cp.nat, cp.times, cpOut, false)]);
   if (over && run === 1) html += '<p class="note">どちらかがゴールしなかったので、2本目はなしでここで決着です。</p>';
-  html += `<div class="btns">${!over ? '<button class="btn primary" type="button" id="cpNext">2本目へ（左右が逆のコース）</button>' : '<button class="btn primary" type="button" id="cpAgain">もう一度（新しいコース）</button>'}<button class="btn" type="button" id="cpMenu">メニューに戻る</button></div>`;
+  const tourOn = race.tour && over;
+  if (tourOn && !race.tourRec){ race.tourRec = true; tourMyResult(me, them, mine, cp, run); }
+  html += `<div class="btns">${!over ? '<button class="btn primary" type="button" id="cpNext">2本目へ（左右が逆のコース）</button>' : tourOn ? '<button class="btn primary" type="button" id="cpTour">トーナメント表へ</button>' : '<button class="btn primary" type="button" id="cpAgain">もう一度（新しいコース）</button>'}<button class="btn" type="button" id="cpMenu">メニューに戻る</button></div>`;
   state = 'sheet';
   openSheet('Dual Race · vs CP', !over ? 'デュアルレース 1本目の結果' : 'デュアルレース 最終結果', html);
   if (over && win) crowdCheer(.9);
   const nx = $('#cpNext'); if (nx) nx.onclick = () => { race.run = 2; beginRun(); cdT = 5; };
   const ag = $('#cpAgain'); if (ag) ag.onclick = () => cp.incol ? startIncolDual() : startCpuDual();
+  const tb = $('#cpTour'); if (tb) tb.onclick = () => { race = null; showTour(); };
   $('#cpMenu').onclick = () => { race = null; if (cp.incol) showIncol('DUAL'); else showMenu('dual'); };
+}
+// ---- a tournament of eight against CP rivals: you and seven rivals from the chosen level, drawn at random.
+// Your matches are raced; the others are worked out from each rival's ranking pace on the same courses
+const TOUR_RND = ['準々決勝', '準決勝', '決勝'];
+let TOUR = null;
+function startCpuTour(){
+  const field = buildField(gender, DUAL_PREF.d), k = CPU_LV[DUAL_PREF.cpu] || CPU_LV.mid;
+  let lo = Math.min(k[1], field.length), hi = Math.min(k[2], field.length);
+  if (hi - lo + 1 < 7){ hi = Math.min(field.length, lo + 6); lo = Math.max(1, hi - 6); }   // room for seven different rivals
+  const ranks = shuffle(Array.from({ length: hi - lo + 1 }, (_, i) => lo + i), Math.random).slice(0, 7);
+  const players = [{ me: true }].concat(ranks.map(rk => ({ rank: rk, name: field[rk - 1].name, nat: field[rk - 1].nat })));
+  TOUR = { g: gender, d: DUAL_PREF.d, lv: k[0], players: shuffle(players, Math.random), r: 0, res: [[], [], []], base: null, out: false, done: false };
+  showTour();
+}
+function tourName(p){ return p.me ? pname : p.name; }
+function tourNat(p){ return p.me ? myNat : p.nat; }
+// who meets whom in a round: the draw for the quarter-finals, then the winners in bracket order
+function tourPairs(r){
+  const list = r === 0 ? TOUR.players : TOUR.res[r - 1].map(m => m.w);
+  const out = []; for (let i = 0; i + 1 < list.length; i += 2) out.push([list[i], list[i + 1]]);
+  return out;
+}
+function tourSimRun(p, i){
+  if (Math.random() < .05) return null;                                     // now and then a rival goes out
+  const base = TOUR.base ? TOUR.base[i] : (TOUR.d === 'GS' ? 25 : 15);
+  return trunc(base * cpuPace(p.rank) * (1 + gauss(Math.random) * .008));
+}
+function tourSimMatch(a, b){
+  const ta = [tourSimRun(a, 0)], tb = [tourSimRun(b, 0)];
+  if (ta[0] != null && tb[0] != null){ ta.push(tourSimRun(a, 1)); tb.push(tourSimRun(b, 1)); }
+  return tourDecide(a, b, ta, tb);
+}
+// ta / tb: one time per run skied (a run that was not skied is left out; null = did not finish)
+function tourDecide(a, b, ta, tb){
+  const tot = x => x.length === 2 && x[0] != null && x[1] != null ? trunc(x[0] + x[1]) : null;
+  const A = tot(ta), B = tot(tb);
+  let w;
+  if (A != null && B != null) w = A < B ? a : B < A ? b : (ta[0] <= tb[0] ? a : b);
+  else if (A != null) w = a; else if (B != null) w = b;
+  else if (ta[0] != null && tb[0] == null) w = a; else if (tb[0] != null && ta[0] == null) w = b;
+  else if (ta.length === 2 && ta[0] != null && tb[0] != null) w = ta[1] != null ? a : tb[1] != null ? b : (a.me ? a : b.me ? b : (a.rank <= b.rank ? a : b));
+  else w = a.me ? a : b.me ? b : (a.rank <= b.rank ? a : b);                  // nobody reached the finish: the better-ranked goes through
+  return { a, b, ta, tb, A, B, w };
+}
+// your match is over: record it, work out the round's other matches, move on (or play out the rest if you are out)
+function tourMyResult(me, them, mine, cp, run){
+  if (!TOUR || TOUR.res[TOUR.r].length) return;
+  const pairs = tourPairs(TOUR.r);
+  const ty = run === 2 ? [mine[0], mine[1]] : [mine[0]], to = run === 2 ? [cp.times[0], cp.times[1]] : [cp.times[0]];
+  const res = pairs.map(([a, b]) => {
+    if (!a.me && !b.me) return tourSimMatch(a, b);
+    const you = a.me ? a : b, opp = a.me ? b : a;
+    const m = tourDecide(you, opp, ty, to);
+    // the race itself decides: a win on the result screen is a win here
+    if (me != null && them != null && me !== them) m.w = me < them ? you : opp;
+    return a.me ? m : { a: m.b, b: m.a, ta: m.tb, tb: m.ta, A: m.B, B: m.A, w: m.w };
+  });
+  TOUR.res[TOUR.r] = res;
+  if (!res.some(m => m.w.me)) TOUR.out = true;
+  TOUR.r++;
+  // out of it: the rest of the tournament is decided without you
+  while (TOUR.out && TOUR.r < 3){ TOUR.res[TOUR.r] = tourPairs(TOUR.r).map(([a, b]) => tourSimMatch(a, b)); TOUR.r++; }
+  if (TOUR.r >= 3) TOUR.done = true;
+}
+function tourWho(p){ return `<span>${flagH(tourNat(p))}${esc(tourName(p))}${p.me ? (pname === 'あなた' ? '' : '（あなた）') : ` <span class="nat3">${p.rank}位</span>`}</span>`; }
+function tourMatchHTML(m){
+  const t = (x, X) => X != null ? fmt(X) : x[0] == null ? 'DNF' : x.length < 2 ? '1本目で決着' : 'DNF';
+  const side = (p, x, X) => `<div class="tm-p${m.w === p ? ' win' : ''}${p.me ? ' me' : ''}">${tourWho(p)}<b>${t(x, X)}</b></div>`;
+  return `<div class="tm">${side(m.a, m.ta, m.A)}${side(m.b, m.tb, m.B)}</div>`;
+}
+function showTour(){
+  state = 'sheet';
+  if (!TOUR){ showMenu('dual'); return; }
+  let html = `<p class="note">${TOUR.g === 'men' ? '男子' : '女子'}・${DISC[TOUR.d]}のデュアル。あなたとCPライバル7人（${esc(TOUR.lv)}）の8人で、1対1の2本勝負を勝ち抜きます。ほかの試合は各選手のランキングどおりの速さで決まります。</p>`;
+  for (let r = 0; r < 3; r++){
+    html += `<h3>${TOUR_RND[r]}</h3>`;
+    if (TOUR.res[r].length) html += `<div class="tms">${TOUR.res[r].map(tourMatchHTML).join('')}</div>`;
+    else if (r === TOUR.r) html += `<div class="tms">${tourPairs(r).map(([a, b]) => `<div class="tm next">${[a, b].map(p => `<div class="tm-p${p.me ? ' me' : ''}">${tourWho(p)}<b>—</b></div>`).join('')}</div>`).join('')}</div>`;
+    else html += '<p class="note">まだ決まっていません。</p>';
+  }
+  let head, btn;
+  if (TOUR.done){
+    const champ = TOUR.res[2][0].w, runner = TOUR.res[2][0].a === champ ? TOUR.res[2][0].b : TOUR.res[2][0].a;
+    const mine = champ.me ? '優勝！' : runner.me ? '準優勝' : TOUR.res[1].some(m => m.a.me || m.b.me) ? 'ベスト4' : 'ベスト8';
+    head = `<div><span class="big" style="font-size:40px">${mine}</span></div><p class="note">優勝：${flagH(tourNat(champ))}${esc(tourName(champ))}${champ.me ? (pname === 'あなた' ? '' : '（あなた）') : `（ランキング${champ.rank}位）`}</p>`;
+    btn = '<button class="btn primary" type="button" id="tourNew">新しいトーナメント</button>';
+    if (champ.me) crowdCheer(1);
+  } else {
+    const myPair = tourPairs(TOUR.r).find(([a, b]) => a.me || b.me), opp = myPair[0].me ? myPair[1] : myPair[0];
+    head = `<div><span class="badge">次は${TOUR_RND[TOUR.r]}</span></div><p>相手：${flagH(opp.nat)}<b>${esc(opp.name)}</b>（ランキング${opp.rank}位）</p>`;
+    btn = `<button class="btn primary" type="button" id="tourGo">${TOUR_RND[TOUR.r]}を滑る</button>`;
+  }
+  html = head + html + `<div class="btns">${btn}<button class="btn" type="button" id="tourMenu">メニューに戻る</button></div>`;
+  openSheet('Dual Race · Tournament', 'デュアル トーナメント（8人）', html);
+  const go = $('#tourGo'); if (go) go.onclick = () => {
+    const myPair = tourPairs(TOUR.r).find(([a, b]) => a.me || b.me), opp = myPair[0].me ? myPair[1] : myPair[0];
+    const keepD = DUAL_PREF.d; DUAL_PREF.d = TOUR.d; gender = TOUR.g;
+    closeSheet(); startCpuDual({ tour: true, rank: opp.rank }); DUAL_PREF.d = keepD;
+  };
+  const nw = $('#tourNew'); if (nw) nw.onclick = startCpuTour;
+  $('#tourMenu').onclick = () => { race = null; showMenu('dual'); };
 }
 // a dead-regular rhythm set, cut where a clean run reaches about 19 s, so the whole run takes about 20 s
 function dualCourse(seed, d, mirror, opt){
@@ -6889,6 +7006,7 @@ function bootGame(){ if (setupDone) showMenu(playMode === 'DUAL' ? 'dual' : 'cal
 // title screen with the game's version
 // what changed in each version (shown on the rules tab)
 const CHANGELOG = [
+  { v: '4.3.0', d: '2026.11.26', items: ['ワールドカップのデュアルに「CPライバルとトーナメント（8人）」を追加：あなたとCPライバル7人（選んだ強さの範囲から）で、準々決勝・準決勝・決勝を1対1の2本勝負で勝ち抜く。組み合わせは抽選、ほかの試合は各選手のランキングどおりの速さで決まり、トーナメント表で結果が見られる'] },
   { v: '4.2.0', d: '2026.11.25', items: ['ワールドカップのデュアル：CPライバルをワールドランキング上位30人の中から指名できる（種目ごとのランキング）。指名した選手はその順位どおりの速さで滑る。「おまかせ」ならこれまでどおり強さの範囲から選ばれる'] },
   { v: '4.1.0', d: '2026.11.25', items: ['ワールドカップの大会（シーズン・「もう一度」）で出した2本合計タイムも、そのコースの記録として残るように。タイムアタックの記録とは別に、それぞれの自己ベストがランキングに載る（大会の記録には「大会」の印）', 'タイムアタックのコース一覧に、自分のタイムアタックと大会の記録を両方表示'] },
   { v: '4.0.1', d: '2026.11.25', items: ['ワールドカップの大回転：ライバル（CP選手）のタイムを3％速く（どの強さでも）'] },
@@ -6927,7 +7045,7 @@ const CHANGELOG = [
   { v: '1.1.0', d: '2026.11.20', items: ['トップ画面とバージョン表示を追加', '公式コースデータを参考に、緩斜面・急斜面のスピード変化を追加', 'スピードを調整', 'いろいろランキング（総合・優勝回数・最高速度・使用マテリアルなど）を追加', '1レース80人出場（ランキング74位まで＋75位以下から抽選）', '男子回転のライバルを実在の選手リストに変更'] },
   { v: '1.0.0', d: '', items: ['キッツビューエル風の表彰式、フリースキー（リズム旗門・用具の性能グラフ）', 'ナイターの照明、ゴーグルの影響、スタートゲートとスタートバー、高いスタート台', 'FISのスタート手順（10秒前・ブザー5回・遅れたら失格）', 'コースに残る滑走の跡、清水さん仕様、MARKSビンディング、ゴール後の隠しコマンド'] }
 ];
-const APP_VERSION = '4.2.0', APP_DATE = '2026.11.25';
+const APP_VERSION = '4.3.0', APP_DATE = '2026.11.26';
 function showTop(){
   incolLeave();
   $('#menu').hidden = true; $('#sheet').hidden = true; $('#lock').hidden = true;
