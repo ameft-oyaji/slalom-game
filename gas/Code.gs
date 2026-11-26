@@ -156,6 +156,14 @@ function ta_submit_(q) {
 // ---- a new course record: tell the LINE Official Account's friends (broadcast).
 // The channel access token is the script property LINE_TOKEN (Project Settings → Script properties); without it nothing is sent.
 // Test accounts (zz-…) never send.
+// Run this once from the editor (select "checkLine" and press 実行): it asks for permission to reach LINE
+// and checks the token by reading the account's name. No message is sent
+function checkLine() {
+  const token = PropertiesService.getScriptProperties().getProperty('LINE_TOKEN');
+  if (!token) { Logger.log('LINE_TOKEN がスクリプト プロパティにありません'); return; }
+  const r = UrlFetchApp.fetch('https://api.line.me/v2/bot/info', { headers: { Authorization: 'Bearer ' + token }, muteHttpExceptions: true });
+  Logger.log(r.getResponseCode() === 200 ? 'OK：' + JSON.parse(r.getContentText()).displayName + ' に接続できました' : 'トークンが違います（' + r.getResponseCode() + '）');
+}
 function fmtT_(t) { const m = Math.floor(t / 60), s = (t - m * 60).toFixed(2); return m + ':' + (s < 10 ? '0' : '') + s; }
 function recordNews_(name, course, t, prev, label) {
   try {
