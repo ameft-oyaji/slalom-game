@@ -7,6 +7,10 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="SLALOM">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="manifest" href="manifest.webmanifest">
 <meta name="description" content="2026/27 FISワールドカップ回転の日程で遊べるスラロームゲーム">
 <style>html{-webkit-text-size-adjust:100%}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
 <title>スラローム・レース</title>
@@ -7031,6 +7035,7 @@ function bootGame(){ if (setupDone) showMenu(playMode === 'DUAL' ? 'dual' : 'cal
 // title screen with the game's version
 // what changed in each version (shown on the rules tab)
 const CHANGELOG = [
+  { v: '4.4.6', d: '2026.11.27', items: ['公開サイトをスマホのホーム画面に追加したときのアイコンを、新しい「SLALOM WORLD CUP」の画像に（ブラウザのタブのアイコンも）'] },
   { v: '4.4.5', d: '2026.11.27', items: ['学連（インカレ・デュアル）の学生選手の名前をアルファベット表記に（ワールドカップの選手と同じ「KATAYAMA Ryoma」の形）'] },
   { v: '4.4.4', d: '2026.11.27', items: ['LINE公式アカウント「アルペンレーサー」とのつながりが完成：大きな更新のお知らせと、コースレコード更新のお知らせが友だちに届くように'] },
   { v: '4.4.3', d: '2026.11.27', items: ['コースレコード（タイムアタック・大会の記録を合わせた各コースの1位）が更新されたら、LINE公式アカウント「アルペンレーサー」の友だちにお知らせが届くように（そのコースで最初の記録のときは送らない）'] },
@@ -7076,7 +7081,7 @@ const CHANGELOG = [
   { v: '1.1.0', d: '2026.11.20', items: ['トップ画面とバージョン表示を追加', '公式コースデータを参考に、緩斜面・急斜面のスピード変化を追加', 'スピードを調整', 'いろいろランキング（総合・優勝回数・最高速度・使用マテリアルなど）を追加', '1レース80人出場（ランキング74位まで＋75位以下から抽選）', '男子回転のライバルを実在の選手リストに変更'] },
   { v: '1.0.0', d: '', items: ['キッツビューエル風の表彰式、フリースキー（リズム旗門・用具の性能グラフ）', 'ナイターの照明、ゴーグルの影響、スタートゲートとスタートバー、高いスタート台', 'FISのスタート手順（10秒前・ブザー5回・遅れたら失格）', 'コースに残る滑走の跡、清水さん仕様、MARKSビンディング、ゴール後の隠しコマンド'] }
 ];
-const APP_VERSION = '4.4.5', APP_DATE = '2026.11.27';
+const APP_VERSION = '4.4.6', APP_DATE = '2026.11.27';
 function showTop(){
   incolLeave();
   $('#menu').hidden = true; $('#sheet').hidden = true; $('#lock').hidden = true;
