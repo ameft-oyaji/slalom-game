@@ -325,6 +325,8 @@ body.nightrace .ev-gear .up,body.nightrace .ev-gear .dn{color:#fff!important}
 .top-stripe{display:flex;width:min(320px,70vw);height:5px;margin:6px 0 8px}.top-stripe i{flex:1;background:var(--red)}.top-stripe i+i{background:#1F55C8}
 .top-go{font-size:20px;padding:12px 48px;min-width:220px}
 .top-who{margin:0;font-size:13px;color:#C9D2E3;min-height:1em}
+.top-line{display:inline-flex;align-items:center;gap:8px;font:700 13px var(--f-body);color:#fff;text-decoration:none;background:#06C755;border-radius:999px;padding:6px 14px}
+.top-line b{font:800 12px var(--f-body);background:#fff;color:#06C755;border-radius:4px;padding:0 5px}
 .top-ver{position:absolute;left:max(14px,env(safe-area-inset-left,0px));bottom:max(10px,env(safe-area-inset-bottom,0px));font:600 12px var(--f-num);letter-spacing:.08em;color:#C9D2E3;background:rgba(9,17,32,.5);padding:4px 10px;border-radius:999px}
 @media (prefers-reduced-motion:reduce){ .top-in{animation:none} }
 .lock input[type=password]{width:100%;font-size:18px;padding:10px 12px}
@@ -605,6 +607,7 @@ body.nightrace .ev-label,body.nightrace .ev-label *,body.nightrace #keys,body.ni
       <button class="btn primary top-go" type="button" id="topGo">スタート</button>
       <button class="btn top-watch" type="button" id="topWatch">観戦モード</button>
       <p class="top-who" id="topWho"></p>
+      <a class="top-line" id="topLine" target="_blank" rel="noopener" hidden><b>LINE</b>友だち追加で更新のお知らせ・お問い合わせ</a>
     </div>
     <div class="top-ver" id="topVer"></div>
   </section>
@@ -1059,6 +1062,8 @@ function save(key, v){ try { localStorage.setItem(key, JSON.stringify(v)); cloud
 // CLOUD_URL is filled in by build_site.py; it stays empty in the claude.ai version.
 // =====================================================================
 const CLOUD_URL = 'https://script.google.com/macros/s/AKfycbw2YVS3hMxoQkzWI0EqKGVJbpXCJY2G_4hwhTWYIShozKaI7fmA9p1UaB1jl5d-GKKSIg/exec';
+// the game's LINE Official Account: its friend-add link (https://lin.ee/...). Empty = the link is not shown
+const LINE_OA_URL = '';
 const CLOUD = { url: CLOUD_URL, name: null, token: null, queue: {}, timer: 0, status: '' };
 try { const c = JSON.parse(localStorage.getItem('slalomwc-account') || 'null'); if (c && c.token){ CLOUD.name = c.name; CLOUD.token = c.token; } } catch(e){}
 const CLOUD_SKIP = ['slalomwc-account', 'slalomwc-gate'];
@@ -7062,6 +7067,7 @@ function showTop(){
     : setupDone ? `${esc(pname)}（${flagH(myNat)}${esc((NAT[myNat] || {}).jp || myNat)}）でプレー` : 'はじめに国と用具を選びます';
   $('#top').hidden = false;
   $('#topWatch').hidden = GK.on;
+  if (/^https:\/\/(lin\.ee|line\.me)\//.test(LINE_OA_URL)){ $('#topLine').href = LINE_OA_URL; $('#topLine').hidden = false; }
   $('#topGo').onclick = () => { $('#top').hidden = true; ac(); if (GK.on){ if (GK.mode !== 'dual' && GK.sec === 'dual') GK.sec = 'race'; showIncol(GK.mode === 'dual' ? 'DUAL' : null); } else bootGame(); };
   $('#tgIncol').onclick = () => { GK.mode = 'incol'; saveGK(); applyDisc(); };
   $('#tgDual').onclick = () => { GK.mode = 'dual'; saveGK(); applyDisc(); };

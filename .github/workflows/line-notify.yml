@@ -1,0 +1,24 @@
+name: LINE お知らせ
+# 大きな更新（4.4.x → 4.5.0 のように真ん中の数字が上がったとき）だけ、LINE公式アカウントの友だちに送る
+on:
+  push:
+    branches: [main]
+    paths: [index.html]
+  workflow_dispatch:
+    inputs:
+      force:
+        description: '小さな更新でも今のバージョンのお知らせを送る'
+        type: boolean
+        default: false
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - name: 大きな更新ならお知らせを送る
+        env:
+          LINE_TOKEN: ${{ secrets.LINE_TOKEN }}
+          FORCE: ${{ github.event.inputs.force }}
+        run: python3 .github/line_notify.py
