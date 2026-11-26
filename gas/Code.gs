@@ -134,14 +134,45 @@ function ta_submit_(q) {
   if (!/^(men|women)_\d{4}-\d{2}-\d{2}(_race)?$/.test(course)) return { ok: false, error: 'course' };   // _race: the best two-run total from the World Cup race itself
   if (!(t > 15 && t < 400 && r1 > 5 && r2 > 5)) return { ok: false, error: 'time' };
   const s = ta_(), v = s.getDataRange().getValues();
+  // the course record before this one (time attack and race records together); a first-ever record is not news
+  const base = course.replace(/_race$/, '');
+  let prev = null;
+  for (let i = 1; i < v.length; i++) {
+    const c = String(v[i][1]).replace(/_race$/, ''), tt = Number(v[i][2]);
+    if (c === base && tt > 0 && !/^zz-/.test(String(v[i][0])) && (!prev || tt < prev.t)) prev = { t: tt, name: String(v[i][0]) };   // test accounts do not count
+  }
+  const news = function () { if (prev && t < prev.t) recordNews_(name, course, t, prev, q.label); };
   for (let i = 1; i < v.length; i++) {
     if (v[i][0] === name && v[i][1] === course) {
-      if (t < Number(v[i][2])) { s.getRange(i + 1, 3, 1, 4).setValues([[t, r1, r2, new Date()]]); return { ok: true, improved: true }; }
+      if (t < Number(v[i][2])) { s.getRange(i + 1, 3, 1, 4).setValues([[t, r1, r2, new Date()]]); news(); return { ok: true, improved: true }; }
       return { ok: true, improved: false };
     }
   }
   s.appendRow([name, course, t, r1, r2, new Date()]);
+  news();
   return { ok: true, improved: true };
+}
+
+// ---- a new course record: tell the LINE Official Account's friends (broadcast).
+// The channel access token is the script property LINE_TOKEN (Project Settings → Script properties); without it nothing is sent.
+// Test accounts (zz-…) never send.
+function fmtT_(t) { const m = Math.floor(t / 60), s = (t - m * 60).toFixed(2); return m + ':' + (s < 10 ? '0' : '') + s; }
+function recordNews_(name, course, t, prev, label) {
+  try {
+    if (/^zz-/.test(name)) return;
+    const token = PropertiesService.getScriptProperties().getProperty('LINE_TOKEN');
+    if (!token) return;
+    const where = String(label || '').replace(/[\r\n]/g, ' ').slice(0, 60) || course;
+    const text = '🏁 コースレコード更新！\n' + where + (/_race$/.test(course) ? '（大会）' : '（タイムアタック）') + '\n\n' +
+      fmtT_(t) + '　' + name + '\n' +
+      '（これまで ' + fmtT_(prev.t) + '　' + prev.name + '、' + (prev.t - t).toFixed(2) + '秒更新）\n\n' +
+      '▶ 挑戦する：https://ameft-oyaji.github.io/slalom-game/';
+    UrlFetchApp.fetch('https://api.line.me/v2/bot/message/broadcast', {
+      method: 'post', contentType: 'application/json', muteHttpExceptions: true,
+      headers: { Authorization: 'Bearer ' + token },
+      payload: JSON.stringify({ messages: [{ type: 'text', text: text }] })
+    });
+  } catch (e) { /* the record itself is saved whatever happens here */ }
 }
 
 function board_() {

@@ -1601,12 +1601,18 @@ async function cloudBoard(){
   } catch(e){ TA.status = 'error'; }
   if (tab === 'ta' && !$('#menu').hidden) renderTab();
 }
+// the course in words, for the record news on LINE: "男子 回転 レヴィ（FIN）"
+function taLabel(key){
+  const m = /^(men|women)_(\d{4}-\d{2}-\d{2})/.exec(key || ''); if (!m) return '';
+  const r = slRaces(m[1]).find(x => x.date === m[2]); if (!r) return '';
+  return `${m[1] === 'men' ? '男子' : '女子'} ${DISC[r.disc]} ${JP[r.venue] || r.venue}（${r.nat}）`;
+}
 async function taSubmit(key, entry){
   // keep the personal best on this device in any case
   const loc = taLocal(); if (!validEntry(loc[key]) || entry.t < loc[key].t){ loc[key] = entry; save('slalomwc-ta', loc); }
   if (TA.cloud){
     if (!CLOUD.token) return { shared: false, needLogin: true };
-    try { const r = await cloudCall({ action: 'ta', token: CLOUD.token, course: key, t: entry.t, r1: entry.r1, r2: entry.r2 }); await cloudBoard(); return r.ok ? { shared: true, improved: !!r.improved } : { shared: false }; }
+    try { const r = await cloudCall({ action: 'ta', token: CLOUD.token, course: key, t: entry.t, r1: entry.r1, r2: entry.r2, label: taLabel(key) }); await cloudBoard(); return r.ok ? { shared: true, improved: !!r.improved } : { shared: false }; }
     catch(e){ return { shared: false }; }
   }
   if (!TA.db || !TA.uid) return { shared: false };
@@ -7023,6 +7029,7 @@ function bootGame(){ if (setupDone) showMenu(playMode === 'DUAL' ? 'dual' : 'cal
 // title screen with the game's version
 // what changed in each version (shown on the rules tab)
 const CHANGELOG = [
+  { v: '4.4.3', d: '2026.11.27', items: ['コースレコード（タイムアタック・大会の記録を合わせた各コースの1位）が更新されたら、LINE公式アカウント「アルペンレーサー」の友だちにお知らせが届くように（そのコースで最初の記録のときは送らない）'] },
   { v: '4.4.2', d: '2026.11.27', items: ['スマホを横向きにしたとき、TOP画面が上下に切れずにスクロールして全部見られるように（タイトルやボタンも少し小さめに）'] },
   { v: '4.4.1', d: '2026.11.26', items: ['TOP画面にLINE公式アカウント「アルペンレーサー」の友だち追加ボタン：大きな更新のお知らせが届き、質問や不具合の報告もトークで送れる'] },
   { v: '4.4.0', d: '2026.11.26', items: ['インカレのデュアルにも「学生のCPライバルとトーナメント（8人）」を追加：あなたと学生のCPライバル7人（選んだ強さの範囲から）で、準々決勝・準決勝・決勝を勝ち抜く。回転は学連ルール（旗門⅔・クローズなし）'] },
@@ -7065,7 +7072,7 @@ const CHANGELOG = [
   { v: '1.1.0', d: '2026.11.20', items: ['トップ画面とバージョン表示を追加', '公式コースデータを参考に、緩斜面・急斜面のスピード変化を追加', 'スピードを調整', 'いろいろランキング（総合・優勝回数・最高速度・使用マテリアルなど）を追加', '1レース80人出場（ランキング74位まで＋75位以下から抽選）', '男子回転のライバルを実在の選手リストに変更'] },
   { v: '1.0.0', d: '', items: ['キッツビューエル風の表彰式、フリースキー（リズム旗門・用具の性能グラフ）', 'ナイターの照明、ゴーグルの影響、スタートゲートとスタートバー、高いスタート台', 'FISのスタート手順（10秒前・ブザー5回・遅れたら失格）', 'コースに残る滑走の跡、清水さん仕様、MARKSビンディング、ゴール後の隠しコマンド'] }
 ];
-const APP_VERSION = '4.4.2', APP_DATE = '2026.11.27';
+const APP_VERSION = '4.4.3', APP_DATE = '2026.11.27';
 function showTop(){
   incolLeave();
   $('#menu').hidden = true; $('#sheet').hidden = true; $('#lock').hidden = true;
