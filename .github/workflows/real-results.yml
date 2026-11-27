@@ -1,0 +1,30 @@
+name: 実際の結果を更新
+# ワールドカップの本物の表彰台（ウィキペディアのシーズンページ）を2時間ごとに読み、
+# real-results.json が変わったときだけ保存する。ゲームの「シーズン」日程の「実際の結果」に出る
+on:
+  schedule:
+    - cron: '17 */2 * * *'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: real-results
+  cancel-in-progress: false
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: 結果を読む
+        run: python3 .github/real_results.py real-results.json
+      - name: 変わっていれば保存する
+        run: |
+          if git diff --quiet -- real-results.json && git ls-files --error-unmatch real-results.json >/dev/null 2>&1; then
+            echo "変更なし"; exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898299+github-actions[bot]@users.noreply.github.com"
+          git add real-results.json
+          git commit -m "実際の結果を更新"
+          git pull --rebase -q
+          git push -q
