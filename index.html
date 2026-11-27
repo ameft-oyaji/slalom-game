@@ -476,6 +476,13 @@ body.watching.nocheer .cheers{display:none}
 .rkgear{margin:10px 0}.rkgear h4{margin:6px 0;font-size:14px}
 .rkb{display:grid;grid-template-columns:minmax(150px,1.2fr) 2fr minmax(76px,auto);gap:8px;align-items:center;font-size:13px;padding:3px 6px;border-radius:4px}
 .rkb.me{background:rgba(255,201,60,.14)}
+.fcls{display:inline-block;font-size:11px;font-weight:700;padding:1px 7px;border-radius:999px;vertical-align:middle;margin-left:4px;letter-spacing:.03em;white-space:nowrap}
+.fcls.wc{background:#D7263D;color:#fff}.fcls.ec{background:#C9A227;color:#1A1300}.fcls.fis{background:#1F5FBF;color:#fff}.fcls.stu{background:#2E9E5B;color:#fff}.fcls.rk{background:#7A869A;color:#fff}
+.fis-sub{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0}
+.fis-me{border:1px solid rgba(255,201,60,.45);background:rgba(255,201,60,.08);border-radius:6px;padding:8px 10px;margin:8px 0;font-size:14px;line-height:1.7}
+.fis-me b{font-size:20px;font-family:var(--f-num, inherit)}
+.fis-up{color:#4ADE80;font-weight:700}.fis-dn{color:#F87171;font-weight:700}.fis-new{color:var(--amber);font-weight:700;font-size:11px}
+.crown{color:#FFC93C}
 .rkl{display:flex;align-items:center;gap:5px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.rkl b{font-family:var(--f-num);color:var(--amber);min-width:1.2em}.rkl small{color:var(--muted);font-size:11px}
 .rkt{height:10px;background:rgba(127,140,160,.22);border-radius:5px;overflow:hidden}.rkt i{display:block;height:100%;background:linear-gradient(90deg,#1F55C8,#4C8DFF);border-radius:5px}
 .rkb.me .rkt i{background:linear-gradient(90deg,#E8A400,#FFC93C)}
@@ -2559,7 +2566,7 @@ function showIncol(focus){
     try {
       const r = await btCall('room_create', { course: `${gender}_incol-${GK.od || 'GS'}-${Math.floor(Math.random() * 900000)}` });
       if (!r.ok) throw new Error(BT_ERR[r.error] || '部屋を作れませんでした。');
-      BT.code = r.room.code; await btCall('room_ready', { on: 0, uni: GK.uni }); showIncolRoom();
+      BT.code = r.room.code; await btCall('room_ready', { on: 0, uni: GK.uni, fp: JSON.stringify(fisMyAll(gender)) }); showIncolRoom();
     } catch(e){ ikErr(e.message); }
   };
   if ($('#ikJoin')) $('#ikJoin').onclick = async () => {
@@ -2568,7 +2575,7 @@ function showIncol(focus){
       BT.code = code; const r = await btCall('room_join');
       if (!r.ok){ BT.code = null; throw new Error(BT_ERR[r.error] || '入れませんでした。'); }
       if (!/_incol-/.test(r.room.course)){ await btCall('room_leave'); BT.code = null; throw new Error('その番号はインカレの部屋ではありません。'); }
-      await btCall('room_ready', { on: 0, uni: GK.uni }); showIncolRoom();
+      await btCall('room_ready', { on: 0, uni: GK.uni, fp: JSON.stringify(fisMyAll(gender)) }); showIncolRoom();
     } catch(e){ ikErr(e.message); }
   };
   $('#ikDualGo').onclick = () => { closeSheet(); startIncolDual(); };
@@ -2610,8 +2617,9 @@ function makeIncolOnline(room){
   const refs = courses.map(refRun);
   const field = FIELDS[g], r = rng(sd ^ 0x5EED), unis = room.uni || {};
   // the players are fixed when the race starts (someone leaving half-way must not change the race for the others)
-  const players = room.ik && room.ik.players ? room.ik.players.map(([n, u]) => ({ name: n, nat: NAT[u] ? u : 'KSD' })) : room.members.slice(0, 4).map(n => ({ name: n, nat: NAT[unis[n]] ? unis[n] : 'KSD' }));
-  const humans = {}; players.forEach(p => { if (p.name !== CLOUD.name) humans['h:' + p.name] = { name: p.name, nat: p.nat }; });
+  const fpOf = n => { const v = ((room.fp || {})[n] || {})[d]; return typeof v === 'number' ? v : null; };
+  const players = room.ik && room.ik.players ? room.ik.players.map(([n, u, fp]) => ({ name: n, nat: NAT[u] ? u : 'KSD', fp: typeof fp === 'number' ? fp : null })) : room.members.slice(0, 4).map(n => ({ name: n, nat: NAT[unis[n]] ? unis[n] : 'KSD', fp: fpOf(n) }));
+  const humans = {}; players.forEach(p => { if (p.name !== CLOUD.name) humans['h:' + p.name] = { name: p.name, nat: p.nat, fp: p.fp }; });
   if (players.some(p => p.name === CLOUD.name)) myNat = players.find(p => p.name === CLOUD.name).nat;
   // three per university, the players counting toward their own university's three
   const pick = new Set(), byUni = {};
@@ -2619,7 +2627,14 @@ function makeIncolOnline(room){
   for (const [u, list] of Object.entries(byUni)) shuffle(list.slice(), r).slice(0, Math.max(0, 3 - players.filter(p => p.nat === u).length)).forEach(a => pick.add(a.id));
   const rivals = field.filter(a => pick.has(a.id)).map(a => ({ id: a.id, name: a.name, nat: a.nat, me: false }));
   const order = [...shuffle(rivals.slice(0, 7), r), ...shuffle(rivals.slice(7, 15), r), ...rivals.slice(15)];
-  for (const p of players){ const id = ikMe(p.name); order.splice(Math.min(order.length, 15 + Math.floor(r() * 30)), 0, { id, name: p.name, nat: p.nat, me: id === 'you' }); }
+  const seedK = LEVEL_K.incol, seedOf = p => p.fp == null ? Infinity : p.fp;
+  for (const p of players.slice().sort((a, b) => seedOf(a) - seedOf(b) || (a.name < b.name ? -1 : 1))){
+    const id = ikMe(p.name);
+    let at;
+    if (p.fp == null) at = 15 + Math.floor(r() * 30);                       // no points: drawn between 16 and 45
+    else { const sr = order.filter(e => (e.fp != null ? e.fp : fisRivalPts(e.id, d, seedK)) < p.fp).length; at = sr < 7 ? Math.floor(r() * 7) : sr < 15 ? 7 + Math.floor(r() * 8) : sr; }
+    order.splice(Math.min(order.length, at), 0, { id, name: p.name, nat: p.nat, me: id === 'you', fp: p.fp });
+  }
   const bib = new Map(order.map((e, i) => [e.id, i + 1]));
   const kk = LEVEL_K.incol, byId = new Map(field.map(a => [a.id, a]));
   const sim = (id, run) => {
@@ -2676,7 +2691,8 @@ function showIncolRoom(){
     const course = ik && ik.done ? `${k.g}_incol-${k.d}-${Math.floor(Math.random() * 900000)}` : r.course;
     const rc = makeIncolOnline(Object.assign({}, r, { course, ik: null }));
     const order = rc.entrants.filter(e => e.me || rc.humans[e.id]).map(e => e.me ? CLOUD.name : rc.humans[e.id].name);
-    const nik = { run: 1, i: 0, order, res: {}, players: r.members.slice(0, 4).map(m => [m, NAT[unis[m]] ? unis[m] : 'KSD']) };
+    const fpm = m => { const v = ((r.fp || {})[m] || {})[k.d]; return typeof v === 'number' ? v : null; };
+    const nik = { run: 1, i: 0, order, res: {}, players: r.members.slice(0, 4).map(m => [m, NAT[unis[m]] ? unis[m] : 'KSD', fpm(m)]) };
     const out = await btCall('room_start', { run: 1, fresh: 1, course, ik: JSON.stringify(nik), lead: IK_LIST_LEAD }).catch(() => null);
     if (!(out && out.ok)) st.disabled = false; else incolPoll(true);
   };
@@ -2692,9 +2708,10 @@ function ikFinalHTML(r){
   const tot = {}; for (const o of rows) tot[o.nat] = (tot[o.nat] || 0) + o.pts;
   const T = Object.entries(tot).filter(x => x[1] > 0).sort((a, b) => b[1] - a[1]);
   const humanIds = new Set(['you', ...Object.keys(rc.humans)]);
+  const fr = res.some(o => o.id === 'you') ? fisRecord(rc, res, 'on', `オンライン インカレ ${DISC[rc.ev.disc]}`, 'on-' + r.course) : null;
   const html = `<h3>${DISC[rc.ev.disc]} 最終結果</h3>` + table(['順位', '選手', '大学', rc.oneRun ? 'タイム' : '合計', '差', '得点'], rows.map(o =>
       `<tr class="${humanIds.has(o.id) ? 'me' : ''}"><td class="n">${o.rank}</td><td>${esc(o.name || '')}</td><td class="nat3">${flagH(o.nat)}${esc(uniName(o.nat))}</td><td class="n">${fmt(o.t)}</td><td class="r">${o.rank === 1 ? '' : fmtDiff(o.t - best)}</td><td class="n">${o.pts || ''}</td></tr>`))
-    + `<h3>学校対抗（この種目）</h3>` + table(['順位', '大学', '得点'], T.map(([c, p], i) => `<tr><td class="n">${1 + T.filter(x => x[1] > p).length}</td><td>${flagH(c)}${esc(uniName(c))}</td><td class="n">${Math.round(p * 100) / 100}</td></tr>`));
+    + fisResultHTML(fr) + `<h3>学校対抗（この種目）</h3>` + table(['順位', '大学', '得点'], T.map(([c, p], i) => `<tr><td class="n">${1 + T.filter(x => x[1] > p).length}</td><td>${flagH(c)}${esc(uniName(c))}</td><td class="n">${Math.round(p * 100) / 100}</td></tr>`));
   race = save;
   return html;
 }
@@ -2777,6 +2794,7 @@ function showIncolFinal(){
     const why = race.run1.you == null ? `1本目 ${race.playerDsq[0] === 'DNF' ? '途中棄権（DNF）' : '失格（DSQ）'}` : !race.qualified ? `1本目 ${rankOf(race.run1, 'you')}位で2本目に進めず` : `2本目 ${race.playerDsq[1] === 'DNF' ? '途中棄権（DNF）' : '失格（DSQ）'}`;
     html += `<div><span class="big" style="font-size:40px">${why.includes('DSQ') ? 'DSQ' : why.includes('DNF') ? 'DNF' : '2本目進めず'}</span></div><p class="note">${why}。得点は0です。</p>`;
   }
+  if (me){ if (!race.fisRec) race.fisRec = fisRecord(race, res, 'ik', `インカレ ${DISC[d]}`, 'ik-' + gender + '-' + d + '-' + Date.now()); html += fisResultHTML(race.fisRec); }
   html += incolTeamsHTML(st);
   html += `<h3>${discJP(d)} 最終結果</h3>` + incolRowsHTML(st.res[d].rows, best, race.oneRun);
   html += `<div class="btns"><button class="btn primary" type="button" id="ikBack">インカレのメニューに戻る</button>${res.length >= 3 ? '<button class="btn" type="button" id="toCer">表彰式を見る</button>' : ''}</div>`;
@@ -3262,9 +3280,137 @@ function taOverall(g){
   out.forEach((o, i) => { o.rank = 1 + out.filter(x => x.pts > o.pts).length; });
   return out;
 }
+// =====================================================================
+// FIS points for the players, worked out the FIS way from every race against a field
+// (World Cup races, the インカレ and the online インカレ; time attack and duals do not count).
+//   race points = F × (Tx / To − 1) + penalty,  F = 730 slalom, 1010 giant slalom, 1190 super-G
+//   penalty = (A + B − C) / 10: A the best five points among the top 10, B the best five among the starters,
+//             C the race points of the five in A
+//   list value = the average of the best two results of the last 8 weeks (a single result counts 20% worse)
+// The rivals' points are how far off the course's pace the game runs them at the chosen rival strength, so the
+// values sit on the real FIS scale. The shared list (Apps Script, every Monday) shows its leader as 0.00
+// =====================================================================
+const FIS_F = { SL: 730, GS: 1010, SG: 1190 };
+const FIS_MAX = { SL: 165, GS: 220, SG: 270 };           // a racer without points
+const FIS_KEEP = 56 * 864e5;                              // results count for 8 weeks
+const FIS_CLASS = [[15, 'W杯級', 'wc'], [40, 'ヨーロッパカップ級', 'ec'], [80, 'FIS級', 'fis'], [150, '学連級', 'stu'], [Infinity, 'ルーキー', 'rk']];
+const fis2 = x => Math.round(x * 100) / 100;
+const fisF = x => x == null ? '—' : (+x).toFixed(2);
+function fisStore(){ const s = load('slalomwc-fis'); return s && Array.isArray(s.res) ? s : { res: [] }; }
+function fisListVal(ps){ if (!ps.length) return null; const s = ps.slice().sort((a, b) => a - b); return fis2(s.length >= 2 ? (s[0] + s[1]) / 2 : s[0] * 1.2); }
+function fisMine(g, d, skip){ const now = Date.now(); return fisStore().res.filter(x => x !== skip && (!skip || x.k !== skip.k || !x.k) && x.g === g && x.d === d && x.at >= now - FIS_KEEP).map(x => x.p); }
+function fisRaw(g, d){ return fisListVal(fisMine(g, d)); }
+function fisMyAll(g){ return { SL: fisRaw(g, 'SL'), GS: fisRaw(g, 'GS'), SG: fisRaw(g, 'SG') }; }
+function fisClass(raw){ return raw == null ? null : FIS_CLASS.find(c => raw < c[0]); }
+function fisBadge(raw){ const c = fisClass(raw); return c ? `<span class="fcls ${c[2]}">${c[1]}</span>` : ''; }
+// where the value would stand on the men's World Cup list (slalom / giant slalom)
+function fisWcRank(raw, d){
+  const L = d === 'GS' ? MEN_GS_FIELD : d === 'SL' ? MEN_FIELD : null;
+  if (!L || raw == null || raw > L[L.length - 1][2]) return null;
+  return 1 + L.filter(x => x[2] < raw).length;
+}
+// a rival's points: how far off the course's reference pace the game runs them
+function fisRivalPts(id, d, K){
+  const a = FIELDS[gender].find(x => x.id === id); if (!a) return FIS_MAX[d];
+  const off = a.rel != null ? a.rel : .065 * Math.pow(1 - a.skill, 1.1);
+  return Math.max(0, fis2(FIS_F[d] * (K * (1 + off) - 1)));
+}
+function fisRacePoints(rc, res){
+  const d = rc.ev.disc || 'SL', F = FIS_F[d], me = res.find(o => o.id === 'you');
+  if (!me || !res.length || !F) return null;
+  const K = rc.incol ? LEVEL_K.incol : LEVEL_K[level];
+  const mine = fisRaw(gender, d);
+  const pts = id => id === 'you' ? (mine != null ? mine : FIS_MAX[d]) : rc.humans && rc.humans[id] ? (rc.humans[id].fp != null ? rc.humans[id].fp : FIS_MAX[d]) : fisRivalPts(id, d, K);
+  const To = res[0].t, rp = o => F * (o.t / To - 1);
+  const top = res.filter(o => o.rank <= 10).map(o => ({ p: pts(o.id), r: rp(o) })).sort((a, b) => a.p - b.p).slice(0, 5);
+  const n = top.length;
+  const A = top.reduce((s, x) => s + x.p, 0), C = top.reduce((s, x) => s + x.r, 0);
+  const B = (rc.entrants || []).map(e => pts(e.id)).sort((a, b) => a - b).slice(0, n).reduce((s, x) => s + x, 0);
+  const pen = n ? Math.max(0, (A + B - C) / (2 * n)) : 0;
+  return { d, F, To, race: fis2(rp(me)), pen: fis2(pen), p: fis2(rp(me) + pen), rank: me.rank };
+}
+// keep this race's points (once per race: key) and say how the list value moved
+function fisRecord(rc, res, src, lbl, key){
+  const st = fisStore();
+  const had = key && st.res.find(x => x.k === key);
+  if (had) return { d: had.d, p: had.p, race: had.race, pen: had.pen, To: had.To, F: FIS_F[had.d], before: had.before, after: fisRaw(had.g, had.d), e: had };
+  const fp = fisRacePoints(rc, res); if (!fp) return null;
+  const before = fisRaw(gender, fp.d), now = Date.now();
+  const e = { g: gender, d: fp.d, p: fp.p, race: fp.race, pen: fp.pen, To: fp.To, at: now, src, lbl: String(lbl || '').slice(0, 40), rk: fp.rank, before, k: key || ('r' + now) };
+  st.res = st.res.filter(x => x.at >= now - FIS_KEEP - 14 * 864e5).concat([e]).slice(-80);
+  save('slalomwc-fis', st);
+  FISL.at = 0;
+  return Object.assign(fp, { before, after: fisRaw(gender, fp.d), e });
+}
+function fisResultHTML(fr){
+  if (!fr) return '';
+  const g = fr.e.g, d = fr.d, after = fr.after, before = fr.before;
+  const better = before == null || after < before;
+  let h = `<h3>FISポイント（${DISC[d]}）</h3><dl class="rows">`;
+  h += `<dt>このレース</dt><dd>${fisF(fr.p)} <small>（タイム差 ${fisF(fr.race)}＋ペナルティ ${fisF(fr.pen)}）</small></dd>`;
+  h += `<dt>あなたのポイント</dt><dd>${before != null ? fisF(before) + ' → ' : ''}${fisF(after)}${before == null ? ' <span class="badge">初登録</span>' : better ? ' <span class="badge">更新！</span>' : ''}${fisBadge(after)}</dd>`;
+  const wr = fisWcRank(after, d);
+  if (wr) h += `<dt>W杯リスト換算</dt><dd>${wr}位相当</dd>`;
+  h += `</dl>`;
+  // how much faster this race would have lifted you into the next class
+  const c = fisClass(after), i = FIS_CLASS.indexOf(c);
+  if (i > 0 && fr.To && fr.F){
+    const thr = FIS_CLASS[i - 1][0] - .01, others = fisMine(g, d, fr.e).sort((a, b) => a - b);
+    const want = others.length ? 2 * thr - others[0] : thr / 1.2;
+    if (want > 0 && want < fr.p && (others.length < 2 || want <= others[1])){
+      const dt = (fr.p - want) / fr.F * fr.To;
+      if (dt < 4) h += `<p class="note">この大会であと <b>${dt.toFixed(2)}秒</b> 速ければ、<span class="fcls ${FIS_CLASS[i - 1][2]}">${FIS_CLASS[i - 1][1]}</span> に届いていました。</p>`;
+    }
+  }
+  if (CLOUD.url && !CLOUD.name) h += `<p class="note">ユーザー登録すると、みんなのFISポイントリストに載ります。</p>`;
+  return h;
+}
+// the shared list from the account server
+const FISL = { data: null, status: '', at: 0 };
+const FISV = { d: 'SL', live: false };
+async function loadFisList(force){
+  if (!CLOUD.url) return;
+  if (!force && FISL.data && performance.now() - FISL.at < 30000 && FISL.at) return;
+  FISL.status = 'loading';
+  try { const r = await (await fetch(CLOUD.url + '?action=fislist')).json(); if (r.ok){ FISL.data = r; FISL.status = 'ok'; FISL.at = performance.now(); } else FISL.status = 'error'; }
+  catch(e){ FISL.status = 'error'; }
+  if (tab === 'players' && RK === 'fis' && !$('#menu').hidden){ $('#tabBody').innerHTML = playersHTML(); bindRkTabs($('#tabBody')); }
+}
+function fisDay(ms){ const d = new Date(ms); return `${d.getMonth() + 1}/${d.getDate()}`; }
+function fisListHTML(){
+  const g = gender, G = g === 'men' ? '男子' : '女子';
+  let h = `<h3>FISポイントリスト（${G}）</h3>`;
+  h += `<div class="fis-sub">${[['SL', '回転'], ['GS', '大回転'], ['SG', 'スーパーG'], ['ALL', '総合']].map(([k, l]) => `<button type="button" class="rk-tab${FISV.d === k ? ' on' : ''}" data-fisd="${k}">${l}</button>`).join('')}</div>`;
+  h += `<div class="fis-sub">${[[0, '公式リスト（毎週月曜）'], [1, '速報（いまの結果まで）']].map(([k, l]) => `<button type="button" class="rk-tab${+FISV.live === k ? ' on' : ''}" data-fislive="${k}">${l}</button>`).join('')}</div>`;
+  // your own value (this device's results)
+  const my = fisMyAll(g);
+  const myAll = my.SL == null && my.GS == null ? null : fis2(((my.SL != null ? my.SL : FIS_MAX.SL) + (my.GS != null ? my.GS : FIS_MAX.GS)) / 2);
+  const mv = FISV.d === 'ALL' ? myAll : my[FISV.d];
+  h += `<div class="fis-me">あなたの実力ポイント（${FISV.d === 'ALL' ? '総合' : DISC[FISV.d]}）：<b>${fisF(mv)}</b>${fisBadge(mv)}${fisWcRank(mv, FISV.d) ? `　W杯リスト換算 ${fisWcRank(mv, FISV.d)}位相当` : ''}<br><small>${mv == null ? 'まだ結果がありません。ワールドカップのレースかインカレを完走すると付きます。' : 'リストでは、1位の人が0.00になるように全員から同じだけ引いて並べます。'}</small></div>`;
+  if (!CLOUD.url){ h += `<p class="note">みんなのリストは、公開サイト（ユーザー登録あり）で表示されます。</p>`; return h + fisRulesHTML(); }
+  if (!FISL.data){ h += `<p class="conn">${FISL.status === 'error' ? 'リストを読み込めませんでした。時間をおいて開き直してください。' : '読み込み中…'}</p>`; return h + fisRulesHTML(); }
+  const L = FISL.data, key = g + '-' + FISV.d, rows = ((FISV.live ? L.live : L.list) || {})[key] || [];
+  h += `<p class="note">${FISV.live ? `速報：いままでの結果を入れた暫定の順位です（矢印は公式リスト ${fisDay(L.cut)} との比較）。` : `公式リスト ${fisDay(L.cut)}（月）発表・次回 ${fisDay(L.cut + 7 * 864e5)}（月）。矢印は前の週との比較です。`}${FISV.d === 'ALL' ? '総合は回転と大回転の平均（出ていない種目は最大値 165／220 で計算）。' : ''}</p>`;
+  if (!rows.length) h += `<p class="note">${FISV.live ? 'まだ結果を出した登録プレーヤーはいません。' : 'この週のリストに載った人はまだいません。レースを完走すると、次の月曜のリストに載ります。'}</p>`;
+  else {
+    const youName = CLOUD.name || '';
+    const arrow = r => r.pr == null ? '<span class="fis-new">NEW</span>' : r.pr > r.rank ? `<span class="fis-up">↑${r.pr - r.rank}</span>` : r.pr < r.rank ? `<span class="fis-dn">↓${r.rank - r.pr}</span>` : '–';
+    h += table(['順位', '', 'プレーヤー', 'ポイント', '結果'], rows.slice(0, 200).map(r => `<tr class="${youName && r.name === youName ? 'me' : ''}"><td class="n">${r.rank === 1 ? '<span class="crown">👑</span>' : r.rank}</td><td class="r">${arrow(r)}</td><td>${flagH(r.nat || 'JPN')}${esc(r.name)}${youName && r.name === youName ? '（あなた）' : ''}${fisBadge(r.raw)}</td><td class="n">${fisF(r.p)}</td><td class="r">${r.n}</td></tr>`));
+  }
+  return h + fisRulesHTML();
+}
+function fisRulesHTML(){
+  return `<details class="fis-rules"><summary>ポイントの決まり方</summary><ul class="note">
+    <li>本物のFISポイントと同じ計算です。<b>小さいほど強い</b>。レースの点数＝（自分のタイム÷優勝タイム−1）×係数（回転730・大回転1010・スーパーG 1190）＋ペナルティ。</li>
+    <li>ペナルティは出場選手の強さで決まります（強い大会ほど小さい）。上位10人の中でポイントの良い5人と、出場者全体で良い5人から計算します。</li>
+    <li>リストの点数は、<b>最近8週間の良い方から2レースの平均</b>。1レースしかない人は2割増しです。</li>
+    <li>対象：ワールドカップのレース（シーズン・単発）、インカレ、オンラインのインカレ。タイムアタックとデュアルは対象外です。</li>
+    <li>クラス（実力ポイントで決まります）：${FIS_CLASS.map(c => `<span class="fcls ${c[2]}">${c[1]}</span>${isFinite(c[0]) ? ` ${c[0]}未満` : ''}`).join('　')}</li>
+    <li>公式リストは毎週月曜に発表。1位はLINE公式アカウントでお知らせします。オンラインのインカレでは、ポイントの良い人ほど前のスタート順になります（上位7人・15人はそれぞれの中で抽選）。</li></ul></details>`;
+}
 // Rankings hub: many leaderboards between registered players (season results, speed, time attack, gear, nations)
-let RK = 'pts';
-const RK_TABS = [['pts','シーズン総合'], ['wins','優勝回数'], ['podiums','表彰台'], ['top10','トップ10'], ['best','最高順位'], ['avg','平均順位'], ['vmax','最高速度'], ['races','出場レース'], ['ta','タイムアタック'], ['gear','使用マテリアル'], ['wingear','上位選手の用具'], ['nat','国別']];
+let RK = 'fis';
+const RK_TABS = [['fis','FISポイント'], ['pts','シーズン総合'], ['wins','優勝回数'], ['podiums','表彰台'], ['top10','トップ10'], ['best','最高順位'], ['avg','平均順位'], ['vmax','最高速度'], ['races','出場レース'], ['ta','タイムアタック'], ['gear','使用マテリアル'], ['wingear','上位選手の用具'], ['nat','国別']];
 function rkBar(label, n, max, extra, me){
   const w = max ? Math.max(3, n / max * 100) : 0;
   return `<div class="rkb${me ? ' me' : ''}"><span class="rkl">${label}</span><span class="rkt"><i style="width:${w}%"></i></span><span class="rkn">${extra}</span></div>`;
@@ -3291,7 +3437,8 @@ function playersHTML(){
     html += `<p class="note">リセットする前のシーズンの記録も含めた通算です（Ptはいまのシーズン）。</p>`;
     html += table(['順位', 'プレーヤー', unit, 'レース', 'Pt'], xs.slice(0, 100).map(r => `<tr class="${rowCls(r.name)}"><td class="n">${r._rk}</td><td>${esc(r.name)}${you(r.name)}</td><td class="n">${fmtV(val(r))}</td><td class="r">${r.races}</td><td class="r">${r.pts}</td></tr>`));
   };
-  if (RK === 'pts'){
+  if (RK === 'fis') html += fisListHTML();
+  else if (RK === 'pts'){
     html += `<h3>シーズン総合（${discJP()}・${gender === 'men' ? '男子' : '女子'}・${LEVEL_NAME[level]}）</h3>`;
     const w = needCloud();
     if (w) html += w;
@@ -3350,7 +3497,9 @@ function playersHTML(){
   return html;
 }
 function bindRkTabs(root){
-  root.querySelectorAll('[data-rk]').forEach(b => b.onclick = () => { RK = b.dataset.rk; root.innerHTML = playersHTML(); bindRkTabs(root); });
+  root.querySelectorAll('[data-rk]').forEach(b => b.onclick = () => { RK = b.dataset.rk; root.innerHTML = playersHTML(); bindRkTabs(root); if (RK === 'fis') loadFisList(); });
+  root.querySelectorAll('[data-fisd]').forEach(b => b.onclick = () => { FISV.d = b.dataset.fisd; root.innerHTML = playersHTML(); bindRkTabs(root); });
+  root.querySelectorAll('[data-fislive]').forEach(b => b.onclick = () => { FISV.live = b.dataset.fislive === '1'; root.innerHTML = playersHTML(); bindRkTabs(root); });
 }
 window.__slReloadPlayers = () => loadPlayers(true);
 // =====================================================================
@@ -5218,6 +5367,10 @@ function showFinal(){
     html += `<div><span class="big" style="font-size:40px">${why.includes('DSQ') ? 'DSQ' : why.includes('DNF') ? 'DNF' : '2本目進めず'}</span></div><p class="note">${why}。ポイントは0です。</p>`;
   }
   if (mv) html += movementHTML(mv);
+  if (me && (race.mode === 'career' || race.mode === 'exh')){
+    if (!race.fisRec) race.fisRec = fisRecord(race, res, 'wc', `${JP[race.ev.venue]} ${DISC[race.ev.disc || 'SL']}`, 'wc-' + gender + '-' + race.ev.date + '-' + Date.now());
+    html += fisResultHTML(race.fisRec);
+  }
   html += `<h3>最終結果${race.finals ? '（ファイナル：15位までポイント）' : '（30位までWCポイント）'}</h3>` + table(['順位','Bib','選手','国','1本目','2本目','合計','差','Pt'], rows);
   if (race.mode === 'career' && !saved) html += `<p class="note">このブラウザでは記録を保存できないため、シーズンの成績は残りません。</p>`;
   const seasonOver = race.mode === 'career' && race.ev.finals;
@@ -5379,7 +5532,7 @@ function renderTab(){
   else if (tab === 'stand') body.innerHTML = standingsHTML();
   else if (tab === 'ta') body.innerHTML = taListHTML();
   else if (tab === 'free'){ body.innerHTML = freeTabHTML(); bindFreeTab(body); }
-  else if (tab === 'players'){ body.innerHTML = playersHTML(); bindRkTabs(body); loadPlayers(); }
+  else if (tab === 'players'){ body.innerHTML = playersHTML(); bindRkTabs(body); loadPlayers(); loadFisList(); }
   else if (tab === 'battle'){ body.innerHTML = battleTabHTML(); bindBattleTab(body); }
   else if (tab === 'dual'){ body.innerHTML = dualTabHTML(); bindDualTab(body); }
   else if (tab === 'gear'){ body.innerHTML = gearEditorHTML(); bindGear(body); }
@@ -7043,6 +7196,7 @@ function bootGame(){ if (setupDone) showMenu(playMode === 'DUAL' ? 'dual' : 'cal
 // title screen with the game's version
 // what changed in each version (shown on the rules tab)
 const CHANGELOG = [
+  { v: '4.5.0', d: '2026.11.27', items: ['FISポイントリスト：本物のFISと同じ計算（タイム差×係数＋ペナルティ、最近8週間の良い2レースの平均）で、プレーヤーにポイントが付くように。小さいほど強く、リストの1位は0.00', 'ワールドカップのレース・インカレ・オンラインのインカレを完走すると、結果画面に「このレースのポイント」と「あなたのポイント」（更新・クラス・W杯リスト換算の順位・次のクラスまであと何秒）を表示', 'クラス分け：W杯級・ヨーロッパカップ級・FIS級・学連級・ルーキー', 'ランキングに「FISポイント」タブ（回転・大回転・スーパーG・総合、公式リスト／速報、前の週からの↑↓、1位に王冠）。公式リストは毎週月曜に発表し、1位をLINEでお知らせ', 'オンラインのインカレのスタート順を、FISと同じくポイント順に（上位7人・15人はその中で抽選）'] },
   { v: '4.4.11', d: '2026.11.27', items: ['「ルールと操作」タブに「お問い合わせ」：質問・不具合の報告・要望はLINE公式アカウント「アルペンレーサー」のトークで受け付け（友だち追加ボタンつき）'] },
   { v: '4.4.10', d: '2026.11.27', items: ['シーズン日程の「実際の結果」の選手名は、本物の名前に戻す（ゲームの中の選手は少し変えた名前のまま）'] },
   { v: '4.4.9', d: '2026.11.27', items: ['シーズン日程の「実際の結果」に出る選手名も、ゲームの選手と同じように少しだけつづりを変えた名前に'] },
@@ -7094,7 +7248,7 @@ const CHANGELOG = [
   { v: '1.1.0', d: '2026.11.20', items: ['トップ画面とバージョン表示を追加', '公式コースデータを参考に、緩斜面・急斜面のスピード変化を追加', 'スピードを調整', 'いろいろランキング（総合・優勝回数・最高速度・使用マテリアルなど）を追加', '1レース80人出場（ランキング74位まで＋75位以下から抽選）', '男子回転のライバルを実在の選手リストに変更'] },
   { v: '1.0.0', d: '', items: ['キッツビューエル風の表彰式、フリースキー（リズム旗門・用具の性能グラフ）', 'ナイターの照明、ゴーグルの影響、スタートゲートとスタートバー、高いスタート台', 'FISのスタート手順（10秒前・ブザー5回・遅れたら失格）', 'コースに残る滑走の跡、清水さん仕様、MARKSビンディング、ゴール後の隠しコマンド'] }
 ];
-const APP_VERSION = '4.4.11', APP_DATE = '2026.11.27';
+const APP_VERSION = '4.5.0', APP_DATE = '2026.11.27';
 function showTop(){
   incolLeave();
   $('#menu').hidden = true; $('#sheet').hidden = true; $('#lock').hidden = true;

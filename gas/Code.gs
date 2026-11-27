@@ -42,6 +42,7 @@ function doGet(e) {
   const a = (e && e.parameter && e.parameter.action) || '';
   if (a === 'board') return out_(board_());
   if (a === 'players') return out_(players_());
+  if (a === 'fislist') return out_(fislist_());
   return out_({ ok: true, app: 'slalom' });
 }
 
@@ -335,6 +336,7 @@ function room_ready_(q) {
   r.ready = r.ready || {};
   if (Number(q.on)) r.ready[name] = 1; else delete r.ready[name];
   if (q.uni && /^[A-Z]{3}$/.test(String(q.uni))) { r.uni = r.uni || {}; r.uni[name] = String(q.uni); }   // インカレ: the player's university
+  if (q.fp != null) { r.fp = r.fp || {}; r.fp[name] = fpParse_(q.fp); }                  // the player's FIS points (start order)
   roomPut_(r);
   return roomView_(r);
 }
@@ -372,6 +374,7 @@ function room_leave_(q) {
   r.members = r.members.filter(function (m) { return m !== name; });
   if (r.ready) delete r.ready[name];
   if (r.uni) delete r.uni[name];
+  if (r.fp) delete r.fp[name];
   rc_().remove(posKey_(r.code, name));
   if (!r.members.length) { rc_().remove('room_' + r.code); return { ok: true }; }
   if (r.host === name) r.host = r.members[0];
@@ -418,4 +421,113 @@ function registrantList() {
   s.setFrozenRows(2);
   s.autoResizeColumns(1, head.length);
   return real;
+}
+
+// ---------------------------------------------------------------------
+// FIS points list: every player's race points (kept by the game in "slalomwc-fis") made into a list the FIS way:
+// the average of the best two results of the last 8 weeks (one result: +20%), shown with the leader at 0.00.
+// The official list comes out every Monday 0:00 (Japan time) and uses the results before then;
+// "live" uses everything up to now. Test accounts (zz-…) are left out
+// ---------------------------------------------------------------------
+const FIS_MAX_ = { SL: 165, GS: 220, SG: 270 };
+const FIS_KEEP_ = 56 * 864e5;
+function fpParse_(s) {
+  let o = {}; try { o = typeof s === 'object' ? s : JSON.parse(String(s)); } catch (e) { o = {}; }
+  const out = {};
+  ['SL', 'GS', 'SG'].forEach(function (d) { const v = Number(o && o[d]); if (o && o[d] != null && isFinite(v) && v >= 0 && v < 2000) out[d] = Math.round(v * 100) / 100; });
+  return out;
+}
+function fisMonday_(now) {
+  const j = new Date(now + 9 * 36e5), day = (j.getUTCDay() + 6) % 7;
+  return Date.UTC(j.getUTCFullYear(), j.getUTCMonth(), j.getUTCDate()) - day * 864e5 - 9 * 36e5;
+}
+function fisResults_() {
+  const v = data_().getDataRange().getValues(), res = {}, nat = {};
+  for (let i = 1; i < v.length; i++) {
+    const name = String(v[i][0]), key = String(v[i][1]);
+    if (/^zz-/.test(name)) continue;
+    if (key === 'slalomwc-prefs') { try { nat[name] = String(JSON.parse(v[i][2] || '{}').nat || ''); } catch (e) {} continue; }
+    if (key !== 'slalomwc-fis') continue;
+    try {
+      const o = JSON.parse(v[i][2] || '{}');
+      res[name] = (o.res || []).filter(function (x) { return x && /^(men|women)$/.test(x.g) && FIS_MAX_[x.d] && isFinite(+x.p) && +x.p >= 0 && +x.at > 0; })
+        .map(function (x) { return { g: x.g, d: x.d, p: +x.p, at: +x.at }; });
+    } catch (e) {}
+  }
+  return { res: res, nat: nat };
+}
+function fisVal_(ps) {
+  if (!ps.length) return null;
+  ps.sort(function (a, b) { return a - b; });
+  return Math.round((ps.length >= 2 ? (ps[0] + ps[1]) / 2 : ps[0] * 1.2) * 100) / 100;
+}
+// the lists as they stood at time `at`: { 'men-SL': [{ name, nat, raw, p, rank, n }], ..., 'men-ALL': ... }
+function fisListAt_(R, at) {
+  const lists = {};
+  Object.keys(R.res).forEach(function (name) {
+    const mine = R.res[name].filter(function (x) { return x.at < at && x.at >= at - FIS_KEEP_; });
+    ['men', 'women'].forEach(function (g) {
+      const raw = {};
+      ['SL', 'GS', 'SG'].forEach(function (d) {
+        const ps = mine.filter(function (x) { return x.g === g && x.d === d; }).map(function (x) { return x.p; });
+        const val = fisVal_(ps);
+        if (val == null) return;
+        raw[d] = val;
+        (lists[g + '-' + d] = lists[g + '-' + d] || []).push({ name: name, nat: R.nat[name] || '', raw: val, n: ps.length });
+      });
+      if (raw.SL != null || raw.GS != null) {
+        const all = Math.round(((raw.SL != null ? raw.SL : FIS_MAX_.SL) + (raw.GS != null ? raw.GS : FIS_MAX_.GS)) / 2 * 100) / 100;
+        const n = mine.filter(function (x) { return x.g === g && (x.d === 'SL' || x.d === 'GS'); }).length;
+        (lists[g + '-ALL'] = lists[g + '-ALL'] || []).push({ name: name, nat: R.nat[name] || '', raw: all, n: n });
+      }
+    });
+  });
+  Object.keys(lists).forEach(function (k) {
+    const L = lists[k].sort(function (a, b) { return a.raw - b.raw || b.n - a.n; }), top = L[0].raw;
+    L.forEach(function (r) { r.p = Math.round((r.raw - top) * 100) / 100; r.rank = 1 + L.filter(function (x) { return x.raw < r.raw; }).length; });
+  });
+  return lists;
+}
+function fisWithPrev_(cur, prev) {
+  Object.keys(cur).forEach(function (k) {
+    const pm = {}; (prev[k] || []).forEach(function (r) { pm[r.name] = r.rank; });
+    cur[k].forEach(function (r) { r.pr = pm[r.name] != null ? pm[r.name] : null; });
+  });
+  return cur;
+}
+function fislist_() {
+  const now = Date.now(), cut = fisMonday_(now), R = fisResults_();
+  const list = fisWithPrev_(fisListAt_(R, cut), fisListAt_(R, cut - 7 * 864e5));
+  const live = fisWithPrev_(fisListAt_(R, now + 1), list);
+  fisWeekNews_(cut, list);
+  return { ok: true, cut: cut, list: list, live: live };
+}
+// once a week, when the new official list is first asked for: its leaders go to the LINE Official Account's friends
+function fisWeekNews_(cut, list) {
+  try {
+    const P = PropertiesService.getScriptProperties();
+    if (P.getProperty('fisWeek') === String(cut)) return;
+    const lock = LockService.getScriptLock();
+    if (!lock.tryLock(3000)) return;
+    try {
+      if (P.getProperty('fisWeek') === String(cut)) return;
+      P.setProperty('fisWeek', String(cut));
+      const names = { 'men-SL': '男子回転', 'men-GS': '男子大回転', 'men-SG': '男子スーパーG', 'men-ALL': '男子総合', 'women-SL': '女子回転', 'women-GS': '女子大回転', 'women-SG': '女子スーパーG', 'women-ALL': '女子総合' };
+      const lines = Object.keys(names).filter(function (k) { return list[k] && list[k].length; }).map(function (k) {
+        const tops = list[k].filter(function (r) { return r.rank === 1; }).map(function (r) { return r.name; }).join('・');
+        return '👑 ' + names[k] + '：' + tops + '（' + list[k].length + '人中）';
+      });
+      if (!lines.length) return;
+      const token = P.getProperty('LINE_TOKEN');
+      if (!token) return;
+      const d = new Date(cut + 9 * 36e5);
+      const text = '📋 FISポイントリスト ' + (d.getUTCMonth() + 1) + '/' + d.getUTCDate() + ' 発表\n\n' + lines.join('\n') +
+        '\n\nランキング →「FISポイント」で全員の順位が見られます\n▶ https://ameft-oyaji.github.io/slalom-game/';
+      UrlFetchApp.fetch('https://api.line.me/v2/bot/message/broadcast', {
+        method: 'post', contentType: 'application/json', muteHttpExceptions: true,
+        headers: { Authorization: 'Bearer ' + token },
+        payload: JSON.stringify({ messages: [{ type: 'text', text: text }] })
+      });
+    } finally { lock.releaseLock(); }
+  } catch (e) { /* the list itself is answered whatever happens here */ }
 }
