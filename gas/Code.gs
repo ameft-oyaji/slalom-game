@@ -84,6 +84,7 @@ function register_(q) {
   if (findUser_(name)) return { ok: false, error: 'taken' };
   const salt = Utilities.getUuid(), token = Utilities.getUuid();
   users_().appendRow([name, hash_(pin, salt), salt, token, new Date(), new Date(), 0]);
+  try { registrantList(); } catch (e) { /* the account is made whatever happens here */ }
   return { ok: true, name: name, token: token };
 }
 
@@ -376,4 +377,45 @@ function room_leave_(q) {
   if (r.host === name) r.host = r.members[0];
   roomPut_(r);
   return { ok: true };
+}
+
+// ---------------------------------------------------------------------
+// 登録者一覧 (for the owner only): a readable sheet of the registered players, rebuilt
+// whenever someone registers, from the spreadsheet menu 「スラローム」→「登録者一覧を更新」,
+// or by running registrantList from the editor. PINs, salts and tokens are never copied
+const SHEET_LIST = '登録者一覧';
+function onOpen() {
+  SpreadsheetApp.getUi().createMenu('スラローム').addItem('登録者一覧を更新', 'registrantList').addToUi();
+}
+function registrantList() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const u = users_().getDataRange().getValues(), d = data_().getDataRange().getValues(), t = ta_().getDataRange().getValues();
+  const last = {}, nat = {}, recs = {};
+  for (let i = 1; i < d.length; i++) {
+    const n = String(d[i][0]), at = d[i][3] instanceof Date ? d[i][3] : null;
+    if (at && (!last[n] || at > last[n])) last[n] = at;
+    if (d[i][1] === 'slalomwc-prefs') { try { nat[n] = String(JSON.parse(d[i][2] || '{}').nat || ''); } catch (e) {} }
+  }
+  for (let i = 1; i < t.length; i++) { const n = String(t[i][0]); recs[n] = (recs[n] || 0) + 1; }
+  const fmt = function (x) { return x instanceof Date ? Utilities.formatDate(x, 'Asia/Tokyo', 'yyyy/MM/dd HH:mm') : ''; };
+  const rows = [];
+  for (let i = 1; i < u.length; i++) {
+    const n = String(u[i][0]); if (!n) continue;
+    const late = [u[i][5], last[n]].filter(function (x) { return x instanceof Date; }).sort(function (a, b) { return b - a; })[0];
+    rows.push({ c: u[i][4] instanceof Date ? u[i][4] : new Date(0),
+      v: [n, nat[n] || '', fmt(u[i][4]), fmt(late), recs[n] || 0,
+          (/^zz-/.test(n) ? 'テスト用' : '') + (Number(u[i][6] || 0) >= 10 ? (/^zz-/.test(n) ? '・' : '') + 'PINロック中' : '')] });
+  }
+  rows.sort(function (a, b) { return b.c - a.c; });   // newest first
+  let s = ss.getSheetByName(SHEET_LIST);
+  if (!s) s = ss.insertSheet(SHEET_LIST);
+  s.clear();
+  const real = rows.filter(function (r) { return !/^zz-/.test(r.v[0]); }).length;
+  s.getRange(1, 1).setValue('登録者 ' + real + '人（テスト用を除く）　更新：' + fmt(new Date()));
+  const head = ['No.', '選手名', '国', '登録日', '最後に遊んだ日', 'コース記録の数', 'メモ'];
+  s.getRange(2, 1, 1, head.length).setValues([head]).setFontWeight('bold').setBackground('#0E1A2E').setFontColor('#ffffff');
+  if (rows.length) s.getRange(3, 1, rows.length, head.length).setValues(rows.map(function (r, i) { return [rows.length - i].concat(r.v); }));
+  s.setFrozenRows(2);
+  s.autoResizeColumns(1, head.length);
+  return real;
 }
