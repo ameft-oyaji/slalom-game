@@ -217,7 +217,7 @@ function players_() {
       try { const pf = JSON.parse(v[i][2] || '{}'); who[name] = { nat: String(pf.nat || ''), gear: pf.gear || {} }; } catch (e) {}
       continue;
     }
-    const m = /^slalomwc-2627-((?:men|women)-[a-z]+(?:-gs)?)(-arch)?$/.exec(key);   // slalom, giant slalom (-gs), kept seasons (-arch)
+    const m = /^slalomwc-2627-((?:men|women)-[a-z]+(?:-gs|-dh)?)(-arch)?$/.exec(key);   // slalom, giant slalom (-gs), kept seasons (-arch)
     if (!m) continue;
     try {
       const d = JSON.parse(v[i][2] || (m[2] ? '[]' : '{}')), id = name + '\u0001' + m[1];
@@ -429,12 +429,12 @@ function registrantList() {
 // The official list comes out every Monday 0:00 (Japan time) and uses the results before then;
 // "live" uses everything up to now. Test accounts (zz-…) are left out
 // ---------------------------------------------------------------------
-const FIS_MAX_ = { SL: 165, GS: 220, SG: 270 };
+const FIS_MAX_ = { SL: 165, GS: 220, SG: 270, DH: 330 };
 const FIS_KEEP_ = 56 * 864e5;
 function fpParse_(s) {
   let o = {}; try { o = typeof s === 'object' ? s : JSON.parse(String(s)); } catch (e) { o = {}; }
   const out = {};
-  ['SL', 'GS', 'SG'].forEach(function (d) { const v = Number(o && o[d]); if (o && o[d] != null && isFinite(v) && v >= 0 && v < 2000) out[d] = Math.round(v * 100) / 100; });
+  ['SL', 'GS', 'SG', 'DH'].forEach(function (d) { const v = Number(o && o[d]); if (o && o[d] != null && isFinite(v) && v >= 0 && v < 2000) out[d] = Math.round(v * 100) / 100; });
   return out;
 }
 function fisMonday_(now) {
@@ -468,7 +468,7 @@ function fisListAt_(R, at) {
     const mine = R.res[name].filter(function (x) { return x.at < at && x.at >= at - FIS_KEEP_; });
     ['men', 'women'].forEach(function (g) {
       const raw = {};
-      ['SL', 'GS', 'SG'].forEach(function (d) {
+      ['SL', 'GS', 'SG', 'DH'].forEach(function (d) {
         const ps = mine.filter(function (x) { return x.g === g && x.d === d; }).map(function (x) { return x.p; });
         const val = fisVal_(ps);
         if (val == null) return;
@@ -512,7 +512,7 @@ function fisWeekNews_(cut, list) {
     try {
       if (P.getProperty('fisWeek') === String(cut)) return;
       P.setProperty('fisWeek', String(cut));
-      const names = { 'men-SL': '男子回転', 'men-GS': '男子大回転', 'men-SG': '男子スーパーG', 'men-ALL': '男子総合', 'women-SL': '女子回転', 'women-GS': '女子大回転', 'women-SG': '女子スーパーG', 'women-ALL': '女子総合' };
+      const names = { 'men-SL': '男子回転', 'men-GS': '男子大回転', 'men-SG': '男子スーパーG', 'men-DH': '男子滑降', 'men-ALL': '男子総合', 'women-SL': '女子回転', 'women-GS': '女子大回転', 'women-SG': '女子スーパーG', 'women-DH': '女子滑降', 'women-ALL': '女子総合' };
       const lines = Object.keys(names).filter(function (k) { return list[k] && list[k].length; }).map(function (k) {
         const tops = list[k].filter(function (r) { return r.rank === 1; }).map(function (r) { return r.name; }).join('・');
         return '👑 ' + names[k] + '：' + tops + '（' + list[k].length + '人中）';

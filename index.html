@@ -132,7 +132,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
 .ik-ev .st{grid-column:4;grid-row:1/3;text-align:right;font-size:14px;white-space:nowrap}
 .ik-uni{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .top-disc.top-gk{grid-template-columns:repeat(2,1fr)}.top-disc.top-gk button{width:7.4em}
-.top-disc{margin:0 auto 14px;display:inline-grid;grid-template-columns:repeat(3,1fr)}.top-disc button{font-size:16px;padding:9px 0;width:6.2em;text-align:center}   /* three modes, all the same width */
+.top-disc{margin:0 auto 14px;display:inline-grid;grid-template-columns:repeat(4,1fr)}.top-disc button{font-size:16px;padding:9px 0;width:5.2em;text-align:center}   /* four modes, all the same width */
 .clog{margin:6px 0;padding:6px 10px;background:rgba(255,255,255,.06);border-radius:6px}.clog summary{cursor:pointer;font-weight:700}.clog ul{margin:6px 0 2px 18px;padding:0}.clog li{margin:3px 0;font-size:13px}
 .top-watch{min-width:220px;font-size:16px;background:rgba(255,255,255,.12);color:#fff;border:1px solid rgba(255,255,255,.4)}
 .pad{position:absolute;left:0;right:0;bottom:0;display:none;gap:8px;padding:0 max(10px,env(safe-area-inset-right,0px)) 12px max(10px,env(safe-area-inset-left,0px));pointer-events:none}
@@ -623,7 +623,7 @@ body.nightrace .ev-label,body.nightrace .ev-label *,body.nightrace #keys,body.ni
       <h1 class="top-title" id="topTitle">SLALOM<span>WORLD CUP</span></h1>
       <p class="top-sub" id="topSub">回転（スラローム）ワールドカップ</p>
       <div class="top-stripe"><i></i><i></i></div>
-      <div class="seg top-disc" role="group" aria-label="種目"><button type="button" id="tdSL" aria-pressed="true">回転</button><button type="button" id="tdGS" aria-pressed="false">大回転</button><button type="button" id="tdDual" aria-pressed="false">デュアル</button></div>
+      <div class="seg top-disc" role="group" aria-label="種目"><button type="button" id="tdSL" aria-pressed="true">回転</button><button type="button" id="tdGS" aria-pressed="false">大回転</button><button type="button" id="tdDH" aria-pressed="false">滑降</button><button type="button" id="tdDual" aria-pressed="false">デュアル</button></div>
       <div class="seg top-disc top-gk" id="tgSeg" role="group" aria-label="学連のモード" hidden><button type="button" id="tgIncol" aria-pressed="true">インカレ</button><button type="button" id="tgDual" aria-pressed="false">デュアル</button></div>
       <button class="btn primary top-go" type="button" id="topGo">スタート</button>
       <button class="btn top-watch" type="button" id="topWatch">観戦モード</button>
@@ -643,6 +643,7 @@ body.nightrace .ev-label,body.nightrace .ev-label *,body.nightrace #keys,body.ni
         <div class="seg" role="group" aria-label="種目">
           <button type="button" id="dSL" aria-pressed="true">回転</button>
           <button type="button" id="dGS" aria-pressed="false">大回転</button>
+          <button type="button" id="dDH" aria-pressed="false">滑降</button>
           <button type="button" id="dDual" aria-pressed="false">デュアル</button>
         </div>
         <div class="seg" role="group" aria-label="種別">
@@ -795,7 +796,7 @@ const nordic = (bg, c, inner) => `linear-gradient(${inner || c},${inner || c}) 7
 const tri = (a, b, c, dir) => `linear-gradient(${dir || '180deg'},${a} 0 33.4%,${b} 0 66.7%,${c} 0)`;
 const FLAG = {
   KSD: 'url(data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2016%22%3E%3Crect%20width%3D%2224%22%20height%3D%2216%22%20fill%3D%22%23fff%22%2F%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%228%22%20r%3D%226.9%22%20fill%3D%22%23fff%22%20stroke%3D%22%231B3C8C%22%20stroke-width%3D%221%22%2F%3E%3Cpath%20d%3D%22M6.9%207.4L7.9%205.4L9.6%204.2L11.8%203.7L14.0%204.0L15.9%205.0L17.0%206.9%22%20fill%3D%22none%22%20stroke%3D%22%231B3C8C%22%20stroke-width%3D%22.3%22%2F%3E%3Ccircle%20cx%3D%226.9%22%20cy%3D%227.4%22%20r%3D%220.6%22%20fill%3D%22%231B3C8C%22%2F%3E%3Ccircle%20cx%3D%227.9%22%20cy%3D%225.4%22%20r%3D%220.65%22%20fill%3D%22%231B3C8C%22%2F%3E%3Ccircle%20cx%3D%229.6%22%20cy%3D%224.2%22%20r%3D%220.6%22%20fill%3D%22%231B3C8C%22%2F%3E%3Ccircle%20cx%3D%2211.8%22%20cy%3D%223.7%22%20r%3D%220.7%22%20fill%3D%22%231B3C8C%22%2F%3E%3Ccircle%20cx%3D%2214.0%22%20cy%3D%224.0%22%20r%3D%220.6%22%20fill%3D%22%231B3C8C%22%2F%3E%3Ccircle%20cx%3D%2215.9%22%20cy%3D%225.0%22%20r%3D%220.65%22%20fill%3D%22%231B3C8C%22%2F%3E%3Ccircle%20cx%3D%2217.0%22%20cy%3D%226.9%22%20r%3D%220.6%22%20fill%3D%22%231B3C8C%22%2F%3E%3Ctext%20x%3D%2212%22%20y%3D%2212.9%22%20text-anchor%3D%22middle%22%20font-size%3D%227%22%20font-weight%3D%22700%22%20fill%3D%22%231B3C8C%22%20font-family%3D%22Noto%20Serif%20JP%2CYu%20Mincho%2CHiragino%20Mincho%20ProN%2Cserif%22%3E%E5%AD%B8%3C%2Ftext%3E%3C%2Fsvg%3E) center/100% 100% no-repeat,#fff',   // original emblem: navy ring, the Big Dipper and 學
-  AUT: tri('#C8102E','#fff','#C8102E'), GER: tri('#000','#DD0000','#FFCE00'), FRA: tri('#002395','#fff','#ED2939','90deg'), ITA: tri('#009246','#fff','#CE2B37','90deg'),
+  CHI: 'linear-gradient(to bottom, #fff 50%, #D52B1E 50%)', AUT: tri('#C8102E','#fff','#C8102E'), GER: tri('#000','#DD0000','#FFCE00'), FRA: tri('#002395','#fff','#ED2939','90deg'), ITA: tri('#009246','#fff','#CE2B37','90deg'),
   CRO: tri('#FF0000','#fff','#171796'), SLO: 'radial-gradient(ellipse 3px 3.6px at 30% 45%,#005DA4 0 2.6px,#fff 2.6px 3px,transparent 3.2px),' + tri('#fff','#005DA4','#ED1C24'), SVK: 'radial-gradient(ellipse 3.2px 4px at 33% 50%,#EE1C25 0 2.8px,#fff 2.8px 3.3px,transparent 3.5px),' + tri('#fff','#0B4EA2','#EE1C25'), AND: tri('#10069F','#FEDD00','#D50032','90deg'),
   SUI: 'linear-gradient(#fff,#fff) center/12px 4px no-repeat,linear-gradient(#fff,#fff) center/4px 12px no-repeat,#DA291C',
   NOR: nordic('#BA0C2F', '#fff', '#00205B'), SWE: nordic('#006AA7', '#FECC00'), FIN: nordic('#fff', '#002F6C'),
@@ -1199,14 +1200,16 @@ const NAMES = {
 const MEN_FIELD = [["MCGRATH Atle Lie", "NOR", 0.0], ["STENMARK Ingemar", "SWE", 0.0], ["KRISTOFFERSEN Henrik", "NOR", 0.46], ["TOMBA Alberto", "ITA", 0.48], ["HAUGAN Timon", "NOR", 0.67], ["RAICH Benjamin", "AUT", 0.69], ["RASSAT Paco", "FRA", 0.87], ["GIRARDELLI Marc", "LUX", 0.87], ["MATT Mario", "AUT", 0.87], ["KOSTELIĆ Ivica", "CRO", 0.88], ["PINHEIRO BRAATHEN Lucas", "BRA", 0.89], ["NOEL Clement", "FRA", 0.98], ["SYKORA Thomas", "AUT", 1.0], ["NIERLICH Rudolf", "AUT", 1.34], ["MEILLARD Loic", "SUI", 1.54], ["OKABE Tetsuya", "JPN", 1.66], ["MARCHANT Armand", "BEL", 2.84], ["ZURBRIGGEN Pirmin", "SUI", 2.9], ["HALLBERG Eduard", "FIN", 2.94], ["FELLER Manuel", "AUT", 3.25], ["KIMURA Kiminobu", "JPN", 3.26], ["STRASSER Linus", "GER", 3.27], ["NEF Tanguy", "SUI", 4.14], ["MATT Michael", "AUT", 4.85], ["SOLBERG Eirik Hystad", "NOR", 5.19], ["MINAGAWA Kentaro", "JPN", 5.22], ["GSTREIN Fabio", "AUT", 5.28], ["AMIEZ Steven", "FRA", 5.32], ["RASCHNER Dominik", "AUT", 5.73], ["MUFFAT-JEANDET Victor", "FRA", 6.9], ["VINATZER Alex", "ITA", 7.81], ["SANDVIK Oscar Andreas", "NOR", 8.02], ["POPOV Albert", "BUL", 8.38], ["YULE Daniel", "SUI", 8.67], ["SCHWARZ Marco", "AUT", 8.93], ["TAYLOR Laurie", "GBR", 9.17], ["KOLEGA Samuel", "CRO", 9.37], ["SALA Tommaso", "ITA", 9.65], ["RUELAND Simon", "AUT", 9.95], ["STURM Joshua", "AUT", 10.5], ["AZZOLIN Antoine", "FRA", 10.64], ["GRAHL-MADSEN Hans", "NOR", 10.87], ["STEEN OLSEN Alexander", "NOR", 10.99], ["AULNETTE Auguste", "FRA", 11.39], ["AX SWARTZ Fabian", "SWE", 11.45], ["ZUBCIC Filip", "CRO", 11.88], ["STROLZ Johannes", "AUT", 12.06], ["ZENHAEUSERN Ramon", "SUI", 12.18], ["RITCHIE Benjamin", "USA", 12.34], ["SEYMOUR Jett", "USA", 12.58], ["PINTURAULT Alexis", "FRA", 12.74], ["ITEN Matthias", "SUI", 13.35], ["MAJOR Billy", "GBR", 13.49], ["POHJOLAINEN Jesper", "FIN", 13.8], ["MAES Sam", "BEL", 13.88], ["SACCARDI Tommaso", "ITA", 13.91], ["SALARICH BAUCELLS Joaquim", "ESP", 14.05], ["JAKOBSEN Kristoffer", "SWE", 14.95], ["SARACCO Edoardo", "ITA", 15.32], ["DESGRIPPES Hugo", "FRA", 15.41], ["JUNG Donghyun", "KOR", 15.58], ["PUCKETT Cooper", "USA", 15.84], ["AIHARA Shiro", "JPN", 17.26], ["KOYAMA Yohei", "JPN", 17.37], ["HERLAND Johs Braathen", "NOR", 17.39], ["HANSSON William", "SWE", 17.41], ["PALMQUIST Jevin", "USA", 17.48], ["MEISSL Christoph", "AUT", 17.88], ["SIMONET Sandro", "SUI", 18.08], ["GREBER Jakob", "AUT", 18.1], ["CANINS Matteo", "ITA", 18.17], ["AERNI Luca", "SUI", 18.54], ["KASTLUNGER Tobias", "ITA", 18.61], ["GARAY FERNANDEZ Aingeru", "ESP", 18.95], ["MUHLEN-SCHULTE Louis", "AUS", 19.22], ["HIMMELSBACH Fabian", "GER", 19.34], ["MCADAM Hugh", "AUS", 19.56], ["FOURNIER Simon", "CAN", 19.88], ["HODER Maximilien", "USA", 19.91], ["KVAEL Elias Hartford", "NOR", 20.35], ["UNDERHILL Bradshaw", "USA", 20.41], ["WALLACE Liam", "CAN", 20.61], ["HAGAN Sebastian", "NOR", 20.62], ["BRAEKKEN Theodor", "NOR", 20.65], ["KOYAMA Takayuki", "JPN", 20.74], ["BUZEK Stanley", "USA", 20.77], ["PERTL Adrian", "AUT", 20.81], ["WAHLQVIST Filip", "NOR", 20.9], ["WINTERS Luke", "USA", 20.9], ["RODES Istok", "CRO", 20.91], ["KATO Seigo", "JPN", 20.92], ["DEL CAMPO HERNANDEZ Juan", "ESP", 20.99]];
 // men's giant slalom rivals: [name, nation, FIS GS points]. 0.00 is the strongest
 const MEN_GS_FIELD = [["ODERMATT Marco", "SUI", 0.0], ["PINHEIRO BRAATHEN Lucas", "BRA", 0.0], ["STEEN OLSEN Alexander", "NOR", 0.0], ["NIERLICH Rudolf", "AUT", 0.0], ["STENMARK Ingemar", "SWE", 0.0], ["TOMBA Alberto", "ITA", 0.0], ["RAICH Benjamin", "AUT", 0.0], ["MEILLARD Loic", "SUI", 1.38], ["ZURBRIGGEN Pirmin", "SUI", 1.4], ["BRENNSTEINER Stefan", "AUT", 1.46], ["SCHWARZ Marco", "AUT", 2.97], ["MAHRE Phil", "USA", 2.98], ["MCGRATH Atle Lie", "NOR", 3.27], ["NYBERG Fredrik", "SWE", 3.28], ["MAIER Hermann", "AUT", 4.0], ["RADAMUS River", "USA", 4.72], ["VINATZER Alex", "ITA", 4.82], ["GIRARDELLI Marc", "LUX", 4.83], ["KRISTOFFERSEN Henrik", "NOR", 4.99], ["MILLER Bode", "USA", 5.0], ["AERNI Luca", "SUI", 5.52], ["HAUGAN Timon", "NOR", 5.52], ["ANGUENOT Leo", "FRA", 7.66], ["GRATZ Fabian", "GER", 7.83], ["KRANJEC Zan", "SLO", 8.2], ["FEURSTEIN Patrick", "AUT", 8.24], ["MAES Sam", "BEL", 8.37], ["TUMLER Thomas", "SUI", 8.86], ["FAVROT Thibaut", "FRA", 8.99], ["ELEZI CANNAFERINA Alban", "FRA", 9.08], ["PINTURAULT Alexis", "FRA", 9.19], ["HAASER Raphael", "AUT", 9.33], ["CAVIEZEL Gino", "SUI", 10.02], ["SCHMID Alexander", "GER", 10.72], ["SANDVIK Oscar Andreas", "NOR", 11.07], ["ZUBCIC Filip", "CRO", 11.16], ["SOLBERG Eirik Hystad", "NOR", 11.42], ["VERDU Joan", "AND", 11.77], ["GRAMMEL Anton", "GER", 13.2], ["STURM Joshua", "AUT", 13.33], ["DELLA VITE Filippo", "ITA", 13.42], ["SARCHETT Ryder", "USA", 13.77], ["STOCKINGER Jonas", "GER", 13.78], ["HANSSON William", "SWE", 14.09], ["AX SWARTZ Fabian", "SWE", 14.38], ["PARAND Loevan", "FRA", 14.9], ["BORGNAES Christian", "DEN", 15.0], ["GRAHL-MADSEN Hans", "NOR", 15.14], ["JANUTIN Fadri", "SUI", 15.14], ["FORD Tommy", "USA", 15.21], ["GILE Bridger", "USA", 15.26], ["VITALE Flavio", "FRA", 15.35], ["ANDRIENKO Aleksander", "AIN", 15.36], ["KATO Seigo", "JPN", 15.41], ["BORSOTTI Giovanni", "ITA", 15.46], ["ZURBRUEGG Sandro", "SUI", 15.48], ["NELSON Isaiah", "USA", 15.5], ["AUBERT SERRACANTA Aleix", "ESP", 16.11], ["HAECHLER Lenz", "SUI", 16.19], ["ORTEGA FORNESA Albert", "ESP", 16.38], ["DE ALIPRANDINI Luca", "ITA", 17.16], ["HERLAND Johs Braathen", "NOR", 17.24], ["FEURSTEIN Lukas", "AUT", 17.35], ["CARRICK-SMITH Freddy", "GBR", 17.49], ["PALAMARAS Nickco", "GER", 17.58], ["KASTLUNGER Tobias", "ITA", 17.93], ["BAKKEVIG Rasmus", "NOR", 17.97], ["ZAMPA Andreas", "SVK", 17.98], ["ROENNGREN Mattias", "SWE", 18.38], ["HAGEN Storm Andre", "NOR", 18.63], ["DRUKAROV Andrej", "LTU", 18.78], ["MUHLEN-SCHULTE Louis", "AUS", 18.95], ["FAVRE Guerlain", "FRA", 19.02], ["BRAEKKEN Theodor", "NOR", 19.39], ["TALACCI Simon", "ITA", 19.47], ["HALLBERG Eduard", "FIN", 19.52], ["LARDON Thomas", "FRA", 19.79], ["LINBERG Hermann Fjeldavlie", "NOR", 19.81], ["ZWISCHENBRUGGER Noel", "AUT", 19.92], ["WINDINGSTAD Rasmus", "NOR", 20.0], ["AMMAN Hannes", "GER", 20.2], ["KUZNETSOV Ivan", "AIN", 20.3], ["GARAY FERNANDEZ Aingeru", "ESP", 20.66], ["READ Erik", "CAN", 20.98], ["LAINE Tormis", "EST", 21.21], ["HAGAN Sebastian", "NOR", 21.26], ["REMSOEY Mikkel", "NOR", 21.33], ["KENNEY Patrick", "USA", 21.5], ["UNDERHILL Bradshaw", "USA", 21.59], ["GUNLEIKSRUD Halvor Hilde", "NOR", 21.65]];
+// men's downhill rivals: [name, nation, FIS DH points]. 0.00 is the strongest (legends included)
+const MEN_DH_FIELD = [["ODERMATT Marco", "SUI", 0.0], ["KLAMMER Franz", "AUT", 0.0], ["MAIER Hermann", "AUT", 0.0], ["CUCHE Didier", "SUI", 0.0], ["VON ALLMEN Franjo", "SUI", 0.0], ["KRIECHMAYR Vincent", "AUT", 1.2], ["PARIS Dominik", "ITA", 2.1], ["FRANZONI Giovanni", "ITA", 2.9], ["MONNEY Alexis", "SUI", 3.6], ["ROGENTIN Stefan", "SUI", 5.0], ["CRAWFORD James", "CAN", 5.8], ["SARRAZIN Cyprien", "FRA", 6.5], ["CASSE Mattia", "ITA", 7.1], ["SCHIEDER Florian", "ITA", 7.9], ["COCHRAN-SIEGLE Ryan", "USA", 8.6], ["HEMETSBERGER Daniel", "AUT", 9.3], ["BABINSKY Stefan", "AUT", 10.0], ["HROBAT Miha", "SLO", 10.8], ["KOHLER Marco", "SUI", 11.5], ["SMISETH SEJERSTED Adrian", "NOR", 12.1], ["MOELLER Fredrik", "NOR", 12.9], ["ALLEGRE Nils", "FRA", 13.6], ["BENNETT Bryce", "USA", 14.2], ["NEGOMIR Kyle", "USA", 14.9], ["GOLDBERG Jared", "USA", 15.5], ["MORSE Sam", "USA", 16.2], ["MURISIER Justin", "SUI", 16.8], ["HINTERMANN Niels", "SUI", 17.5], ["HAASER Raphael", "AUT", 18.1], ["STRIEDINGER Otmar", "AUT", 18.8], ["INNERHOFER Christof", "ITA", 19.4], ["CATER Martin", "SLO", 20.1], ["BOSCA Guglielmo", "ITA", 20.7], ["AAMODT KILDE Aleksander", "NOR", 21.4], ["SCHWARZ Marco", "AUT", 22.0], ["DANKLMAIER Daniel", "AUT", 22.7], ["FEURSTEIN Lukas", "AUT", 23.3], ["JOCHER Simon", "GER", 24.0], ["BAUMANN Romed", "GER", 24.6], ["FERSTL Josef", "GER", 25.3], ["SCHWAIGER Dominik", "GER", 25.9], ["SEGER Brodie", "CAN", 26.6], ["READ Jeffrey", "CAN", 27.2], ["ALEXANDER Cameron", "CAN", 27.9], ["VON APPEN Henrik", "CHI", 28.5], ["GIEZENDANNER Blaise", "FRA", 29.2], ["BAILET Matthieu", "FRA", 29.8], ["LEHTO Elian", "FIN", 30.5], ["ZABYSTRAN Jan", "CZE", 31.1], ["PINTURAULT Alexis", "FRA", 31.8], ["ROULIN Gilles", "SUI", 32.4], ["THOMPSON Broderick", "CAN", 33.1], ["PLOIER Andreas", "AUT", 33.7], ["ALPHAND Nils", "FRA", 34.4], ["WALDER Christopher", "AUT", 35.0], ["SANDER Andreas", "GER", 35.7], ["WEBER Ralph", "SUI", 36.3], ["KRYENBUEHL Urs", "SUI", 36.9], ["MARSAGLIA Matteo", "ITA", 37.5], ["BUZZI Emanuele", "ITA", 38.1], ["NYMAN Steven", "USA", 38.7], ["GANONG Travis", "USA", 39.3], ["ARVIDSSON Erik", "USA", 39.9], ["THEAUX Adrien", "FRA", 40.5], ["CLAREY Johan", "FRA", 41.1], ["MUZATON Maxence", "FRA", 41.7]];
 // the men's World Cup racers appear under slightly changed names (the lists above keep the real ones)
-const WC_ALT = {"MCGRATH Atle Lie": "MCGRAT Atlee Lie", "STENMARK Ingemar": "STENMARC Ingemer", "KRISTOFFERSEN Henrik": "KRISTOFERSEN Henric", "TOMBA Alberto": "TOMBE Albarto", "HAUGAN Timon": "HAOGAN Timun", "RAICH Benjamin": "REICH Benjamyn", "RASSAT Paco": "RASAT Pako", "GIRARDELLI Marc": "GIRARDELI Mark", "MATT Mario": "MAT Maryo", "KOSTELIĆ Ivica": "KOSTELYĆ Iwica", "PINHEIRO BRAATHEN Lucas": "PINHAIRO BRAATHEN Lukas", "NOEL Clement": "NOAL Clemant", "SYKORA Thomas": "SIKORA Thomes", "NIERLICH Rudolf": "NEIRLICH Rudulf", "MEILLARD Loic": "MEILARD Loik", "OKABE Tetsuya": "OCABE Tetsuia", "MARCHANT Armand": "MARCHENT Armend", "ZURBRIGGEN Pirmin": "ZURBRIGGAN Pirmyn", "HALLBERG Eduard": "HALBERG Eduerd", "FELLER Manuel": "FELER Manual", "KIMURA Kiminobu": "KIMURE Kiminubu", "STRASSER Linus": "STRASER Linos", "NEF Tanguy": "NAF Tangui", "MATT Michael": "MAT Michaal", "SOLBERG Eirik Hystad": "SOLBARG Eiric Hystad", "MINAGAWA Kentaro": "MINAGAVA Kentero", "GSTREIN Fabio": "GSTRAIN Fabyo", "AMIEZ Steven": "AMEIZ Stewen", "RASCHNER Dominik": "RASHNER Dominic", "MUFFAT-JEANDET Victor": "MUFAT-JEANDET Viktor", "VINATZER Alex": "VINATSER Aleks", "SANDVIK Oscar Andreas": "SANDWIK Oskar Andreas", "POPOV Albert": "POPOW Albart", "YULE Daniel": "YULA Daneil", "SCHWARZ Marco": "SCHVARZ Marko", "TAYLOR Laurie": "TAILOR Laurei", "KOLEGA Samuel": "KOLEGE Samual", "SALA Tommaso": "SALE Tomaso", "RUELAND Simon": "RUELEND Simun", "STURM Joshua": "STORM Joshoa", "AZZOLIN Antoine": "AZOLIN Antoyne", "GRAHL-MADSEN Hans": "GRAHL-MADSAN Hens", "STEEN OLSEN Alexander": "STEN OLSEN Aleksander", "AULNETTE Auguste": "AULNETE Augoste", "AX SWARTZ Fabian": "AX SVARTZ Fabien", "ZUBCIC Filip": "ZUBCIK Filyp", "STROLZ Johannes": "STROLS Johanes", "ZENHAEUSERN Ramon": "ZENHAEUSARN Ramun", "RITCHIE Benjamin": "RITCHEI Benjamyn", "SEYMOUR Jett": "SEYMUR Jet", "PINTURAULT Alexis": "PINTURAOLT Aleksis", "ITEN Matthias": "ITAN Mathias", "MAJOR Billy": "MAJUR Bily", "POHJOLAINEN Jesper": "POHJOLEINEN Jespar", "MAES Sam": "MAAS Sem", "SACCARDI Tommaso": "SACCARDY Tomaso", "SALARICH BAUCELLS Joaquim": "SALARYCH BAUCELLS Joaquym", "JAKOBSEN Kristoffer": "JACOBSEN Kristofer", "SARACCO Edoardo": "SARACCU Edoerdo", "DESGRIPPES Hugo": "DESGRIPES Hogo", "JUNG Donghyun": "JONG Donghiun", "PUCKETT Cooper": "PUCKET Coopar", "AIHARA Shiro": "AIHARE Shyro", "KOYAMA Yohei": "KOIAMA Yohai", "HERLAND Johs Braathen": "HERLEND Juhs Braathen", "HANSSON William": "HANSON Wiliam", "PALMQUIST Jevin": "PALMQUYST Jewin", "MEISSL Christoph": "MEISL Christof", "SIMONET Sandro": "SIMONAT Sendro", "GREBER Jakob": "GREBAR Jacob", "CANINS Matteo": "CANYNS Mateo", "AERNI Luca": "AERNY Luka", "KASTLUNGER Tobias": "KASTLUNGAR Tobies", "GARAY FERNANDEZ Aingeru": "GARAY FERNANDES Aingaru", "MUHLEN-SCHULTE Louis": "MUHLEN-SHULTE Luis", "HIMMELSBACH Fabian": "HIMELSBACH Fabien", "MCADAM Hugh": "MCADEM Hogh", "FOURNIER Simon": "FOURNEIR Simun", "HODER Maximilien": "HODAR Maximilein", "KVAEL Elias Hartford": "KWAEL Elies Hartford", "UNDERHILL Bradshaw": "UNDERHIL Bradshav", "WALLACE Liam": "WALACE Liem", "HAGAN Sebastian": "HAGEN Sebastien", "BRAEKKEN Theodor": "BRAECKEN Theodur", "KOYAMA Takayuki": "KOIAMA Takaiuki", "BUZEK Stanley": "BUZEC Stanlei", "PERTL Adrian": "PARTL Adrien", "WAHLQVIST Filip": "WAHLQWIST Filyp", "WINTERS Luke": "WINTARS Luce", "RODES Istok": "RODAS Istoc", "KATO Seigo": "KATU Saigo", "DEL CAMPO HERNANDEZ Juan": "DEL CAMPO HERNANDES Juen", "ODERMATT Marco": "ODERMAT Marko", "BRENNSTEINER Stefan": "BRENSTEINER Stefen", "MAHRE Phil": "MAHRA Phyl", "NYBERG Fredrik": "NIBERG Fredric", "MAIER Hermann": "MAEIR Herman", "RADAMUS River": "RADAMOS Riwer", "MILLER Bode": "MILER Bude", "ANGUENOT Leo": "ANGUENUT Lao", "GRATZ Fabian": "GRATS Fabien", "KRANJEC Zan": "KRANJEK Zen", "FEURSTEIN Patrick": "FEURSTAIN Patrik", "TUMLER Thomas": "TUMLAR Thomes", "FAVROT Thibaut": "FAWROT Thibaot", "ELEZI CANNAFERINA Alban": "ELEZI CANAFERINA Alben", "HAASER Raphael": "HAASAR Rafael", "CAVIEZEL Gino": "CAVEIZEL Gyno", "SCHMID Alexander": "SCHMYD Aleksander", "VERDU Joan": "VERDO Joen", "GRAMMEL Anton": "GRAMEL Antun", "DELLA VITE Filippo": "DELA VITE Filipo", "SARCHETT Ryder": "SARCHET Rider", "STOCKINGER Jonas": "STOKINGER Jones", "PARAND Loevan": "PAREND Loewan", "BORGNAES Christian": "BORGNAAS Christien", "JANUTIN Fadri": "JANUTYN Fedri", "FORD Tommy": "FURD Tomy", "GILE Bridger": "GILA Bridgar", "VITALE Flavio": "VITALA Flawio", "ANDRIENKO Aleksander": "ANDREINKO Alecsander", "BORSOTTI Giovanni": "BORSOTI Giovani", "ZURBRUEGG Sandro": "ZURBRUAGG Sendro", "NELSON Isaiah": "NELSUN Iseiah", "AUBERT SERRACANTA Aleix": "AUBERT SERACANTA Alaix", "HAECHLER Lenz": "HAECHLAR Lens", "ORTEGA FORNESA Albert": "ORTEGA FORNESE Albart", "DE ALIPRANDINI Luca": "DE ALIPRANDINY Luka", "FEURSTEIN Lukas": "FEURSTAIN Lucas", "CARRICK-SMITH Freddy": "CARICK-SMITH Freddi", "PALAMARAS Nickco": "PALAMARES Nikco", "BAKKEVIG Rasmus": "BAKKEWIG Rasmos", "ZAMPA Andreas": "ZAMPE Andrees", "ROENNGREN Mattias": "ROENGREN Matias", "HAGEN Storm Andre": "HAGAN Sturm Andre", "DRUKAROV Andrej": "DRUKAROW Andraj", "FAVRE Guerlain": "FAWRE Guerlein", "TALACCI Simon": "TALACCY Simun", "LARDON Thomas": "LARDUN Thomes", "LINBERG Hermann Fjeldavlie": "LINBARG Herman Fjeldavlie", "ZWISCHENBRUGGER Noel": "ZWISHENBRUGGER Noal", "WINDINGSTAD Rasmus": "WINDINGSTED Rasmos", "AMMAN Hannes": "AMAN Hanes", "KUZNETSOV Ivan": "KUZNETSOW Iwan", "READ Erik": "REED Eric", "LAINE Tormis": "LEINE Tormys", "REMSOEY Mikkel": "REMSOEI Mickel", "KENNEY Patrick": "KENEY Patrik", "GUNLEIKSRUD Halvor Hilde": "GUNLAIKSRUD Halwor Hilde"};
+const WC_ALT = {"MCGRATH Atle Lie": "MCGRAT Atlee Lie", "STENMARK Ingemar": "STENMARC Ingemer", "KRISTOFFERSEN Henrik": "KRISTOFERSEN Henric", "TOMBA Alberto": "TOMBE Albarto", "HAUGAN Timon": "HAOGAN Timun", "RAICH Benjamin": "REICH Benjamyn", "RASSAT Paco": "RASAT Pako", "GIRARDELLI Marc": "GIRARDELI Mark", "MATT Mario": "MAT Maryo", "KOSTELIĆ Ivica": "KOSTELYĆ Iwica", "PINHEIRO BRAATHEN Lucas": "PINHAIRO BRAATHEN Lukas", "NOEL Clement": "NOAL Clemant", "SYKORA Thomas": "SIKORA Thomes", "NIERLICH Rudolf": "NEIRLICH Rudulf", "MEILLARD Loic": "MEILARD Loik", "OKABE Tetsuya": "OCABE Tetsuia", "MARCHANT Armand": "MARCHENT Armend", "ZURBRIGGEN Pirmin": "ZURBRIGGAN Pirmyn", "HALLBERG Eduard": "HALBERG Eduerd", "FELLER Manuel": "FELER Manual", "KIMURA Kiminobu": "KIMURE Kiminubu", "STRASSER Linus": "STRASER Linos", "NEF Tanguy": "NAF Tangui", "MATT Michael": "MAT Michaal", "SOLBERG Eirik Hystad": "SOLBARG Eiric Hystad", "MINAGAWA Kentaro": "MINAGAVA Kentero", "GSTREIN Fabio": "GSTRAIN Fabyo", "AMIEZ Steven": "AMEIZ Stewen", "RASCHNER Dominik": "RASHNER Dominic", "MUFFAT-JEANDET Victor": "MUFAT-JEANDET Viktor", "VINATZER Alex": "VINATSER Aleks", "SANDVIK Oscar Andreas": "SANDWIK Oskar Andreas", "POPOV Albert": "POPOW Albart", "YULE Daniel": "YULA Daneil", "SCHWARZ Marco": "SCHVARZ Marko", "TAYLOR Laurie": "TAILOR Laurei", "KOLEGA Samuel": "KOLEGE Samual", "SALA Tommaso": "SALE Tomaso", "RUELAND Simon": "RUELEND Simun", "STURM Joshua": "STORM Joshoa", "AZZOLIN Antoine": "AZOLIN Antoyne", "GRAHL-MADSEN Hans": "GRAHL-MADSAN Hens", "STEEN OLSEN Alexander": "STEN OLSEN Aleksander", "AULNETTE Auguste": "AULNETE Augoste", "AX SWARTZ Fabian": "AX SVARTZ Fabien", "ZUBCIC Filip": "ZUBCIK Filyp", "STROLZ Johannes": "STROLS Johanes", "ZENHAEUSERN Ramon": "ZENHAEUSARN Ramun", "RITCHIE Benjamin": "RITCHEI Benjamyn", "SEYMOUR Jett": "SEYMUR Jet", "PINTURAULT Alexis": "PINTURAOLT Aleksis", "ITEN Matthias": "ITAN Mathias", "MAJOR Billy": "MAJUR Bily", "POHJOLAINEN Jesper": "POHJOLEINEN Jespar", "MAES Sam": "MAAS Sem", "SACCARDI Tommaso": "SACCARDY Tomaso", "SALARICH BAUCELLS Joaquim": "SALARYCH BAUCELLS Joaquym", "JAKOBSEN Kristoffer": "JACOBSEN Kristofer", "SARACCO Edoardo": "SARACCU Edoerdo", "DESGRIPPES Hugo": "DESGRIPES Hogo", "JUNG Donghyun": "JONG Donghiun", "PUCKETT Cooper": "PUCKET Coopar", "AIHARA Shiro": "AIHARE Shyro", "KOYAMA Yohei": "KOIAMA Yohai", "HERLAND Johs Braathen": "HERLEND Juhs Braathen", "HANSSON William": "HANSON Wiliam", "PALMQUIST Jevin": "PALMQUYST Jewin", "MEISSL Christoph": "MEISL Christof", "SIMONET Sandro": "SIMONAT Sendro", "GREBER Jakob": "GREBAR Jacob", "CANINS Matteo": "CANYNS Mateo", "AERNI Luca": "AERNY Luka", "KASTLUNGER Tobias": "KASTLUNGAR Tobies", "GARAY FERNANDEZ Aingeru": "GARAY FERNANDES Aingaru", "MUHLEN-SCHULTE Louis": "MUHLEN-SHULTE Luis", "HIMMELSBACH Fabian": "HIMELSBACH Fabien", "MCADAM Hugh": "MCADEM Hogh", "FOURNIER Simon": "FOURNEIR Simun", "HODER Maximilien": "HODAR Maximilein", "KVAEL Elias Hartford": "KWAEL Elies Hartford", "UNDERHILL Bradshaw": "UNDERHIL Bradshav", "WALLACE Liam": "WALACE Liem", "HAGAN Sebastian": "HAGEN Sebastien", "BRAEKKEN Theodor": "BRAECKEN Theodur", "KOYAMA Takayuki": "KOIAMA Takaiuki", "BUZEK Stanley": "BUZEC Stanlei", "PERTL Adrian": "PARTL Adrien", "WAHLQVIST Filip": "WAHLQWIST Filyp", "WINTERS Luke": "WINTARS Luce", "RODES Istok": "RODAS Istoc", "KATO Seigo": "KATU Saigo", "DEL CAMPO HERNANDEZ Juan": "DEL CAMPO HERNANDES Juen", "ODERMATT Marco": "ODERMAT Marko", "BRENNSTEINER Stefan": "BRENSTEINER Stefen", "MAHRE Phil": "MAHRA Phyl", "NYBERG Fredrik": "NIBERG Fredric", "MAIER Hermann": "MAEIR Herman", "RADAMUS River": "RADAMOS Riwer", "MILLER Bode": "MILER Bude", "ANGUENOT Leo": "ANGUENUT Lao", "GRATZ Fabian": "GRATS Fabien", "KRANJEC Zan": "KRANJEK Zen", "FEURSTEIN Patrick": "FEURSTAIN Patrik", "TUMLER Thomas": "TUMLAR Thomes", "FAVROT Thibaut": "FAWROT Thibaot", "ELEZI CANNAFERINA Alban": "ELEZI CANAFERINA Alben", "HAASER Raphael": "HAASAR Rafael", "CAVIEZEL Gino": "CAVEIZEL Gyno", "SCHMID Alexander": "SCHMYD Aleksander", "VERDU Joan": "VERDO Joen", "GRAMMEL Anton": "GRAMEL Antun", "DELLA VITE Filippo": "DELA VITE Filipo", "SARCHETT Ryder": "SARCHET Rider", "STOCKINGER Jonas": "STOKINGER Jones", "PARAND Loevan": "PAREND Loewan", "BORGNAES Christian": "BORGNAAS Christien", "JANUTIN Fadri": "JANUTYN Fedri", "FORD Tommy": "FURD Tomy", "GILE Bridger": "GILA Bridgar", "VITALE Flavio": "VITALA Flawio", "ANDRIENKO Aleksander": "ANDREINKO Alecsander", "BORSOTTI Giovanni": "BORSOTI Giovani", "ZURBRUEGG Sandro": "ZURBRUAGG Sendro", "NELSON Isaiah": "NELSUN Iseiah", "AUBERT SERRACANTA Aleix": "AUBERT SERACANTA Alaix", "HAECHLER Lenz": "HAECHLAR Lens", "ORTEGA FORNESA Albert": "ORTEGA FORNESE Albart", "DE ALIPRANDINI Luca": "DE ALIPRANDINY Luka", "FEURSTEIN Lukas": "FEURSTAIN Lucas", "CARRICK-SMITH Freddy": "CARICK-SMITH Freddi", "PALAMARAS Nickco": "PALAMARES Nikco", "BAKKEVIG Rasmus": "BAKKEWIG Rasmos", "ZAMPA Andreas": "ZAMPE Andrees", "ROENNGREN Mattias": "ROENGREN Matias", "HAGEN Storm Andre": "HAGAN Sturm Andre", "DRUKAROV Andrej": "DRUKAROW Andraj", "FAVRE Guerlain": "FAWRE Guerlein", "TALACCI Simon": "TALACCY Simun", "LARDON Thomas": "LARDUN Thomes", "LINBERG Hermann Fjeldavlie": "LINBARG Herman Fjeldavlie", "ZWISCHENBRUGGER Noel": "ZWISHENBRUGGER Noal", "WINDINGSTAD Rasmus": "WINDINGSTED Rasmos", "AMMAN Hannes": "AMAN Hanes", "KUZNETSOV Ivan": "KUZNETSOW Iwan", "READ Erik": "REED Eric", "LAINE Tormis": "LEINE Tormys", "REMSOEY Mikkel": "REMSOEI Mickel", "KENNEY Patrick": "KENEY Patrik", "GUNLEIKSRUD Halvor Hilde": "GUNLAIKSRUD Halwor Hilde", "KLAMMER Franz": "KLAMER Frans", "CUCHE Didier": "CUCHA Dideir", "VON ALLMEN Franjo": "VON ALMEN Frenjo", "KRIECHMAYR Vincent": "KREICHMAYR Vincant", "PARIS Dominik": "PARYS Dominic", "FRANZONI Giovanni": "FRANSONI Giovani", "MONNEY Alexis": "MONEY Aleksis", "ROGENTIN Stefan": "ROGENTYN Stefen", "CRAWFORD James": "CRAVFORD Jamas", "SARRAZIN Cyprien": "SARAZIN Cyprein", "CASSE Mattia": "CASE Matia", "SCHIEDER Florian": "SCHEIDER Florien", "COCHRAN-SIEGLE Ryan": "COCHRAN-SEIGLE Rian", "HEMETSBERGER Daniel": "HEMETSBERGAR Daneil", "BABINSKY Stefan": "BABINSKI Stefen", "HROBAT Miha": "HROBET Myha", "KOHLER Marco": "KOHLAR Marko", "SMISETH SEJERSTED Adrian": "SMISETH SEJERSTAD Adrien", "MOELLER Fredrik": "MOELER Fredric", "ALLEGRE Nils": "ALEGRE Nyls", "BENNETT Bryce": "BENNET Brice", "NEGOMIR Kyle": "NEGOMYR Kile", "GOLDBERG Jared": "GOLDBARG Jarad", "MORSE Sam": "MORSA Sem", "MURISIER Justin": "MURISEIR Justyn", "HINTERMANN Niels": "HINTERMAN Neils", "STRIEDINGER Otmar": "STREIDINGER Otmer", "INNERHOFER Christof": "INERHOFER Christuf", "CATER Martin": "CATAR Martyn", "BOSCA Guglielmo": "BOSKA Gugleilmo", "AAMODT KILDE Aleksander": "AAMUDT KILDE Alecsander", "DANKLMAIER Daniel": "DANKLMAEIR Daneil", "JOCHER Simon": "JOCHAR Simun", "BAUMANN Romed": "BAUMAN Romad", "FERSTL Josef": "FARSTL Josaf", "SCHWAIGER Dominik": "SCHWEIGER Dominic", "SEGER Brodie": "SEGAR Brodei", "READ Jeffrey": "REED Jefrey", "ALEXANDER Cameron": "ALEKSANDER Camerun", "VON APPEN Henrik": "VON APEN Henric", "GIEZENDANNER Blaise": "GIEZENDANER Bleise", "BAILET Matthieu": "BEILET Mathieu", "LEHTO Elian": "LEHTU Elien", "ZABYSTRAN Jan": "ZABISTRAN Jen", "ROULIN Gilles": "RULIN Giles", "THOMPSON Broderick": "THOMPSUN Broderik", "PLOIER Andreas": "PLOEIR Andrees", "ALPHAND Nils": "ALFAND Nyls", "WALDER Christopher": "WALDAR Christofer", "SANDER Andreas": "SANDAR Andrees", "WEBER Ralph": "WEBAR Ralf", "KRYENBUEHL Urs": "KRIENBUEHL Urse", "MARSAGLIA Matteo": "MARSAGLIE Mateo", "BUZZI Emanuele": "BUZI Emanuale", "NYMAN Steven": "NIMAN Stewen", "GANONG Travis": "GANUNG Trawis", "ARVIDSSON Erik": "ARVIDSON Eric", "THEAUX Adrien": "THEAOX Adrein", "CLAREY Johan": "CLAREI Johen", "MUZATON Maxence": "MUSATON Maksence"};
 const WC_ORIG = Object.fromEntries(Object.entries(WC_ALT).map(([k, v]) => [v, k]));
 const FIELD_N = 88;
 function buildField(gender, d){
   if (gender === 'men'){
-    const L = d === 'GS' ? MEN_GS_FIELD : MEN_FIELD, pre = d === 'GS' ? 'mg' : 'm';
-    const r = rng(d === 'GS' ? 4409 : 4401), maxP = Math.max(...L.map(x => x[2]));
+    const L = d === 'GS' ? MEN_GS_FIELD : d === 'DH' ? MEN_DH_FIELD : MEN_FIELD, pre = d === 'GS' ? 'mg' : d === 'DH' ? 'md' : 'm';
+    const r = rng(d === 'GS' ? 4409 : d === 'DH' ? 4417 : 4401), maxP = Math.max(...L.map(x => x[2]));
     return L.map(([name, nat, pts], i) => ({ id: pre + i, name: WC_ALT[name] || name, nat, pts0: pts, skill: 1 - Math.pow(pts / maxP, .8), fis: i + 1 + (i + 1 >= START_RANK ? 1 : 0), aggr: r() }));
   }
   const r = rng(gender === 'men' ? 4401 : 8803);
@@ -1238,6 +1241,8 @@ const GH = 25;              // half gate width -> 5.0 m between the two poles (F
 const GS_GH = 32;           // giant slalom: 6.4 m between the inner and outer panel (FIS 4–8 m)
 const GS_PULL = 1.573;      // giant slalom runs faster: more of the hill's pull reaches the skis
 const SG_PULL = 1.22;       // super-G: faster again
+const DH_PULL = 1.42;       // downhill: the fastest of all
+const DH_GH = 40;           // downhill gates: 8 m between the panels
 const ghOf = c => (c && c.gh) || GH;
 const POLE_R = 3, SK_R = 6;
 // closed (vertical) slalom gate: both poles on the fall line, 4.6 m apart. You pass it by crossing the line between them
@@ -1303,9 +1308,27 @@ const GS_HILL = {
   'Jasná':         { drop: 380, name: 'Jasná' },
   'Soldeu':        { drop: 400, name: 'Avet' },
 };
+// downhill hills (estimated): drop, steepest and average gradient, and the name of the course
+const DH_DEFAULT = { drop: 800, max: 60, avg: 30, pts: [[0, 34], [.12, 52], [.26, 28], [.4, 46], [.55, 24], [.7, 40], [.86, 30], [1, 16]] };
+const DH_HILL = {
+  'Beaver Creek': { drop: 750, max: 68, avg: 27, name: 'Birds of Prey' },
+  'Val Gardena': { drop: 839, max: 57, avg: 26, name: 'Saslong' },
+  'Bormio': { drop: 1010, max: 63, avg: 30, name: 'Stelvio' },
+  'Wengen': { drop: 1028, max: 90, avg: 24, name: 'Lauberhorn', pts: [[0, 30], [.1, 48], [.2, 36], [.34, 90], [.42, 30], [.6, 18], [.72, 42], [.86, 28], [1, 20]] },
+  'Kitzbühel': { drop: 860, max: 85, avg: 27, name: 'Streif', pts: [[0, 50], [.05, 85], [.14, 40], [.3, 52], [.46, 20], [.62, 36], [.78, 58], [.9, 34], [1, 30]] },
+  'Garmisch-Partenkirchen': { drop: 940, max: 92, avg: 28, name: 'Kandahar' },
+  'Saalbach': { drop: 820, max: 70, avg: 29, name: 'Schneekristall' },
+  'Kvitfjell': { drop: 854, max: 60, avg: 27, name: 'Olympiabakken' },
+  'Sun Valley': { drop: 800, max: 60, avg: 28, name: 'Warm Springs' },
+  "Cortina d'Ampezzo": { drop: 800, max: 64, avg: 30, name: 'Olimpia delle Tofane' },
+  'Val di Fassa': { drop: 700, max: 58, avg: 27, name: 'La VolatA' },
+  'Narvik': { drop: 700, max: 55, avg: 26, name: 'Narvikfjellet' },
+  'St. Moritz': { drop: 760, max: 100, avg: 30, name: 'Corviglia' },
+};
 function makeProfile(venue, fy, d){
   if (d === 'GS') return Object.assign({ fy }, SLOPES[venue] || SLOPE_DEFAULT, { src: 'gs' }, GS_HILL[venue] || { drop: 380 }, { gs: true });
   if (d === 'SG') return Object.assign({ fy }, SLOPES[venue] || SLOPE_DEFAULT, SLOPES[venue] && /^venue/.test(SLOPES[venue].src) ? {} : { src: 'gs', drop: 520 }, { gs: true, sg: true });
+  if (d === 'DH') return Object.assign({ fy }, DH_DEFAULT, DH_HILL[venue] || {}, { src: 'dh', gs: true, sg: true, dh: true });
   return Object.assign({ fy }, SLOPES[venue] || SLOPE_DEFAULT);
 }
 // gradient (%) at a point on the course, smoothed between the profile points
@@ -1321,7 +1344,7 @@ function gradAt(prof, y){
 function slopeFactor(prof, y){
   if (!prof) return 1;
   const s = Math.sin(Math.atan(gradAt(prof, y) / 100)), s0 = Math.sin(Math.atan(prof.avg / 100));
-  return clamp(1 + .3 * (s / s0 - 1), .75, 1.25) * .661 * (prof.gs ? GS_PULL : 1) * (prof.sg ? SG_PULL : 1);    // speed ∝ √gravity: .546 × 1.1² — then 10% up
+  return clamp(1 + .3 * (s / s0 - 1), .75, 1.25) * .661 * (prof.gs ? GS_PULL : 1) * (prof.sg ? SG_PULL : 1) * (prof.dh ? DH_PULL : 1);    // speed ∝ √gravity: .546 × 1.1² — then 10% up
 }
 function slopeWord(g){ return g >= 50 ? '急斜面' : g >= 40 ? 'やや急' : g >= 25 ? '中斜面' : '緩斜面'; }
 // side profile of the hill as a small chart (start on the left, finish on the right)
@@ -1340,13 +1363,14 @@ function profileSVG(prof){
 function profileHTML(prof){
   return `<div class="profbox">${profileSVG(prof)}
     <div class="proflegend"><span><i style="background:#2FB36A"></i>緩斜面</span><span><i style="background:#4C8DFF"></i>中斜面</span><span><i style="background:#F59F00"></i>やや急</span><span><i style="background:#E5484D"></i>急斜面</span></div>
-    <small>${prof.name ? esc(prof.name) + '・' : ''}高低差 ${prof.drop} m・最大斜度 ${prof.max}%・平均斜度 ${prof.avg}%（${prof.src === 'gs' ? '大回転コースの数値は推定' : prof.src === 'fis' ? '公式データ' : prof.src === 'venue' ? '大会バーンの公表値' : prof.src === 'venue2' ? '標高・全長・最大斜度は公表値、斜面の並びは推定' : prof.src === 'drop' ? '高低差は公式データ・斜度は推定' : '公式データが見つからないため推定'}）</small></div>`;
+    <small>${prof.name ? esc(prof.name) + '・' : ''}高低差 ${prof.drop} m・最大斜度 ${prof.max}%・平均斜度 ${prof.avg}%（${prof.src === 'dh' ? '滑降コースの数値は推定' : prof.src === 'gs' ? '大回転コースの数値は推定' : prof.src === 'fis' ? '公式データ' : prof.src === 'venue' ? '大会バーンの公表値' : prof.src === 'venue2' ? '標高・全長・最大斜度は公表値、斜面の並びは推定' : prof.src === 'drop' ? '高低差は公式データ・斜度は推定' : '公式データが見つからないため推定'}）</small></div>`;
 }
 
 // opt (学連 slalom): { frac: share of the usual gates and drop, open: true = no closed gates }
 function buildCourse(seedN, gender, d, opt){
   if (d === 'GS') return buildGS(seedN, gender);
   if (d === 'SG') return buildSG(seedN, gender);
+  if (d === 'DH') return buildDH(seedN, gender);
   const r = rng(seedN), fr = (opt && opt.frac) || 1;
   const vd0 = gender === 'men' ? 180 + Math.round(r()*40) : 150 + Math.round(r()*45), vd = Math.round(vd0 * fr);   // vertical drop (m)
   const N = Math.round(vd0 * (0.30 + r()*0.04) * fr);                                // ≈ 30–34 % of vertical drop
@@ -1412,6 +1436,29 @@ function buildSG(seedN, gender){
   const jk = Math.floor(N * (.5 + r() * .1)), jumpY = Math.round((gates[jk].y + gates[jk + 1].y) / 2);
   return { gates, finishY: gates[N-1].y + 280, checks: [Math.floor(N*.25), Math.floor(N*.5), Math.floor(N*.75)], vd: 520, nGates: N, gh: GS_GH, disc: 'SG', jumpY };
 }
+// downhill: about 36–42 gates (all red), 48–64 m apart and long gliding arcs, with jumps (three for men, two for women)
+// and room to land after each. One run
+function buildDH(seedN, gender){
+  const r = rng(seedN ^ 0xD411);
+  const N = (gender === 'men' ? 37 : 34) + Math.floor(r() * 5);
+  const nJ = gender === 'men' ? 3 : 2, jAt = new Set();
+  for (let k = 0; k < nJ; k++) jAt.add(Math.floor(N * ((k + 1) / (nJ + 1) + (r() - .5) * .1)));
+  const gates = [], jumps = [];
+  let y = 260, side = r() < .5 ? -1 : 1, prevX = 0;
+  for (let i = 0; i < N; i++){
+    const glide = r() < .3;                                    // a gliding section: the gate close to the fall line
+    let x = side * (glide ? 14 + r() * 26 : 36 + r() * 74);
+    const dist = 480 + r() * 160;
+    if (i){
+      if (jAt.has(i)){ const jy = y + 300; jumps.push(Math.round(jy)); y = jy + 520; x *= .4; }   // the jump, then room to land
+      else { const dx = Math.abs(x - prevX); y += Math.sqrt(Math.max(440 * 440, dist * dist - dx * dx)); }
+    }
+    gates.push({ x, y, tag: '' }); prevX = x; side = -side;
+  }
+  gates.forEach((g, i) => { g.col = 'red'; g.bend = [0,0]; g.bv = [0,0]; g.cool = [0,0]; g.res = 0; g.i = i; });
+  return { gates, finishY: gates[N-1].y + 380, checks: [Math.floor(N*.25), Math.floor(N*.5), Math.floor(N*.75)], vd: 800, nGates: N, gh: DH_GH, disc: 'DH', jumps };
+}
+const jumpsOf = c => c ? (c.jumps || (c.jumpY != null ? [c.jumpY] : [])) : [];
 // where a steep pitch eases off: the super-G pre-jump sits on that break (c.prof must be set)
 function steepBreakY(c){
   const P = c.prof.pts; let best = -1, bi = 0;
@@ -1529,10 +1576,10 @@ function refRun(course){
 // =====================================================================
 let disc = 'SL', gender = 'men', level = 'ec', pname = 'あなた', ctrl = 'dir', myNat = 'JPN', myGear = Object.assign({}, DEFAULT_GEAR), setupDone = false;
 const prefs = load('slalomwc-prefs');
-if (prefs){ gender = prefs.gender || gender; level = LEVEL_K[prefs.level] ? prefs.level : (prefs.level === 'jr' ? 'jpn' : level); pname = prefs.pname || pname; ctrl = prefs.ctrl || ctrl; myNat = NAT[prefs.nat] ? prefs.nat : myNat; myGear = Object.assign({}, DEFAULT_GEAR, prefs.gear || {}); for (const c of Object.keys(DEFAULT_GEAR)) if (!GEAR[c].items.some(i => i.id === myGear[c])) myGear[c] = DEFAULT_GEAR[c]; setupDone = !!prefs.setupDone; disc = prefs.disc === 'GS' ? 'GS' : 'SL'; }
+if (prefs){ gender = prefs.gender || gender; level = LEVEL_K[prefs.level] ? prefs.level : (prefs.level === 'jr' ? 'jpn' : level); pname = prefs.pname || pname; ctrl = prefs.ctrl || ctrl; myNat = NAT[prefs.nat] ? prefs.nat : myNat; myGear = Object.assign({}, DEFAULT_GEAR, prefs.gear || {}); for (const c of Object.keys(DEFAULT_GEAR)) if (!GEAR[c].items.some(i => i.id === myGear[c])) myGear[c] = DEFAULT_GEAR[c]; setupDone = !!prefs.setupDone; disc = ['GS', 'DH'].includes(prefs.disc) ? prefs.disc : 'SL'; }
 FIELDS.men = buildField('men', disc);
 // what the title screen and menu are set to: slalom, giant slalom, or the online dual race (which keeps disc as it was)
-let playMode = prefs && ['SL', 'GS', 'DUAL'].includes(prefs.pmode) ? prefs.pmode : disc;
+let playMode = prefs && ['SL', 'GS', 'DH', 'DUAL'].includes(prefs.pmode) ? prefs.pmode : disc;
 function savePrefs(){ save('slalomwc-prefs', { disc, pmode: playMode, gender, level, pname, ctrl, nat: INCOL_SWAP ? INCOL_SWAP.nat : myNat, gear: myGear, setupDone }); }
 function applyCtrlLabels(){
   const outer = ctrl === 'outer';
@@ -1548,8 +1595,8 @@ function toggleCtrl(){
   ctrl = ctrl === 'outer' ? 'dir' : 'outer'; savePrefs(); applyCtrlLabels();
   flash(ctrl === 'outer' ? '操作：外足に乗って曲がる' : '操作：押した方向へ曲がる', false);
 }
-function seasonKey(){ return `slalomwc-2627-${gender}-${level}` + (disc === 'GS' ? '-gs' : ''); }
-const discJP = d => DISC[d || disc], discEN = d => ({ GS: 'Giant Slalom', SG: 'Super-G' })[d || disc] || 'Slalom';
+function seasonKey(){ return `slalomwc-2627-${gender}-${level}` + (disc === 'GS' ? '-gs' : disc === 'DH' ? '-dh' : ''); }
+const discJP = d => DISC[d || disc], discEN = d => ({ GS: 'Giant Slalom', SG: 'Super-G', DH: 'Downhill' })[d || disc] || 'Slalom';
 const SHIMIZU_MAX = 3;
 function shimizuKey(){ return seasonKey() + '-shimizu'; }
 function shimizuUsed(){ return (load(shimizuKey()) || {}).n || 0; }
@@ -1824,10 +1871,11 @@ let race = null;
 function makeRace(ev, mode){
   const g = gender;
   const sd = courseSeed(g, ev.date);
-  const courses = [buildCourse(sd ^ 0x1111, g, ev.disc), buildCourse(sd ^ 0x2222, g, ev.disc)];   // two runs, two different sets
+  const oneRun = ev.disc === 'DH';                             // downhill: one run
+  const courses = oneRun ? [buildCourse(sd ^ 0x1111, g, 'DH')] : [buildCourse(sd ^ 0x1111, g, ev.disc), buildCourse(sd ^ 0x2222, g, ev.disc)];   // two runs, two different sets
   courses.forEach(c => { c.prof = makeProfile(ev.venue, c.finishY, ev.disc); c.vd = c.prof.drop; });
   const refs = courses.map(refRun);
-  const base = { ev, mode, courses, refs, run: 1, playerDsq: [false, false], finals: ev.finals, maxV: 0, wx: weatherFor(ev, g), wax: [lastWax, lastWax], edge: [Object.assign({}, lastEdge), Object.assign({}, lastEdge)] };
+  const base = { ev, mode, courses, refs, run: 1, oneRun, playerDsq: [false, false], finals: ev.finals, maxV: 0, wx: weatherFor(ev, g), wax: [lastWax, lastWax], edge: [Object.assign({}, lastEdge), Object.assign({}, lastEdge)] };
   if (mode === 'ta') return Object.assign(base, { key: taKey(g, ev.date), taTimes: [] });
   const st = ranking();
   let entrants;
@@ -2248,13 +2296,15 @@ function step(dt){
     sk.air -= dt;
     if (sk.air <= 0){ sk.air = 0; if (!quiet){ tone(110, .08, 'sine', .08); thwack(.08); } burst(sk.x, sk.y, 0, 6); }   // landing
   }
-  if (course.jumpY != null && !sk.jumped && sk.py < course.jumpY && sk.y >= course.jumpY && state === 'run'){
+  const jHit = state === 'run' ? jumpsOf(course).find(jy => sk.py < jy && sk.y >= jy) : undefined;
+  if (jHit != null){
     sk.jumped = true;
+    const dhJ = course.disc === 'DH';
     if (sk.v >= JUMP_MIN){
-      sk.airT = sk.air = clamp(.14 + (sk.v - JUMP_MIN) / 900, .14, .3);     // a pre-jump: just a moment off the snow
+      sk.airT = sk.air = dhJ ? clamp(.24 + (sk.v - JUMP_MIN) / 420, .24, .75) : clamp(.14 + (sk.v - JUMP_MIN) / 900, .14, .3);   // downhill: a real flight; a pre-jump: just a moment
       const crouched = !!ctl.tuck;
       if (!crouched) sk.v *= JUMP_LOSS;
-      if (!quiet){ tone(520, .1, 'triangle', .04); flash(crouched ? 'プレジャンプ！ クローチでスピードキープ' : 'プレジャンプ（クローチしていないので減速）', !crouched); }
+      if (!quiet){ tone(520, .1, 'triangle', .04); flash(crouched ? (dhJ ? 'ジャンプ！ クローチでスピードキープ' : 'プレジャンプ！ クローチでスピードキープ') : (dhJ ? 'ジャンプ（クローチしていないので減速）' : 'プレジャンプ（クローチしていないので減速）'), !crouched); }
     }
   }
   if (state === 'run') maxV = Math.max(maxV, sk.v);
@@ -2358,6 +2408,7 @@ function onMiss(g){
 // =====================================================================
 function leaderBefore(){
   if (race.mode === 'free' || race.dual) return null;
+  if (race.training){ let b = null; for (const [id, tt] of Object.entries(race.trainTimes || {})) if (tt != null && (!b || tt < b.total)) b = { id, name: nameOf(id), total: tt, run: tt, label: 'トレーニング トップ' }; return b; }
   if (race.mode === 'ta'){
     const b = taBoard(race.key)[0];
     return b ? { name: b.handle, total: race.run === 1 ? b.r1 : b.t, run: race.run === 1 ? b.r1 : b.r2, r1: b.r1, label: 'コースレコード' } : null;
@@ -2809,7 +2860,7 @@ function showIncolFinal(){
     html += `<div><span class="big">${me.rank}位</span> ${me.rank === 1 ? '<span class="badge">優勝</span>' : me.rank <= 3 ? '<span class="badge">表彰台</span>' : ''}</div>`;
     html += `<dl class="rows"><dt>${race.oneRun ? 'タイム' : '合計タイム'}</dt><dd>${fmt(me.t)}</dd>${race.oneRun ? '' : `<dt>1本目 / 2本目</dt><dd>${fmt(me.r1)} / ${fmt(me.r2)}</dd>`}<dt>優勝との差</dt><dd>${me.rank === 1 ? '優勝' : fmtDiff(me.t - best)}</dd><dt>学校対抗の得点</dt><dd>${me.pts} 点（${esc(uniName(GK.uni))}）</dd><dt>最高速度</dt><dd>${Math.round(race.maxV * .36)} km/h</dd></dl>`;
   } else {
-    const why = race.run1.you == null ? `1本目 ${race.playerDsq[0] === 'DNF' ? '途中棄権（DNF）' : '失格（DSQ）'}` : !race.qualified ? `1本目 ${rankOf(race.run1, 'you')}位で2本目に進めず` : `2本目 ${race.playerDsq[1] === 'DNF' ? '途中棄権（DNF）' : '失格（DSQ）'}`;
+    const why = race.run1.you == null ? `${race.oneRun ? '' : '1本目 '}${race.playerDsq[0] === 'DNF' ? '途中棄権（DNF）' : '失格（DSQ）'}` : !race.qualified ? `1本目 ${rankOf(race.run1, 'you')}位で2本目に進めず` : `2本目 ${race.playerDsq[1] === 'DNF' ? '途中棄権（DNF）' : '失格（DSQ）'}`;
     html += `<div><span class="big" style="font-size:40px">${why.includes('DSQ') ? 'DSQ' : why.includes('DNF') ? 'DNF' : '2本目進めず'}</span></div><p class="note">${why}。得点は0です。</p>`;
   }
   if (me){ if (!race.fisRec) race.fisRec = fisRecord(race, res, 'ik', `インカレ ${DISC[d]}`, 'ik-' + gender + '-' + d + '-' + Date.now()); html += fisResultHTML(race.fisRec); }
@@ -2861,20 +2912,46 @@ function showIntro(){
   if (rec2Note()) html += `<p class="note">${rec2Note()}</p>`;
   if (!ta && race.run === 1 && race.bib.get('you') > 30) html += `<p class="note">ビブが後ろのほど荒れたコースを滑ることになります。上位に入ってランキングを上げれば、早いスタート順がもらえます。</p>`;
   html += waxPickerHTML();
-  if (course.jumpY != null) html += `<p class="note">コースの途中にプレジャンプが1か所あります（時速70km以上で一瞬浮きます）。浮く瞬間にクローチ（▼）を押していればスピードが落ちません。押していないと少し減速します。</p>`;
+  if (course.disc === 'DH') html += `<p class="note">滑降は1本勝負。ジャンプが${jumpsOf(course).length}か所あります（時速70km以上で飛びます。速いほど遠くへ）。踏み切りでクローチ（▼）を押していればスピードが落ちません。旗門は全部赤で、間隔が広く、なるべく真っすぐ滑るのが速く滑るコツです。</p>`;
+  else if (course.jumpY != null) html += `<p class="note">コースの途中にプレジャンプが1か所あります（時速70km以上で一瞬浮きます）。浮く瞬間にクローチ（▼）を押していればスピードが落ちません。押していないと少し減速します。</p>`;
   html += `<p class="note">旗門を1つでも外すとその場で失格（DSQ）。ポールは倒しても構いません。</p>`;
   const inspected = race.inspected && race.inspected[race.run - 1];
-  html += `<div class="btns"><button class="btn primary" type="button" id="goStart">スタートハウスへ</button>${!ta && race.entrants ? '<button class="btn" type="button" id="goList">スタートリスト</button>' : ''}<button class="btn" type="button" id="goInspect">${inspected ? '✓ もう一度インスペクション' : 'インスペクション（コースの下見）'}</button><button class="btn" type="button" id="goBack">${race.run === 1 ? 'やめる' : '棄権する'}</button></div>`;
+  const canTrain = race.ev.disc === 'DH' && (race.mode === 'career' || race.mode === 'exh') && (race.trainN || 0) < 2;
+  if (canTrain) html += `<p class="note">本番の前に<b>公式トレーニング</b>（練習滑走）でコースを覚えられます（2回まで・タイムは記録に残りません）。${race.trainN ? `あなたのトレーニング：${race.trainMe != null ? fmt(race.trainMe) : 'DSQ/DNF'}` : ''}</p>`;
+  html += `<div class="btns">${canTrain ? `<button class="btn primary" type="button" id="goTrain">公式トレーニング${race.trainN ? '（2回目）' : ''}</button>` : ''}<button class="btn${canTrain ? '' : ' primary'}" type="button" id="goStart">${race.ev.disc === 'DH' && !ta ? '本番スタートへ' : 'スタートハウスへ'}</button>${!ta && race.entrants ? '<button class="btn" type="button" id="goList">スタートリスト</button>' : ''}<button class="btn" type="button" id="goInspect">${inspected ? '✓ もう一度インスペクション' : 'インスペクション（コースの下見）'}</button><button class="btn" type="button" id="goBack">${race.run === 1 ? 'やめる' : '棄権する'}</button></div>`;
   openSheet(ta ? 'Time Attack' : `Run ${race.run} · Start List`, `${JP[ev.venue] || ev.venue} — ${race.run}本目`, html, `${ev.date.replace(/-/g, '.')} · ${ev.venue} (${ev.nat})${ev.finals ? ' · Finals' : ''}`);
   bindWaxPicker();
   if (race.run === 2) race.waxSet2 = true;
   $('#goStart').onclick = beginRun;
+  if ($('#goTrain')) $('#goTrain').onclick = startTraining;
   if ($('#goList')) $('#goList').onclick = showStartList;
   $('#goInspect').onclick = startInspection;
   $('#goBack').onclick = () => {
     if (race.run === 2){ race.playerDsq[1] = 'DNF'; recordPlayerTime(null); afterRun2(); }
     else { const ik = race.incol; race = null; if (ik) showIncol(); else showMenu(); }
   };
+}
+// downhill official training: the same course, the rivals not quite at race pace, no result kept
+function startTraining(){
+  race.training = true; race.trainN = (race.trainN || 0) + 1; race.trainMe = null;
+  const r = rng(hashStr(race.ev.date + gender + race.trainN + 'train')), T = {};
+  for (const e of race.entrants){ if (e.me) continue; const a = race.sim(e.id, 1); T[e.id] = a == null ? null : trunc(a * (1.008 + r() * .012)); }
+  race.trainTimes = T;
+  beginRun();
+}
+function showTrainResult(){
+  state = 'sheet';
+  const me = race.trainMe, pool = Object.assign({}, race.trainTimes, { you: me });
+  const list = rankList(pool), best = list.length ? list[0].t : null;
+  let html = me != null ? `<div><span class="big">${fmt(me)}</span> <span class="badge">${rankOf(pool, 'you')}位</span></div><dl class="rows"><dt>トップとの差</dt><dd>${fmtDiff(me - best)}</dd><dt>最高速度</dt><dd>${Math.round(maxV * .36)} km/h</dd></dl>`
+    : `<div><span class="big" style="font-size:40px">${race.playerDsq[0] || 'DNF'}</span></div><p class="note">トレーニングなので、本番には影響しません。</p>`;
+  html += `<p class="note">トレーニングのタイムは本番のスタート順や成績には関係ありません。ライバルも全力ではありません。</p>`;
+  html += `<h3>トレーニング タイム（上位15人）</h3>` + table(['順位', '選手', '国', 'タイム', '差'], list.slice(0, 15).map(o => `<tr class="${o.id === 'you' ? 'me' : ''}"><td class="n">${o.rank}</td><td>${esc(nameOf(o.id))}</td><td class="nat3">${flagH(natOf(o.id))}${natOf(o.id)}</td><td class="n">${fmt(o.t)}</td><td class="r">${o.rank === 1 ? '' : fmtDiff(o.t - best)}</td></tr>`));
+  html += `<div class="btns"><button class="btn primary" type="button" id="trGo">本番へ</button></div>`;
+  openSheet('Official Training', `${JP[race.ev.venue] || race.ev.venue} 滑降 公式トレーニング${race.trainN > 1 ? '（2回目）' : ''}`, html);
+  // back to the race: nothing from the training stays
+  race.training = false; race.playerDsq = [false, false]; race.maxV = 0; if (race.dsqWhy) race.dsqWhy = [];
+  $('#trGo').onclick = () => showIntro();
 }
 // the start list for the coming run: run 1 in bib order, run 2 in its start order with the run-1 times
 function startListParts(){
@@ -2958,6 +3035,7 @@ function beginRun(){
   tone(880, .12, 'square', .06);
 }
 function recordPlayerTime(tt){
+  if (race.training){ race.trainMe = tt; return; }
   if (race.mode === 'free'){ race.freeTime = tt; return; }
   if (race.mode === 'ta'){ race.taTimes[race.run - 1] = tt; return; }
   if (race.run === 1) race.run1.you = tt; else race.run2.you = tt;
@@ -2971,6 +3049,7 @@ function finishRun(){
   recordPlayerTime(tt);
   const ld = race.leader;
   if (race.mode === 'free'){ finishCard(tt, null, null); crowdCheer(.45); return; }
+  if (race.training){ const pool = Object.assign({}, race.trainTimes, { you: tt }); finishCard(tt, ld ? ld.total : null, rankOf(pool, 'you')); crowdCheer(.3); return; }
   if (race.mode === 'ta'){
     const tot = race.run === 1 || race.taTimes[0] == null ? tt : trunc(race.taTimes[0] + tt);
     finishCard(tot, ld ? ld.total : null, ld ? (tot < ld.total ? 1 : 2) : 1);
@@ -2998,6 +3077,7 @@ function leaveRunUI(){
   $('#pad').classList.remove('live'); $('#mute').classList.remove('raised');
 }
 function afterFinish(){
+  if (race.training){ leaveRunUI(); return showTrainResult(); }
   if (race.watchQueue && race.watchQueue.length && !race.incolOnline) return startWatch();
   leaveRunUI();
   if (race.incolOnline){ sendBattlePos(true); state = 'sheet'; return showIncolRoom(); }
@@ -3308,8 +3388,8 @@ function taOverall(g){
 // The rivals' points are how far off the course's pace the game runs them at the chosen rival strength, so the
 // values sit on the real FIS scale. The shared list (Apps Script, every Monday) shows its leader as 0.00
 // =====================================================================
-const FIS_F = { SL: 730, GS: 1010, SG: 1190 };
-const FIS_MAX = { SL: 165, GS: 220, SG: 270 };           // a racer without points
+const FIS_F = { SL: 730, GS: 1010, SG: 1190, DH: 1250 };
+const FIS_MAX = { SL: 165, GS: 220, SG: 270, DH: 330 };           // a racer without points
 const FIS_KEEP = 56 * 864e5;                              // results count for 8 weeks
 const FIS_CLASS = [[15, 'W杯級', 'wc'], [40, 'ヨーロッパカップ級', 'ec'], [80, 'FIS級', 'fis'], [150, '学連級', 'stu'], [Infinity, 'ルーキー', 'rk']];
 const fis2 = x => Math.round(x * 100) / 100;
@@ -3318,12 +3398,12 @@ function fisStore(){ const s = load('slalomwc-fis'); return s && Array.isArray(s
 function fisListVal(ps){ if (!ps.length) return null; const s = ps.slice().sort((a, b) => a - b); return fis2(s.length >= 2 ? (s[0] + s[1]) / 2 : s[0] * 1.2); }
 function fisMine(g, d, skip){ const now = Date.now(); return fisStore().res.filter(x => x !== skip && (!skip || x.k !== skip.k || !x.k) && x.g === g && x.d === d && x.at >= now - FIS_KEEP).map(x => x.p); }
 function fisRaw(g, d){ return fisListVal(fisMine(g, d)); }
-function fisMyAll(g){ return { SL: fisRaw(g, 'SL'), GS: fisRaw(g, 'GS'), SG: fisRaw(g, 'SG') }; }
+function fisMyAll(g){ return { SL: fisRaw(g, 'SL'), GS: fisRaw(g, 'GS'), SG: fisRaw(g, 'SG'), DH: fisRaw(g, 'DH') }; }
 function fisClass(raw){ return raw == null ? null : FIS_CLASS.find(c => raw < c[0]); }
 function fisBadge(raw){ const c = fisClass(raw); return c ? `<span class="fcls ${c[2]}">${c[1]}</span>` : ''; }
 // where the value would stand on the men's World Cup list (slalom / giant slalom)
 function fisWcRank(raw, d){
-  const L = d === 'GS' ? MEN_GS_FIELD : d === 'SL' ? MEN_FIELD : null;
+  const L = d === 'GS' ? MEN_GS_FIELD : d === 'SL' ? MEN_FIELD : d === 'DH' ? MEN_DH_FIELD : null;
   if (!L || raw == null || raw > L[L.length - 1][2]) return null;
   return 1 + L.filter(x => x[2] < raw).length;
 }
@@ -3398,7 +3478,7 @@ function fisDay(ms){ const d = new Date(ms); return `${d.getMonth() + 1}/${d.get
 function fisListHTML(){
   const g = gender, G = g === 'men' ? '男子' : '女子';
   let h = `<h3>FISポイントリスト（${G}）</h3>`;
-  h += `<div class="fis-sub">${[['SL', '回転'], ['GS', '大回転'], ['SG', 'スーパーG'], ['ALL', '総合']].map(([k, l]) => `<button type="button" class="rk-tab${FISV.d === k ? ' on' : ''}" data-fisd="${k}">${l}</button>`).join('')}</div>`;
+  h += `<div class="fis-sub">${[['SL', '回転'], ['GS', '大回転'], ['SG', 'スーパーG'], ['DH', '滑降'], ['ALL', '総合']].map(([k, l]) => `<button type="button" class="rk-tab${FISV.d === k ? ' on' : ''}" data-fisd="${k}">${l}</button>`).join('')}</div>`;
   h += `<div class="fis-sub">${[[0, '公式リスト（毎週月曜）'], [1, '速報（いまの結果まで）']].map(([k, l]) => `<button type="button" class="rk-tab${+FISV.live === k ? ' on' : ''}" data-fislive="${k}">${l}</button>`).join('')}</div>`;
   // your own value (this device's results)
   const my = fisMyAll(g);
@@ -3419,7 +3499,7 @@ function fisListHTML(){
 }
 function fisRulesHTML(){
   return `<details class="fis-rules"><summary>ポイントの決まり方</summary><ul class="note">
-    <li>本物のFISポイントと同じ計算です。<b>小さいほど強い</b>。レースの点数＝（自分のタイム÷優勝タイム−1）×係数（回転730・大回転1010・スーパーG 1190）＋ペナルティ。</li>
+    <li>本物のFISポイントと同じ計算です。<b>小さいほど強い</b>。レースの点数＝（自分のタイム÷優勝タイム−1）×係数（回転730・大回転1010・スーパーG 1190・滑降1250）＋ペナルティ。</li>
     <li>ペナルティは出場選手の強さで決まります（強い大会ほど小さい）。上位10人の中でポイントの良い5人と、出場者全体で良い5人から計算します。</li>
     <li>リストの点数は、<b>最近8週間の良い方から2レースの平均</b>。1レースしかない人は2割増しです。</li>
     <li>対象：ワールドカップのレース（シーズン・単発）、インカレ、オンラインのインカレ。タイムアタックとデュアルは対象外です。</li>
@@ -3434,7 +3514,7 @@ function rkBar(label, n, max, extra, me){
   return `<div class="rkb${me ? ' me' : ''}"><span class="rkl">${label}</span><span class="rkt"><i style="width:${w}%"></i></span><span class="rkn">${extra}</span></div>`;
 }
 function playersHTML(){
-  const g = gender, seasonId = `${gender}-${level}` + (disc === 'GS' ? '-gs' : '');
+  const g = gender, seasonId = `${gender}-${level}` + (disc === 'GS' ? '-gs' : disc === 'DH' ? '-dh' : '');
   let html = `<p class="note">登録したプレーヤーどうしのランキングです。シーズンの項目は、上の「回転／大回転」「男子／女子」「ライバルの強さ」の組み合わせごとです。</p>`;
   html += `<div class="rk-tabs" role="tablist">${RK_TABS.map(([k, l]) => `<button type="button" role="tab" class="rk-tab${RK === k ? ' on' : ''}" data-rk="${k}" aria-selected="${RK === k}">${l}</button>`).join('')}</div>`;
   const youName = CLOUD.name || '';
@@ -4570,7 +4650,7 @@ function onPlayerFinish(rank){
   if (race.run === 1){ const mb = race.bib.get('you'); rest = race.entrants.filter(e => !e.me && race.bib.get(e.id) > mb).map(e => e.id); }
   else { const i = race.order2.indexOf('you'); rest = race.order2.slice(i + 1); }
   const watchable = rest.length && (race.mode === 'career' || race.mode === 'exh');
-  race.watchQueue = watchable && (r <= 3 || (race.run === 1 && r <= 30 && !race.finals)) ? rest : null;
+  race.watchQueue = watchable && (r <= 3 || (race.run === 1 && !race.oneRun && r <= 30 && !race.finals)) ? rest : null;
   race.watchCut = !!race.watchQueue && r > 3;           // inside the top 30 but not on the podium: watch the cut line
 }
 // people behind the safety nets around the finish
@@ -5365,7 +5445,7 @@ function showSkipped(ev){
 function showFinal(){
   if (race.incol) return showIncolFinal();
   state = 'sheet';
-  if (!race.order2) setupRun2();
+  if (!race.order2 && !race.oneRun) setupRun2();
   const res = combined();
   const best = res.length ? res[0].t : null;
   const me = res.find(x => x.id === 'you');
@@ -5374,14 +5454,14 @@ function showFinal(){
     const out = commitResults(race.ev, res, me ? 'ok' : (race.run1.you == null ? 'r1' : race.qualified ? 'r2' : 'nq'));
     saved = out.saved; mv = out;
   }
-  const rows = res.map(o => `<tr class="${o.id === 'you' ? 'me' : ''}"><td class="n">${o.rank}</td><td class="r">${race.bib.get(o.id) || ''}</td><td>${esc(nameOf(o.id))}</td><td class="nat3">${flagH(natOf(o.id))}${natOf(o.id)}</td><td class="r">${fmt(o.r1)}</td><td class="r">${fmt(o.r2)}</td><td class="n">${fmt(o.t)}</td><td class="r">${o.rank === 1 ? '' : fmtDiff(o.t - best)}</td><td class="n">${o.pts || ''}</td></tr>`);
+  const rows = res.map(o => `<tr class="${o.id === 'you' ? 'me' : ''}"><td class="n">${o.rank}</td><td class="r">${race.bib.get(o.id) || ''}</td><td>${esc(nameOf(o.id))}</td><td class="nat3">${flagH(natOf(o.id))}${natOf(o.id)}</td>${race.oneRun ? '' : `<td class="r">${fmt(o.r1)}</td><td class="r">${fmt(o.r2)}</td>`}<td class="n">${fmt(o.t)}</td><td class="r">${o.rank === 1 ? '' : fmtDiff(o.t - best)}</td><td class="n">${o.pts || ''}</td></tr>`);
   let html = '';
   if (me){
     html += `<div><span class="big">${me.rank}位</span> ${me.rank === 1 ? '<span class="badge">優勝</span>' : me.rank <= 3 ? '<span class="badge">表彰台</span>' : ''}</div>`;
-    html += `<dl class="rows"><dt>合計タイム</dt><dd>${fmt(me.t)}</dd><dt>1本目 / 2本目</dt><dd>${fmt(me.r1)} / ${fmt(me.r2)}</dd><dt>優勝との差</dt><dd>${me.rank === 1 ? '優勝' : fmtDiff(me.t - best)}</dd><dt>獲得ポイント</dt><dd>${race.mode === 'exh' ? '対象外' : me.pts + ' pt'}</dd><dt>最高速度</dt><dd>${Math.round(race.maxV*.36)} km/h</dd>${waxRow(1)}${waxRow(2)}</dl>`;
-    if (race.mode === 'career' || race.mode === 'exh') html += `<p class="conn" id="raceRecSend">このタイムを大会の記録として、タイムアタックのランキングにも残しています…</p>`;
+    html += `<dl class="rows">${race.oneRun ? `<dt>タイム</dt><dd>${fmt(me.t)}</dd>` : `<dt>合計タイム</dt><dd>${fmt(me.t)}</dd><dt>1本目 / 2本目</dt><dd>${fmt(me.r1)} / ${fmt(me.r2)}</dd>`}<dt>優勝との差</dt><dd>${me.rank === 1 ? '優勝' : fmtDiff(me.t - best)}</dd><dt>獲得ポイント</dt><dd>${race.mode === 'exh' ? '対象外' : me.pts + ' pt'}</dd><dt>最高速度</dt><dd>${Math.round(race.maxV*.36)} km/h</dd>${waxRow(1)}${race.oneRun ? "" : waxRow(2)}</dl>`;
+    if ((race.mode === 'career' || race.mode === 'exh') && !race.oneRun) html += `<p class="conn" id="raceRecSend">このタイムを大会の記録として、タイムアタックのランキングにも残しています…</p>`;
   } else {
-    const why = race.run1.you == null ? `1本目 ${race.playerDsq[0] === 'DNF' ? '途中棄権（DNF）' : '失格（DSQ）'}` : !race.qualified ? `1本目 ${rankOf(race.run1, 'you')}位で2本目に進めず` : `2本目 ${race.playerDsq[1] === 'DNF' ? '途中棄権（DNF）' : '失格（DSQ）'}`;
+    const why = race.run1.you == null ? `${race.oneRun ? '' : '1本目 '}${race.playerDsq[0] === 'DNF' ? '途中棄権（DNF）' : '失格（DSQ）'}` : !race.qualified ? `1本目 ${rankOf(race.run1, 'you')}位で2本目に進めず` : `2本目 ${race.playerDsq[1] === 'DNF' ? '途中棄権（DNF）' : '失格（DSQ）'}`;
     html += `<div><span class="big" style="font-size:40px">${why.includes('DSQ') ? 'DSQ' : why.includes('DNF') ? 'DNF' : '2本目進めず'}</span></div><p class="note">${why}。ポイントは0です。</p>`;
   }
   if (mv) html += movementHTML(mv);
@@ -5389,7 +5469,7 @@ function showFinal(){
     if (!race.fisRec) race.fisRec = fisRecord(race, res, 'wc', `${JP[race.ev.venue]} ${DISC[race.ev.disc || 'SL']}`, 'wc-' + gender + '-' + race.ev.date + '-' + Date.now());
     html += fisResultHTML(race.fisRec);
   }
-  html += `<h3>最終結果${race.finals ? '（ファイナル：15位までポイント）' : '（30位までWCポイント）'}</h3>` + table(['順位','Bib','選手','国','1本目','2本目','合計','差','Pt'], rows);
+  html += `<h3>最終結果${race.finals ? '（ファイナル：15位までポイント）' : '（30位までWCポイント）'}</h3>` + table(race.oneRun ? ['順位','Bib','選手','国','タイム','差','Pt'] : ['順位','Bib','選手','国','1本目','2本目','合計','差','Pt'], rows);
   if (race.mode === 'career' && !saved) html += `<p class="note">このブラウザでは記録を保存できないため、シーズンの成績は残りません。</p>`;
   const seasonOver = race.mode === 'career' && race.ev.finals;
   html += `<div class="btns"><button class="btn primary" type="button" id="toCal">シーズンの日程に戻る</button>${res.length >= 3 ? '<button class="btn" type="button" id="toCer">表彰式を見る</button>' : ''}${seasonOver ? '<button class="btn" type="button" id="toGlobe">クリスタルグローブ授賞式</button>' : ''}<button class="btn" type="button" id="toStand">ランキングを見る</button></div>`;
@@ -5402,7 +5482,7 @@ function showFinal(){
   $('#toStand').onclick = () => { race = null; showMenu('stand'); };
   $('#toCal').onclick = () => { race = null; showMenu('cal'); };
   // the two-run total from the race is kept as this course's race record (beside the time-attack record)
-  if (me && (race.mode === 'career' || race.mode === 'exh')) saveRaceRec(race, me);
+  if (me && (race.mode === 'career' || race.mode === 'exh') && !race.oneRun) saveRaceRec(race, me);
   // on the podium yourself: the ceremony starts straight away
   if (me && me.rank <= 3 && res.length >= 3 && !race.ceremonyShown){ race.ceremonyShown = true; setTimeout(() => showCeremony('race', r3, ev), 400); }
 }
@@ -5530,7 +5610,8 @@ function showMenu(which){
   const dualM = playMode === 'DUAL';
   if (dualM && !['dual', 'gear', 'rules'].includes(tab)) tab = 'dual';
   if (!dualM && tab === 'dual') tab = 'cal';
-  for (const [id, k] of TABS) $('#' + id).hidden = dualM ? !['dual', 'gear', 'rules'].includes(k) : k === 'dual';
+  if (playMode === 'DH' && tab === 'ta') tab = 'cal';                  // the downhill has no time attack (one run)
+  for (const [id, k] of TABS) $('#' + id).hidden = dualM ? !['dual', 'gear', 'rules'].includes(k) : k === 'dual' || (playMode === 'DH' && k === 'ta');
   $('#level').hidden = tab === 'ta' || tab === 'free' || dualM;
   // the rivals' strength is fixed once a season has started, until its last race
   const locked = seasonInProgress();
@@ -5770,21 +5851,21 @@ function bindFreeTab(root){
 }
 function freeCourse(seed){
   const r = rng(seed);
-  const target = (FREE.len === 'long' ? 10000 : 4000) * (disc === 'GS' && FREE.gates !== 'none' ? 1.6 : 1);            // 10 units = 1 m
+  const target = (FREE.len === 'long' ? 10000 : 4000) * (disc !== 'SL' && FREE.gates !== 'none' ? 1.6 : 1);            // 10 units = 1 m
   if (FREE.gates === 'none'){
     const vd = Math.round(target / 10 * .32);
     return { gates: [], finishY: target, checks: [], vd, nGates: 0 };
   }
   if (FREE.gates === 'rhythm'){
     // the same distance and the same offset every gate, left–right–left…
-    const R0 = RHYTHM[FREE.gap] || RHYTHM.mid, gsK = disc === 'GS' ? 2.3 : 1, R = { off: R0.off * gsK, dist: R0.dist * gsK }, dx = R.off * 2;
+    const R0 = RHYTHM[FREE.gap] || RHYTHM.mid, gsK = disc !== 'SL' ? 2.3 : 1, R = { off: R0.off * gsK, dist: R0.dist * gsK }, dx = R.off * 2;
     const dy = Math.max(92 * gsK, dx * 1.15, Math.sqrt(Math.max(0, R.dist * R.dist - dx * dx)));
     const side0 = r() < .5 ? -1 : 1, gates = [];
     for (let y = 150, i = 0; y < target - 130; y += dy, i++){
       gates.push({ x: (i % 2 ? -side0 : side0) * R.off, y, tag: '', col: i % 2 ? 'blue' : 'red', bend: [0,0], bv: [0,0], cool: [0,0], res: 0, i });
     }
     const n = gates.length;
-    return { gates, finishY: gates[n - 1].y + 130, checks: [Math.floor(n * .25), Math.floor(n * .5), Math.floor(n * .75)], vd: Math.round(target / 10 * .32), nGates: n, gh: disc === 'GS' ? GS_GH : 0 };
+    return { gates, finishY: gates[n - 1].y + 130, checks: [Math.floor(n * .25), Math.floor(n * .5), Math.floor(n * .75)], vd: Math.round(target / 10 * .32), nGates: n, gh: disc !== 'SL' ? GS_GH : 0 };
   }
   // practice set: chain slalom sets until the run is long enough
   const gates = [];
@@ -5796,7 +5877,7 @@ function freeCourse(seed){
   }
   gates.forEach((g, i) => { g.i = i; g.col = i % 2 ? 'blue' : 'red'; });
   const n = gates.length;
-  return { gates, finishY: gates[n - 1].y + 130, checks: [Math.floor(n * .25), Math.floor(n * .5), Math.floor(n * .75)], vd, nGates: n, gh: disc === 'GS' ? GS_GH : 0 };
+  return { gates, finishY: gates[n - 1].y + 130, checks: [Math.floor(n * .25), Math.floor(n * .5), Math.floor(n * .75)], vd, nGates: n, gh: disc !== 'SL' ? GS_GH : 0 };
 }
 function freeWeather(ev){
   const base = weatherFor(ev, gender)[0];
@@ -5911,8 +5992,8 @@ function rulesHTML(){
 }
 function applyDisc(){
   const m = playMode;
-  for (const [id, k] of [['SL', 'SL'], ['GS', 'GS'], ['Dual', 'DUAL']]){ $('#d' + id).setAttribute('aria-pressed', m === k); $('#td' + id).setAttribute('aria-pressed', m === k); }
-  const T = { SL: ['SLALOM', 'WORLD CUP', '回転（スラローム）ワールドカップ'], GS: ['GIANT SLALOM', 'WORLD CUP', '大回転（ジャイアントスラローム）ワールドカップ'], DUAL: ['DUAL RACE', 'ONLINE', 'デュアルレース（オンラインで同時スタート・2本合計）'] }[m];
+  for (const [id, k] of [['SL', 'SL'], ['GS', 'GS'], ['DH', 'DH'], ['Dual', 'DUAL']]){ $('#d' + id).setAttribute('aria-pressed', m === k); $('#td' + id).setAttribute('aria-pressed', m === k); }
+  const T = { SL: ['SLALOM', 'WORLD CUP', '回転（スラローム）ワールドカップ'], GS: ['GIANT SLALOM', 'WORLD CUP', '大回転（ジャイアントスラローム）ワールドカップ'], DH: ['DOWNHILL', 'WORLD CUP', '滑降（ダウンヒル）ワールドカップ'], DUAL: ['DUAL RACE', 'ONLINE', 'デュアルレース（オンラインで同時スタート・2本合計）'] }[m];
   // 学連: no slalom / giant slalom choice here — just the Intercollegiate or the dual
   const TG = GK.mode === 'dual' ? ['DUAL RACE', 'INTERCOLLEGIATE', 'デュアル — 学生のCPライバルと1対1・2本合計'] : ['ALL JAPAN', 'INTERCOLLEGIATE', '全日本学生スキー選手権（インカレ）スーパー大回転・大回転・回転'];
   document.querySelector('.top-disc:not(.top-gk)').hidden = GK.on; $('#tgSeg').hidden = !GK.on;
@@ -5927,9 +6008,11 @@ function applyDisc(){
 function setDisc(d){ if (playMode === d) return; playMode = d; if (d !== 'DUAL'){ disc = d; FIELDS.men = buildField('men', disc); } savePrefs(); applyDisc(); startDemo(); }
 $('#dSL').onclick = () => { setDisc('SL'); showMenu(tab === 'dual' ? 'cal' : null); };
 $('#dGS').onclick = () => { setDisc('GS'); showMenu(tab === 'dual' ? 'cal' : null); };
+$('#dDH').onclick = () => { setDisc('DH'); showMenu(tab === 'dual' || tab === 'ta' ? 'cal' : null); };
 $('#dDual').onclick = () => { setDisc('DUAL'); showMenu('dual'); };
 $('#tdSL').onclick = () => setDisc('SL');
 $('#tdGS').onclick = () => setDisc('GS');
+$('#tdDH').onclick = () => setDisc('DH');
 $('#tdDual').onclick = () => setDisc('DUAL');
 $('#gMen').onclick = () => { gender = 'men'; savePrefs(); showMenu(); };
 $('#gWomen').onclick = () => { gender = 'women'; savePrefs(); showMenu(); };
@@ -6253,8 +6336,9 @@ function drawTrack(pts, wt, rgb, alpha, width, yNear, yFar){
 }
 // giant slalom: blue dye sprayed on the snow on the inside of each turning pole, tracing the arc —
 // a long sweep coming in from above, the tip at the pole, a short hook out below. A faint blue haze lies around it
-function drawJump(yNear, yFar){
-  const jy = course.jumpY; if (jy == null || jy < yNear - 40 || jy > yFar + 40) return;
+function drawJump(yNear, yFar){ for (const jy of jumpsOf(course)) drawJumpAt(jy, yNear, yFar); }
+function drawJumpAt(jy, yNear, yFar){
+  if (jy < yNear - 40 || jy > yFar + 40) return;
   if (quad(-W / 2, W / 2, jy - 26, jy)){ ctx.fillStyle = 'rgba(255,255,255,.9)'; ctx.fill(); }
   if (quad(-W / 2, W / 2, jy, jy + 24)){ ctx.fillStyle = 'rgba(70,100,160,.45)'; ctx.fill(); }
   for (const sx of [-1, 1]){
@@ -7214,6 +7298,7 @@ function bootGame(){ if (setupDone) showMenu(playMode === 'DUAL' ? 'dual' : 'cal
 // title screen with the game's version
 // what changed in each version (shown on the rules tab)
 const CHANGELOG = [
+  { v: '4.6.0', d: '2026.11.28', items: ['ワールドカップに「滑降（ダウンヒル）」を追加：シーズンの滑降レースを転戦してクリスタルグローブを目指す。本物どおり1本勝負', '滑降のコース：全部赤の旗門、48〜64m間隔の高速コース、ジャンプが男子3か所・女子2か所（速いほど遠くへ飛ぶ）。最高速度は時速130km前後', 'レースの前に「公式トレーニング」（練習滑走）を2回まで。ライバルのトレーニングタイムと比べられる（成績には関係なし）', '男子の滑降ライバルは滑降のFISポイント順（伝説の選手も参加）。FISポイントリストにも「滑降」を追加'] },
   { v: '4.5.2', d: '2026.11.28', items: ['シーズン日程の「実際の結果」を自動で更新：本物のワールドカップの表彰台（1〜3位）を2時間ごとに読み込んで表示（全種目・男女）'] },
   { v: '4.5.1', d: '2026.11.28', items: ['スマホ横向きのメニューを整理：グループごとにボタンの幅と高さをそろえ、名前が2行に折れないように（「いろいろランキング」は「みんなの順位」に名前を変更）'] },
   { v: '4.5.0', d: '2026.11.27', items: ['FISポイントリスト：本物のFISと同じ計算（タイム差×係数＋ペナルティ、最近8週間の良い2レースの平均）で、プレーヤーにポイントが付くように。小さいほど強く、リストの1位は0.00', 'ワールドカップのレース・インカレ・オンラインのインカレを完走すると、結果画面に「このレースのポイント」と「あなたのポイント」（更新・クラス・W杯リスト換算の順位・次のクラスまであと何秒）を表示', 'クラス分け：W杯級・ヨーロッパカップ級・FIS級・学連級・ルーキー', 'ランキングに「FISポイント」タブ（回転・大回転・スーパーG・総合、公式リスト／速報、前の週からの↑↓、1位に王冠）。公式リストは毎週月曜に発表し、1位をLINEでお知らせ', 'オンラインのインカレのスタート順を、FISと同じくポイント順に（上位7人・15人はその中で抽選）'] },
@@ -7268,7 +7353,7 @@ const CHANGELOG = [
   { v: '1.1.0', d: '2026.11.20', items: ['トップ画面とバージョン表示を追加', '公式コースデータを参考に、緩斜面・急斜面のスピード変化を追加', 'スピードを調整', 'いろいろランキング（総合・優勝回数・最高速度・使用マテリアルなど）を追加', '1レース80人出場（ランキング74位まで＋75位以下から抽選）', '男子回転のライバルを実在の選手リストに変更'] },
   { v: '1.0.0', d: '', items: ['キッツビューエル風の表彰式、フリースキー（リズム旗門・用具の性能グラフ）', 'ナイターの照明、ゴーグルの影響、スタートゲートとスタートバー、高いスタート台', 'FISのスタート手順（10秒前・ブザー5回・遅れたら失格）', 'コースに残る滑走の跡、清水さん仕様、MARKSビンディング、ゴール後の隠しコマンド'] }
 ];
-const APP_VERSION = '4.5.2', APP_DATE = '2026.11.28';
+const APP_VERSION = '4.6.0', APP_DATE = '2026.11.28';
 function showTop(){
   incolLeave();
   $('#menu').hidden = true; $('#sheet').hidden = true; $('#lock').hidden = true;
