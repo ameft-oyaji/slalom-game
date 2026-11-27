@@ -182,6 +182,10 @@ input[type=text]{width:9em}
 .tabs.grouped{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:6px 14px;overflow:visible;padding-bottom:10px}
 .tgrp{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .tgrp[hidden]{display:none}
+/* the menu's groups: the label, then its buttons in equal columns on one line, so every group lines up */
+#tabBar .tgrp{display:grid;grid-template-columns:4.2em;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:5px}
+#tabBar .tgrp button{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:8px 3px;font-size:12.5px;letter-spacing:-.02em}
+#tabBar.grouped{gap:6px 12px}
 .tgl{flex:0 0 4.6em;font:700 11px var(--f-body);color:var(--muted);letter-spacing:.06em}
 .tabs.grouped button{flex:1 1 0;border:1px solid var(--board-3);border-radius:6px;background:var(--board-2);color:#C9D2E3;padding:8px 6px;font-size:13px;text-align:center}
 .tabs.grouped button[aria-selected="true"]{background:#fff;color:var(--board);border-color:#fff}
@@ -677,7 +681,7 @@ body.nightrace .ev-label,body.nightrace .ev-label *,body.nightrace #keys,body.ni
           <button type="button" role="tab" id="tFree" aria-selected="false">フリースキー</button></div>
         <div class="tgrp"><span class="tgl">みんなと</span>
           <button type="button" role="tab" id="tBt" aria-selected="false">オンライン対戦</button>
-          <button type="button" role="tab" id="tPl" aria-selected="false">いろいろランキング</button></div>
+          <button type="button" role="tab" id="tPl" aria-selected="false">みんなの順位</button></div>
         <div class="tgrp"><span class="tgl">準備</span>
           <button type="button" role="tab" id="tGear" aria-selected="false">選手・用具</button>
           <button type="button" role="tab" id="tRules" aria-selected="false">ルールと操作</button></div>
@@ -7196,6 +7200,7 @@ function bootGame(){ if (setupDone) showMenu(playMode === 'DUAL' ? 'dual' : 'cal
 // title screen with the game's version
 // what changed in each version (shown on the rules tab)
 const CHANGELOG = [
+  { v: '4.5.1', d: '2026.11.28', items: ['スマホ横向きのメニューを整理：グループごとにボタンの幅と高さをそろえ、名前が2行に折れないように（「いろいろランキング」は「みんなの順位」に名前を変更）'] },
   { v: '4.5.0', d: '2026.11.27', items: ['FISポイントリスト：本物のFISと同じ計算（タイム差×係数＋ペナルティ、最近8週間の良い2レースの平均）で、プレーヤーにポイントが付くように。小さいほど強く、リストの1位は0.00', 'ワールドカップのレース・インカレ・オンラインのインカレを完走すると、結果画面に「このレースのポイント」と「あなたのポイント」（更新・クラス・W杯リスト換算の順位・次のクラスまであと何秒）を表示', 'クラス分け：W杯級・ヨーロッパカップ級・FIS級・学連級・ルーキー', 'ランキングに「FISポイント」タブ（回転・大回転・スーパーG・総合、公式リスト／速報、前の週からの↑↓、1位に王冠）。公式リストは毎週月曜に発表し、1位をLINEでお知らせ', 'オンラインのインカレのスタート順を、FISと同じくポイント順に（上位7人・15人はその中で抽選）'] },
   { v: '4.4.11', d: '2026.11.27', items: ['「ルールと操作」タブに「お問い合わせ」：質問・不具合の報告・要望はLINE公式アカウント「アルペンレーサー」のトークで受け付け（友だち追加ボタンつき）'] },
   { v: '4.4.10', d: '2026.11.27', items: ['シーズン日程の「実際の結果」の選手名は、本物の名前に戻す（ゲームの中の選手は少し変えた名前のまま）'] },
@@ -7248,7 +7253,7 @@ const CHANGELOG = [
   { v: '1.1.0', d: '2026.11.20', items: ['トップ画面とバージョン表示を追加', '公式コースデータを参考に、緩斜面・急斜面のスピード変化を追加', 'スピードを調整', 'いろいろランキング（総合・優勝回数・最高速度・使用マテリアルなど）を追加', '1レース80人出場（ランキング74位まで＋75位以下から抽選）', '男子回転のライバルを実在の選手リストに変更'] },
   { v: '1.0.0', d: '', items: ['キッツビューエル風の表彰式、フリースキー（リズム旗門・用具の性能グラフ）', 'ナイターの照明、ゴーグルの影響、スタートゲートとスタートバー、高いスタート台', 'FISのスタート手順（10秒前・ブザー5回・遅れたら失格）', 'コースに残る滑走の跡、清水さん仕様、MARKSビンディング、ゴール後の隠しコマンド'] }
 ];
-const APP_VERSION = '4.5.0', APP_DATE = '2026.11.27';
+const APP_VERSION = '4.5.1', APP_DATE = '2026.11.28';
 function showTop(){
   incolLeave();
   $('#menu').hidden = true; $('#sheet').hidden = true; $('#lock').hidden = true;
