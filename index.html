@@ -651,8 +651,8 @@ body.nightrace .ev-label,body.nightrace .ev-label *,body.nightrace #keys,body.ni
         </select>
         <span class="note" id="levelLock" hidden>シーズン途中はライバルの強さを変えられません</span>
         <select id="ctrl" aria-label="操作方法">
-          <option value="outer">操作：外足に乗って曲がる</option>
           <option value="dir">操作：押した方向へ曲がる</option>
+          <option value="outer">操作：外足に乗って曲がる</option>
         </select>
         <label class="note" for="pname">名前</label>
         <input type="text" id="pname" maxlength="14" value="あなた" autocomplete="off">
@@ -1499,7 +1499,7 @@ function refRun(course){
 // =====================================================================
 // Career storage
 // =====================================================================
-let disc = 'SL', gender = 'men', level = 'ec', pname = 'あなた', ctrl = 'outer', myNat = 'JPN', myGear = Object.assign({}, DEFAULT_GEAR), setupDone = false;
+let disc = 'SL', gender = 'men', level = 'ec', pname = 'あなた', ctrl = 'dir', myNat = 'JPN', myGear = Object.assign({}, DEFAULT_GEAR), setupDone = false;
 const prefs = load('slalomwc-prefs');
 if (prefs){ gender = prefs.gender || gender; level = LEVEL_K[prefs.level] ? prefs.level : (prefs.level === 'jr' ? 'jpn' : level); pname = prefs.pname || pname; ctrl = prefs.ctrl || ctrl; myNat = NAT[prefs.nat] ? prefs.nat : myNat; myGear = Object.assign({}, DEFAULT_GEAR, prefs.gear || {}); for (const c of Object.keys(DEFAULT_GEAR)) if (!GEAR[c].items.some(i => i.id === myGear[c])) myGear[c] = DEFAULT_GEAR[c]; setupDone = !!prefs.setupDone; disc = prefs.disc === 'GS' ? 'GS' : 'SL'; }
 FIELDS.men = buildField('men', disc);
@@ -7035,6 +7035,7 @@ function bootGame(){ if (setupDone) showMenu(playMode === 'DUAL' ? 'dual' : 'cal
 // title screen with the game's version
 // what changed in each version (shown on the rules tab)
 const CHANGELOG = [
+  { v: '4.4.7', d: '2026.11.27', items: ['操作方法の初期設定を「押した方向へ曲がる」に（はじめて遊ぶ人から。すでに選んでいる人の設定はそのまま）'] },
   { v: '4.4.6', d: '2026.11.27', items: ['公開サイトをスマホのホーム画面に追加したときのアイコンを、新しい「SLALOM WORLD CUP」の画像に（ブラウザのタブのアイコンも）'] },
   { v: '4.4.5', d: '2026.11.27', items: ['学連（インカレ・デュアル）の学生選手の名前をアルファベット表記に（ワールドカップの選手と同じ「KATAYAMA Ryoma」の形）'] },
   { v: '4.4.4', d: '2026.11.27', items: ['LINE公式アカウント「アルペンレーサー」とのつながりが完成：大きな更新のお知らせと、コースレコード更新のお知らせが友だちに届くように'] },
@@ -7081,7 +7082,7 @@ const CHANGELOG = [
   { v: '1.1.0', d: '2026.11.20', items: ['トップ画面とバージョン表示を追加', '公式コースデータを参考に、緩斜面・急斜面のスピード変化を追加', 'スピードを調整', 'いろいろランキング（総合・優勝回数・最高速度・使用マテリアルなど）を追加', '1レース80人出場（ランキング74位まで＋75位以下から抽選）', '男子回転のライバルを実在の選手リストに変更'] },
   { v: '1.0.0', d: '', items: ['キッツビューエル風の表彰式、フリースキー（リズム旗門・用具の性能グラフ）', 'ナイターの照明、ゴーグルの影響、スタートゲートとスタートバー、高いスタート台', 'FISのスタート手順（10秒前・ブザー5回・遅れたら失格）', 'コースに残る滑走の跡、清水さん仕様、MARKSビンディング、ゴール後の隠しコマンド'] }
 ];
-const APP_VERSION = '4.4.6', APP_DATE = '2026.11.27';
+const APP_VERSION = '4.4.7', APP_DATE = '2026.11.27';
 function showTop(){
   incolLeave();
   $('#menu').hidden = true; $('#sheet').hidden = true; $('#lock').hidden = true;
