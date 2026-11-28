@@ -217,7 +217,7 @@ function players_() {
       try { const pf = JSON.parse(v[i][2] || '{}'); who[name] = { nat: String(pf.nat || ''), gear: pf.gear || {} }; } catch (e) {}
       continue;
     }
-    const m = /^slalomwc-2627-((?:men|women)-[a-z]+(?:-gs|-dh)?)(-arch)?$/.exec(key);   // slalom, giant slalom (-gs), kept seasons (-arch)
+    const m = /^slalomwc-2627-((?:men|women)-[a-z]+(?:-gs|-dh|-sg)?)(-arch)?$/.exec(key);   // slalom, giant slalom (-gs), kept seasons (-arch)
     if (!m) continue;
     try {
       const d = JSON.parse(v[i][2] || (m[2] ? '[]' : '{}')), id = name + '\u0001' + m[1];
